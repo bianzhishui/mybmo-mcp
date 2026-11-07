@@ -1,0 +1,61 @@
+[project]
+name = "mybmo-mcp"
+version = "0.1.0"
+description = "百度营销开放平台的 MCP 服务：多账户投放数据读取与审批式写入"
+readme = "README.md"
+authors = [
+    { name = "bianzhishui", email = "v_dchaobian@tencent.com" }
+]
+requires-python = ">=3.12"
+keywords = ["mcp", "model-context-protocol", "baidu", "sem", "marketing"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Typing :: Typed",
+]
+dependencies = [
+    "cryptography>=43",
+    "httpx2>=2.16.0,<3",
+    "mcp[cli]>=2.3.0,<3",
+    "psycopg[binary,pool]>=3.3,<4",
+    "pydantic-settings>=2.16,<3",
+    "pyjwt[crypto]>=2.15,<3",
+    "typer>=0.28,<1",
+]
+
+[project.scripts]
+mybmo-mcp = "mybmo_mcp:main"
+
+[build-system]
+requires = ["uv_build>=0.9.20,<0.10.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "pytest-asyncio>=1.4",
+    "ruff>=0.9",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "S", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "S105", "S106"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+addopts = "-q --strict-markers"
+markers = [
+    "live: 需要真实百度账户，CI 默认跳过",
+    "pg: 需要真实 PostgreSQL 实例",
+]

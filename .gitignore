@@ -1,0 +1,19 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# 本地运行时数据（凭据、审计、导出）
+.env
+data/
+*.jsonl
+*.pem
+
+# 工具本地状态
+.workbuddy/
