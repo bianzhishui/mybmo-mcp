@@ -26,7 +26,7 @@ dependencies = [
 ]
 
 [project.scripts]
-mybmo-mcp = "mybmo_mcp:main"
+mybmo-mcp = "mybmo_mcp.server:main"
 
 [build-system]
 requires = ["uv_build>=0.9.20,<0.10.0"]
@@ -46,6 +46,8 @@ src = ["src", "tests"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B", "S", "RUF"]
+# RUF001/002/003 把中文全角标点判为“易混淆字符”。本项目注释与文档以中文为主，关闭这三条。
+ignore = ["RUF001", "RUF002", "RUF003"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S101", "S105", "S106"]

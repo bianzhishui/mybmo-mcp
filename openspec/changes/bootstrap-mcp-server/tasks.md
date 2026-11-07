@@ -6,12 +6,12 @@
 ## 1. P0 骨架与契约
 
 - [x] 1.1 补全 `pyproject.toml`：description、keywords、classifiers、`[tool.ruff]`（行宽 100、目标 py312）、`[tool.pytest.ini_options]`（`asyncio_mode = "auto"`、注册 `live` / `pg` marker）
-- [ ] 1.2 建目录：`src/mybmo_mcp/{tools,baidu,auth,approval,audit}`、`tests/`、`deploy/`，每包加 `__init__.py`
-- [ ] 1.3 实现 `server.py`：创建 `MCPServer` 实例（`mcp.server`，不是 `FastMCP`），`main()` 支持 `--transport {stdio,streamable-http}`、`--host`、`--port`，默认 stdio
-- [ ] 1.4 `mybmo-mcp --help` 可运行，输出包含两个传输方式的说明
-- [ ] 1.5 建 `.env.example`：`BAIDU_APP_ID`、`BAIDU_SECRET_KEY`、`MYBMO_DATA_DIR`、`CASDOOR_ISSUER`、`MYBMO_RESOURCE_URL`，全部留空并注释用途
+- [x] 1.2 建目录：`src/mybmo_mcp/{tools,baidu,auth,approval,audit}`、`tests/`、`deploy/`，每包加 `__init__.py`
+- [x] 1.3 实现 `server.py`：创建 `MCPServer` 实例（`mcp.server`，不是 `FastMCP`），`main()` 支持 `--transport {stdio,streamable-http}`、`--host`、`--port`，默认 stdio
+- [x] 1.4 `mybmo-mcp --help` 可运行，输出包含两个传输方式的说明
+- [x] 1.5 建 `.env.example`：`BAIDU_APP_ID`、`BAIDU_SECRET_KEY`、`MYBMO_DATA_DIR`、`CASDOOR_ISSUER`、`MYBMO_RESOURCE_URL`，全部留空并注释用途
 - [x] 1.6 `.gitignore` 补充：`.env`、`*.jsonl`、`data/`、`*.pem`、`.workbuddy/`
-- [ ] 1.7 写 `tests/test_smoke.py`：导入包、调用 `main(["--help"])` 返回 0
+- [x] 1.7 写 `tests/test_smoke.py`：导入包、调用 `main(["--help"])` 返回 0
 
 **出口**：`uv sync && uv run pytest -q` 通过；`uv run ruff check .` 无告警。
 
