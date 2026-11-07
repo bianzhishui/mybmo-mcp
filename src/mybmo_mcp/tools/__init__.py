@@ -1,10 +1,15 @@
 """MCP 工具层。
 
-按工具域拆分为 accounts / keyword / report / entities / discover / write 等模块。
-约定：工具函数只做参数校验与结果渲染，业务逻辑落在 ``mybmo_mcp.baidu.services``。
+按定位划分：
+
+- ``accounts``：本项目自身能力（账户清单、令牌状态），不联网
+- 后续：能力网关三件套 ``search_capabilities`` / ``get_capability_schema`` /
+  ``execute_capability``
 
 每个模块暴露 ``register(mcp)``，由 ``server.build_server()`` 统一挂载——
-这样工具不需要导入 server，避免循环依赖。
+工具不导入 server，避免循环依赖。
+
+**工具层不做业务编排，也不做写操作拦截。** 写与不写由调用方（skill 工作流）决定。
 """
 
 from __future__ import annotations
@@ -13,7 +18,6 @@ from mcp.server import MCPServer
 
 
 def register_all(mcp: MCPServer) -> None:
-    from mybmo_mcp.tools import accounts, discover, keyword
+    from mybmo_mcp.tools import accounts
 
-    for module in (accounts, keyword, discover):
-        module.register(mcp)
+    accounts.register(mcp)

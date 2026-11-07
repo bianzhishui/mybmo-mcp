@@ -1,7 +1,9 @@
-"""账户类工具。
+"""账户类工具：本项目**自身**的能力，不是百度接口的封装。
 
-薄在两点：不拼报文、不判断业务规则；所有语义都在
-``mybmo_mcp.baidu.services.accounts`` 里。
+百度接口一律通过能力网关（``search_capabilities`` / ``get_capability_schema`` /
+``execute_capability``）调用，这里只保留"用哪个账户"和"令牌还行不行"这两件事。
+
+它们不联网：读的是本地加密凭据库，因此没有 AppID、没有网络时也能用。
 """
 
 from __future__ import annotations
@@ -13,7 +15,6 @@ from mcp.server import MCPServer
 
 from mybmo_mcp.auth.models import STATUS_REAUTH_REQUIRED
 from mybmo_mcp.baidu.errors import CredentialError
-from mybmo_mcp.baidu.services import accounts as accounts_service
 from mybmo_mcp.tools._result import guarded
 from mybmo_mcp.tools.runtime import get_runtime
 
@@ -21,26 +22,12 @@ from mybmo_mcp.tools.runtime import get_runtime
 async def list_accounts() -> dict[str, Any]:
     """列出当前身份可访问的百度账户（别名、中文名、是否可用、是否默认）。
 
-    调用任何账户级工具前先看这个列表：账户只能从返回的别名里选，
+    调用任何账户级能力前先看这个列表：账户只能从返回的别名里选，
     不能自己编一个，也不能拿别的账户的令牌去试。
     """
 
     async def _run() -> list[dict[str, Any]]:
         return [entry.to_dict() for entry in get_runtime().registry.list_accounts()]
-
-    return await guarded(_run)
-
-
-async def account_snapshot(account: str | None = None) -> dict[str, Any]:
-    """账户快照：余额、预算、状态、当日消耗。
-
-    ``account`` 传别名（见 list_accounts），留空则用默认账户。
-    余额需要额外的账户管理权限；没开通时余额字段为 null 并给出错误码，其余字段照常返回。
-    """
-
-    async def _run() -> dict[str, Any]:
-        transport = get_runtime().transport_for(account)
-        return await accounts_service.snapshot(transport)
 
     return await guarded(_run)
 
@@ -76,5 +63,4 @@ async def auth_status(account: str | None = None) -> dict[str, Any]:
 
 def register(mcp: MCPServer) -> None:
     mcp.tool()(list_accounts)
-    mcp.tool()(account_snapshot)
     mcp.tool()(auth_status)
