@@ -110,6 +110,10 @@ UPDATE mybmo_approvals
 RETURNING id;
 ```
 
+> 注：示例中的 `mybmo_approvals` 表已随写审批一并移除（见
+> [ADR 0003](0003-capability-only.md)）。此处保留这段 SQL，只为说明"原子完成的单条 UPDATE"
+> 这种写法本身，不表示仍存在审批表。
+
 「哈希一致 + 未使用 + 未过期 + 归属正确」四个条件必须在**一条语句内原子完成**。
 拿到返回行才放行。ORM 会把这层语义藏进会话状态，反而降低可审查性。
 

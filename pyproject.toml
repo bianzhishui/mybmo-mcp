@@ -1,7 +1,7 @@
 [project]
 name = "mybmo-mcp"
 version = "0.1.0"
-description = "百度营销开放平台的 MCP 服务：多账户投放数据读取与审批式写入"
+description = "百度营销开放平台的 MCP 能力网关：全量接口 + 多账户"
 readme = "README.md"
 authors = [
     { name = "bianzhishui", email = "v_dchaobian@tencent.com" }

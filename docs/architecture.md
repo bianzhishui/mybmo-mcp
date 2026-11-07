@@ -95,7 +95,7 @@ MCP 只忠实执行 `execute_capability`，是否要求人工确认由调用方�
 - 换令牌失败时**不回显 authCode**
 - 落库前必须拿到 `userName`，否则后续所有调用必失败
 
-### 3.2 普通用户调用只读工具
+### 3.2 普通用户调用只读能力
 
 ```text
 用户 → MCP 客户端 → [Casdoor 登录] → Bearer JWT
@@ -107,15 +107,20 @@ MCP 只忠实执行 `execute_capability`，是否要求人工确认由调用方�
                        └ 调百度 → 归一化结果 → 返回
 ```
 
-### 3.3 写操作
+### 3.3 能力调用（含写操作）
 
 ```text
-用户 → change_preview(account, 意图)
-     ← 完整报文 + 影响条数 + approval_id（TTL 5 分钟，单次使用）
-用户 → change_execute(approval_id)
-     → 服务端复核：payload_hash 一致、未使用、未过期、账户属于该租户
-     → 发送 → 记审计（attempted / succeeded / failed / unknown）
+用户 → search_capabilities(意图)
+     ← 候选能力短摘要（key / 一句话 / mutating）
+用户 → get_capability_schema(capability)
+     ← 完整参数定义 + 字段说明
+用户 → execute_capability(capability, account, input)
+     → 校验账户归属 → 取令牌（必要时刷新）→ 执行 → 记审计
 ```
+
+本服务**不判断"这次操作该不该执行"**。写操作是否需要人工确认，由 skill 工作流决定
+（见 [ADR 0003](decisions/0003-capability-only.md)）。能力元数据只负责把
+`mutating` / `destructive` 这些事实给足。
 
 ## 四、数据模型
 
@@ -126,9 +131,7 @@ baidu_accounts   (id, tenant_id, alias, baidu_user_id, user_name,
                   app_id, secret_key_cipher, refresh_token_cipher,
                   access_token_expires_at, status, created_at)
 account_grants   (user_id, account_id, permission)   -- read | write | admin
-approvals        (id, user_id, account_id, payload_hash,
-                  scope, expires_at, used_at)
-audit_log        (id, tenant_id, account_id, user_id, tool,
+audit_log        (id, tenant_id, account_id, user_id, capability,
                   request_id, state, payload_digest, error, created_at)
 ```
 
@@ -208,6 +211,6 @@ Casdoor 配置要点：
 - [ ] 回调 state 一次性、绑定用户与租户、有 TTL
 - [ ] DCR 开启后限制注册来源，避免任意注册
 - [ ] 管理台不对公网暴露
-- [ ] 写操作需 approval_id，且单次使用
+- [ ] 账户归属校验生效：alias 不在 `account_grants` 内直接拒绝
 - [ ] 审计记录可追溯到 `sub` + `tenant` + `account`
 - [ ] 依赖定期扫描，`baiduads-sdk` 传递依赖需单独审查

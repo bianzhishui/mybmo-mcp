@@ -78,7 +78,7 @@
 - [ ] 5.6 发布 `/.well-known/oauth-protected-resource`，`resource` 与 `authorization_servers` 正确
 - [ ] 5.7 scope 设计：`baidu:read` / `baidu:write` / `baidu:admin`；权限不足返回 403 + `insufficient_scope`
 - [ ] 5.8 `tests/test_resource.py`：伪造签名、错 audience、过期、缺 scope 四种拒绝路径
-- [ ] 5.9 `[live]` 用 Claude Desktop / Cursor 贴 URL 完成自助注册 → 登录 → 调用一个只读工具
+- [ ] 5.9 `[live]` 用 Claude Desktop / Cursor 贴 URL 完成自助注册 → 登录 → 调用一个能力
 
 **出口**：未知客户端可自助接入；跨服务令牌被拒。
 
