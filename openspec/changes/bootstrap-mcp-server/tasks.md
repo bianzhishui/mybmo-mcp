@@ -65,8 +65,9 @@
 - [ ] 4.7 审计：记录 `sub` / `account` / `capability` / `request_id` / 结果状态
 - [ ] 4.8 统一响应封装沿用 `tools/_result.py` 的 `{ok,data,meta}` / `{ok,error}` 信封
 - [ ] 4.9 测试：检索命中率、schema 生成、执行链路、越权拒绝、参数错误提示
-- [ ] 4.10 生成 399 条能力骨架：**构建期**内省 SDK（递归下钻嵌套类型）生成 `capabilities.json`，
-      含端点路径、字段树、产品线、`mutating` 初判。**每个能力必须有非空描述**，允许是骨架级
+- [x] 4.10 生成 399 条能力骨架：**构建期**内省 SDK（递归下钻嵌套类型）生成 `capabilities.json`。
+      实际产出 **389 条**（SDK 覆盖数，手写 10 个上传/OAuth 接口不在其中），
+      585 个去重模型，`mutating` true=208 / false=180 / unknown=1（`PreAuditService.materialPreAudit` 待人工裁决）
 - [ ] 4.11 高频精写：账户 / 投放 / 关键词 / 报表四域约 50 条，补参数语义、金额单位、父子层级
 - [ ] 4.12 `execute_capability(wait=True)`：按能力的 `async_task` 元数据轮询；
       超时返回 `{timed_out: true}` 而非报错（见 ADR 0004 D5）
