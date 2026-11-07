@@ -18,6 +18,7 @@ from mybmo_mcp.auth.oauth import BaiduOAuth
 from mybmo_mcp.auth.registry import AccountRegistry
 from mybmo_mcp.auth.service import CredentialService
 from mybmo_mcp.auth.vault import FileVault
+from mybmo_mcp.baidu.capabilities import CapabilityRegistry
 from mybmo_mcp.baidu.transport import BaiduTransport, RequestCredentials
 from mybmo_mcp.config import Settings, get_settings
 
@@ -62,6 +63,11 @@ class Runtime:
         return CredentialService(
             self.registry, self.oauth, lock_dir=self.settings.mybmo_data_dir / "locks"
         )
+
+    @cached_property
+    def capabilities(self) -> CapabilityRegistry:
+        """能力注册表。389 条能力 + 585 个模型，进程内只加载一次。"""
+        return CapabilityRegistry.load()
 
     @cached_property
     def client(self) -> httpx2.AsyncClient:

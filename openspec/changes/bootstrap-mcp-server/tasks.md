@@ -55,16 +55,19 @@
 
 - [x] 4.1 SDK POC：结论见 `docs/decisions/0005-sdk-poc.md`——SDK 可装、端点与序列化正确，
       但不校验未知字段、响应反序列化严格且不可关闭，因此**只作元数据源，不进运行时**
-- [ ] 4.2 能力注册表：`catalog.json` 升级为 capability 清单，补参数 schema（从 SDK 内省）、
-      中文别名、`mutating` 三态（true / false / unknown）
-- [ ] 4.3 检索：中文别名词典 + BM25；`search_capabilities` 只返回短摘要，不返回 schema
-- [ ] 4.4 `get_capability_schema`：按需返回完整 JSON Schema 与字段说明，命中缓存不重复生成
-- [ ] 4.5 `execute_capability`：SDK 调用走 `asyncio.to_thread`、本地参数校验、错误归一化；
-      **不做写操作拦截**
+- [x] 4.2 能力注册表：`baidu/capabilities.py` 加载 `capabilities.json`，按 key 索引，
+      预建检索文本（key / 服务名 / 方法名 / 分组 / 中文别名）
+- [x] 4.3 检索：`search_capabilities` 只返回短摘要。实现为**中文别名词典 + 加权子串匹配**
+      （服务级别名 + 方法级别名共约 40 条），暂未引入 BM25——389 条规模下加权匹配够用，
+      命中率不足时再上全文索引
+- [x] 4.4 `get_capability_schema`：解开顶层 `$ref` 返回可读 schema，附带 `$ref` 闭包（只带用到的模型）
+- [x] 4.5 `execute_capability`：参数按 schema 递归对齐（snake_case 自动转驼峰，未知字段拒绝并给候选），
+      经 `transport.py` 发送（ADR 0005 结论：不用 SDK 发送）；**不做写操作拦截**
 - [ ] 4.6 账户归属校验：`sub → account_grants`，alias 不在授权列表内直接拒绝（越权防线）
 - [ ] 4.7 审计：记录 `sub` / `account` / `capability` / `request_id` / 结果状态
-- [ ] 4.8 统一响应封装沿用 `tools/_result.py` 的 `{ok,data,meta}` / `{ok,error}` 信封
-- [ ] 4.9 测试：检索命中率、schema 生成、执行链路、越权拒绝、参数错误提示
+- [x] 4.8 统一响应封装沿用 `tools/_result.py` 的 `{ok,data,meta}` / `{ok,error}` 信封
+- [ ] 4.9 测试：检索命中率、schema 生成、执行链路、参数错误提示**已完成**；
+      越权拒绝的用例待 4.6
 - [x] 4.10 生成 399 条能力骨架：**构建期**内省 SDK（递归下钻嵌套类型）生成 `capabilities.json`。
       实际产出 **389 条**（SDK 覆盖数，手写 10 个上传/OAuth 接口不在其中），
       585 个去重模型，`mutating` true=208 / false=180 / unknown=1（`PreAuditService.materialPreAudit` 待人工裁决）

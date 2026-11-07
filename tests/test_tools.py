@@ -83,10 +83,16 @@ async def test_auth_status_rejects_unknown_alias(runtime: FakeRuntime) -> None:
     assert "未知账户" in result["error"]["message"]
 
 
-def test_server_registers_account_tools() -> None:
+def test_server_registers_all_tools() -> None:
     from mybmo_mcp.server import build_server
 
     tools = build_server()._tool_manager.list_tools()
     names = {tool.name for tool in tools}
 
-    assert names == {"list_accounts", "auth_status"}
+    assert names == {
+        "list_accounts",
+        "auth_status",
+        "search_capabilities",
+        "get_capability_schema",
+        "execute_capability",
+    }

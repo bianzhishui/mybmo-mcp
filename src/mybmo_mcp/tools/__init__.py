@@ -18,6 +18,7 @@ from mcp.server import MCPServer
 
 
 def register_all(mcp: MCPServer) -> None:
-    from mybmo_mcp.tools import accounts
+    from mybmo_mcp.tools import accounts, capability
 
     accounts.register(mcp)
+    capability.register(mcp)
