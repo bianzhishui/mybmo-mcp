@@ -1,0 +1,22 @@
+{
+  "header": {
+    "status": 0,
+    "desc": "success",
+    "rquota": { "quota": 1000, "used": 37, "limit": 1000 },
+    "failures": []
+  },
+  "body": {
+    "data": [
+      {
+        "userId": 1000001,
+        "userName": "示例科技（已脱敏）",
+        "balance": 12500.5,
+        "cost": 328.42,
+        "budget": 800.0,
+        "regDate": "2023-06-15",
+        "isActive": true,
+        "region": "北京"
+      }
+    ]
+  }
+}

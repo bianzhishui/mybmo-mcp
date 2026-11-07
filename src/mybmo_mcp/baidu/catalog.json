@@ -1,0 +1,2423 @@
+{
+  "meta": {
+    "version": 1,
+    "generated_at": "2026-11-07",
+    "source": "api-index.md",
+    "note": "由 baiduads-sdk 源码反查 + 手写汇总，待与官方文档校验。product_line 为 null 表示该服务不走 api.baidu.com 网关。",
+    "groups": [
+      "账户与资金",
+      "搜索推广投放",
+      "信息流投放",
+      "DPA 动态商品广告",
+      "电商与店铺",
+      "订单与交易",
+      "人群与定向",
+      "转化追踪与线索",
+      "素材与创意生产",
+      "报告与诊断优化",
+      "检索与工具",
+      "建站落地页与小程序",
+      "手写部分"
+    ],
+    "stats": {
+      "services": 133,
+      "methods": 399
+    }
+  },
+  "services": {
+    "AccountService": {
+      "group": "账户与资金",
+      "product_line": "sms",
+      "methods": {
+        "getAccountInfo": {
+          "read": true,
+          "origin": "get_account_info"
+        },
+        "updateAccountInfo": {
+          "read": false,
+          "origin": "update_account_info"
+        }
+      }
+    },
+    "AccountfeedService": {
+      "group": "账户与资金",
+      "product_line": "feed",
+      "methods": {
+        "getAccountFeed": {
+          "read": true,
+          "origin": "get_account_feed"
+        },
+        "updateAccountFeed": {
+          "read": false,
+          "origin": "update_account_feed"
+        }
+      }
+    },
+    "AccountshoppingService": {
+      "group": "账户与资金",
+      "product_line": "sms",
+      "methods": {
+        "getAccountShopping": {
+          "read": true,
+          "origin": "get_account_shopping"
+        },
+        "updateAccountShopping": {
+          "read": false,
+          "origin": "update_account_shopping"
+        }
+      }
+    },
+    "AdgroupService": {
+      "group": "搜索推广投放",
+      "product_line": "sms",
+      "methods": {
+        "addAdgroup": {
+          "read": false,
+          "origin": "add_adgroup"
+        },
+        "deleteAdgroup": {
+          "read": false,
+          "origin": "delete_adgroup"
+        },
+        "getAdgroup": {
+          "read": true,
+          "origin": "get_adgroup"
+        },
+        "updateAdgroup": {
+          "read": false,
+          "origin": "update_adgroup"
+        }
+      }
+    },
+    "AdgroupappService": {
+      "group": "搜索推广投放",
+      "product_line": "sms",
+      "methods": {
+        "addAdgroupAppBind": {
+          "read": false,
+          "origin": "add_adgroup_app_bind"
+        },
+        "deleteAdgroupAppBind": {
+          "read": false,
+          "origin": "delete_adgroup_app_bind"
+        },
+        "getAdgroupAppBind": {
+          "read": true,
+          "origin": "get_adgroup_app_bind"
+        }
+      }
+    },
+    "AdgroupfeedService": {
+      "group": "信息流投放",
+      "product_line": "feed",
+      "methods": {
+        "addAdgroupFeed": {
+          "read": false,
+          "origin": "add_adgroup_feed"
+        },
+        "deleteAdgroupFeed": {
+          "read": false,
+          "origin": "delete_adgroup_feed"
+        },
+        "getAdgroupFeed": {
+          "read": true,
+          "origin": "get_adgroup_feed"
+        },
+        "updateAdgroupFeed": {
+          "read": false,
+          "origin": "update_adgroup_feed"
+        }
+      }
+    },
+    "AdgroupimagesegmentbindService": {
+      "group": "搜索推广投放",
+      "product_line": "sms",
+      "methods": {
+        "addAdgroupImageSegmentBind": {
+          "read": false,
+          "origin": "add_adgroup_image_segment_bind"
+        },
+        "deleteAdgroupImageSegmentBind": {
+          "read": false,
+          "origin": "delete_adgroup_image_segment_bind"
+        },
+        "getAdgroupImageSegmentBind": {
+          "read": true,
+          "origin": "get_adgroup_image_segment_bind"
+        }
+      }
+    },
+    "AdvancedsegmentService": {
+      "group": "人群与定向",
+      "product_line": "sms",
+      "methods": {
+        "addSegment": {
+          "read": false,
+          "origin": "add_segment"
+        },
+        "deleteSegment": {
+          "read": false,
+          "origin": "delete_segment"
+        },
+        "getSegment": {
+          "read": true,
+          "origin": "get_segment"
+        },
+        "updateSegment": {
+          "read": false,
+          "origin": "update_segment"
+        }
+      }
+    },
+    "AdvancedsegmentbindService": {
+      "group": "人群与定向",
+      "product_line": "sms",
+      "methods": {
+        "addSegmentBind": {
+          "read": false,
+          "origin": "add_segment_bind"
+        },
+        "deleteSegmentBind": {
+          "read": false,
+          "origin": "delete_segment_bind"
+        },
+        "getSegmentBind": {
+          "read": true,
+          "origin": "get_segment_bind"
+        },
+        "updateSegmentBind": {
+          "read": false,
+          "origin": "update_segment_bind"
+        }
+      }
+    },
+    "AdviceService": {
+      "group": "报告与诊断优化",
+      "product_line": "sms",
+      "methods": {
+        "acceptAdvice": {
+          "read": false,
+          "origin": "accept_advice"
+        },
+        "acceptFeedAdvice": {
+          "read": false,
+          "origin": "accept_feed_advice"
+        },
+        "downloadAdvice": {
+          "read": true,
+          "origin": "download_advice"
+        },
+        "queryDetail": {
+          "read": true,
+          "origin": "query_detail"
+        },
+        "queryFeedDetail": {
+          "read": true,
+          "origin": "query_feed_detail"
+        },
+        "queryFeedOutline": {
+          "read": true,
+          "origin": "query_feed_outline"
+        }
+      }
+    },
+    "AdvicelandingpageapiService": {
+      "group": "报告与诊断优化",
+      "product_line": "sms",
+      "methods": {
+        "queryLandingPageCorrelation": {
+          "read": true,
+          "origin": "query_landing_page_correlation"
+        },
+        "queryLandingPageQuality": {
+          "read": true,
+          "origin": "query_landing_page_quality"
+        }
+      }
+    },
+    "AdvicesettingService": {
+      "group": "报告与诊断优化",
+      "product_line": "sms",
+      "methods": {
+        "modSetting": {
+          "read": false,
+          "origin": "mod_setting"
+        }
+      }
+    },
+    "ApidataassetService": {
+      "group": "检索与工具",
+      "product_line": "sms",
+      "methods": {
+        "createDataAsset": {
+          "read": false,
+          "origin": "create_data_asset"
+        },
+        "submitDataAssetTask": {
+          "read": false,
+          "origin": "submit_data_asset_task"
+        }
+      }
+    },
+    "AppcenterjobService": {
+      "group": "检索与工具",
+      "product_line": "sms",
+      "methods": {
+        "addBatchPackages": {
+          "read": false,
+          "origin": "add_batch_packages"
+        },
+        "getBatchJobDetails": {
+          "read": true,
+          "origin": "get_batch_job_details"
+        },
+        "getBatchJobListResults": {
+          "read": true,
+          "origin": "get_batch_job_list_results"
+        }
+      }
+    },
+    "AppcenterpackageService": {
+      "group": "检索与工具",
+      "product_line": "sms",
+      "methods": {
+        "getAppPackagelist": {
+          "read": true,
+          "origin": "get_app_packagelist"
+        }
+      }
+    },
+    "AppfeedService": {
+      "group": "检索与工具",
+      "product_line": "feed",
+      "methods": {
+        "getJsKpAppList": {
+          "read": true,
+          "origin": "get_js_kp_app_list"
+        }
+      }
+    },
+    "AppprocessService": {
+      "group": "检索与工具",
+      "product_line": "sms",
+      "methods": {
+        "getAppList": {
+          "read": true,
+          "origin": "get_app_list"
+        }
+      }
+    },
+    "AssetsharefeedService": {
+      "group": "信息流投放",
+      "product_line": "feed",
+      "methods": {
+        "addAssetShareFeed": {
+          "read": false,
+          "origin": "add_asset_share_feed"
+        }
+      }
+    },
+    "AtpfeedService": {
+      "group": "信息流投放",
+      "product_line": "feed",
+      "methods": {
+        "addAtpFeed": {
+          "read": false,
+          "origin": "add_atp_feed"
+        },
+        "bindAtpFeed": {
+          "read": false,
+          "origin": "bind_atp_feed"
+        },
+        "deleteAtpFeed": {
+          "read": false,
+          "origin": "delete_atp_feed"
+        },
+        "getAtpFeed": {
+          "read": true,
+          "origin": "get_atp_feed"
+        },
+        "updateAtpFeed": {
+          "read": false,
+          "origin": "update_atp_feed"
+        }
+      }
+    },
+    "AutoexpansionService": {
+      "group": "搜索推广投放",
+      "product_line": "sms",
+      "methods": {
+        "getAutoExpansion": {
+          "read": true,
+          "origin": "get_auto_expansion"
+        }
+      }
+    },
+    "BalanceService": {
+      "group": "账户与资金",
+      "product_line": "sms",
+      "methods": {
+        "getBalanceInfo": {
+          "read": true,
+          "origin": "get_balance_info"
+        }
+      }
+    },
+    "BmcdistributionService": {
+      "group": "电商与店铺",
+      "product_line": "sms",
+      "methods": {
+        "getCatalog": {
+          "read": true,
+          "origin": "get_catalog"
+        }
+      }
+    },
+    "BmcproductService": {
+      "group": "电商与店铺",
+      "product_line": "sms",
+      "methods": {
+        "fastUpdateProducts": {
+          "read": false,
+          "origin": "fast_update_products"
+        }
+      }
+    },
+    "BulkjobService": {
+      "group": "检索与工具",
+      "product_line": "sms",
+      "methods": {
+        "cancelDownload": {
+          "read": false,
+          "origin": "cancel_download"
+        },
+        "getAllChangedObjects": {
+          "read": true,
+          "origin": "get_all_changed_objects"
+        },
+        "getAllObjects": {
+          "read": true,
+          "origin": "get_all_objects"
+        },
+        "getChangedItemId": {
+          "read": true,
+          "origin": "get_changed_item_id"
+        },
+        "getChangedScale": {
+          "read": true,
+          "origin": "get_changed_scale"
+        },
+        "getFilePath": {
+          "read": true,
+          "origin": "get_file_path"
+        },
+        "getFileStatus": {
+          "read": true,
+          "origin": "get_file_status"
+        }
+      }
+    },
+    "BulkjobfeedService": {
+      "group": "检索与工具",
+      "product_line": "sms",
+      "methods": {
+        "cancelDownload": {
+          "read": false,
+          "origin": "cancel_download"
+        },
+        "getAllFeedObjects": {
+          "read": true,
+          "origin": "get_all_feed_objects"
+        },
+        "getFilePath": {
+          "read": true,
+          "origin": "get_file_path"
+        },
+        "getFileStatus": {
+          "read": true,
+          "origin": "get_file_status"
+        }
+      }
+    },
+    "BusinesspointService": {
+      "group": "账户与资金",
+      "product_line": "sms",
+      "methods": {
+        "getAllBusinessPoint": {
+          "read": true,
+          "origin": "get_all_business_point"
+        },
+        "getBindBusinessPointList": {
+          "read": true,
+          "origin": "get_bind_business_point_list"
+        }
+      }
+    },
+    "CampaignService": {
+      "group": "搜索推广投放",
+      "product_line": "sms",
+      "methods": {
+        "addCampaign": {
+          "read": false,
+          "origin": "add_campaign"
+        },
+        "deleteCampaign": {
+          "read": false,
+          "origin": "delete_campaign"
+        },
+        "getCampaign": {
+          "read": true,
+          "origin": "get_campaign"
+        },
+        "updateCampaign": {
+          "read": false,
+          "origin": "update_campaign"
+        }
+      }
+    },
+    "CampaignfeedService": {
+      "group": "信息流投放",
+      "product_line": "feed",
+      "methods": {
+        "addCampaignFeed": {
+          "read": false,
+          "origin": "add_campaign_feed"
+        },
+        "deleteCampaignFeed": {
+          "read": false,
+          "origin": "delete_campaign_feed"
+        },
+        "getCampaignFeed": {
+          "read": true,
+          "origin": "get_campaign_feed"
+        },
+        "updateCampaignFeed": {
+          "read": false,
+          "origin": "update_campaign_feed"
+        }
+      }
+    },
+    "CampaignshoppingService": {
+      "group": "电商与店铺",
+      "product_line": "sms",
+      "methods": {
+        "addCampaignShopping": {
+          "read": false,
+          "origin": "add_campaign_shopping"
+        },
+        "copyCampaignShopping": {
+          "read": false,
+          "origin": "copy_campaign_shopping"
+        },
+        "deleteCampaignShopping": {
+          "read": false,
+          "origin": "delete_campaign_shopping"
+        },
+        "getAnchor": {
+          "read": true,
+          "origin": "get_anchor"
+        },
+        "getCampaignShopping": {
+          "read": true,
+          "origin": "get_campaign_shopping"
+        },
+        "getInterests": {
+          "read": true,
+          "origin": "get_interests"
+        },
+        "getProduct": {
+          "read": true,
+          "origin": "get_product"
+        },
+        "updateCampaignShopping": {
+          "read": false,
+          "origin": "update_campaign_shopping"
+        }
+      }
+    },
+    "CluescoreService": {
+      "group": "转化追踪与线索",
+      "product_line": "sms",
+      "methods": {
+        "getClueResultFileUrl": {
+          "read": true,
+          "origin": "get_clue_result_file_url"
+        },
+        "queryClueTaskStatus": {
+          "read": true,
+          "origin": "query_clue_task_status"
+        },
+        "submitClueTask": {
+          "read": false,
+          "origin": "submit_clue_task"
+        }
+      }
+    },
+    "CreativeService": {
+      "group": "搜索推广投放",
+      "product_line": "sms",
+      "methods": {
+        "addCreative": {
+          "read": false,
+          "origin": "add_creative"
+        },
+        "deleteCreative": {
+          "read": false,
+          "origin": "delete_creative"
+        },
+        "getCreative": {
+          "read": true,
+          "origin": "get_creative"
+        },
+        "getCreativeTemplate": {
+          "read": true,
+          "origin": "get_creative_template"
+        },
+        "updateCreative": {
+          "read": false,
+          "origin": "update_creative"
+        }
+      }
+    },
+    "CreativefeedService": {
+      "group": "信息流投放",
+      "product_line": "feed",
+      "methods": {
+        "addCreativeFeed": {
+          "read": false,
+          "origin": "add_creative_feed"
+        },
+        "bindRecommendReasons": {
+          "read": false,
+          "origin": "bind_recommend_reasons"
+        },
+        "deleteCreativeFeed": {
+          "read": false,
+          "origin": "delete_creative_feed"
+        },
+        "getCreativeFeed": {
+          "read": true,
+          "origin": "get_creative_feed"
+        },
+        "getCreativeFeedPreviewUrlWithPreviewSource": {
+          "read": true,
+          "origin": "get_creative_feed_preview_url_with_preview_source"
+        },
+        "getTempCreativeFeedPreviewUrl": {
+          "read": true,
+          "origin": "get_temp_creative_feed_preview_url"
+        },
+        "queryRecommendReasons": {
+          "read": true,
+          "origin": "query_recommend_reasons"
+        },
+        "updateCreativeFeed": {
+          "read": false,
+          "origin": "update_creative_feed"
+        }
+      }
+    },
+    "CreativesuggestService": {
+      "group": "素材与创意生产",
+      "product_line": "sms",
+      "methods": {
+        "getCreativeSegmentRecommend": {
+          "read": true,
+          "origin": "get_creative_segment_recommend"
+        }
+      }
+    },
+    "CrowdService": {
+      "group": "人群与定向",
+      "product_line": "sms",
+      "methods": {
+        "addCrowd": {
+          "read": false,
+          "origin": "add_crowd"
+        },
+        "deleteCrowd": {
+          "read": false,
+          "origin": "delete_crowd"
+        },
+        "getCrowd": {
+          "read": true,
+          "origin": "get_crowd"
+        },
+        "updateCrowd": {
+          "read": false,
+          "origin": "update_crowd"
+        }
+      }
+    },
+    "CrowdappinfoService": {
+      "group": "人群与定向",
+      "product_line": "sms",
+      "methods": {
+        "getAppInfo": {
+          "read": true,
+          "origin": "get_app_info"
+        }
+      }
+    },
+    "CrowdbindService": {
+      "group": "人群与定向",
+      "product_line": "sms",
+      "methods": {
+        "addBind": {
+          "read": false,
+          "origin": "add_bind"
+        },
+        "deleteBind": {
+          "read": false,
+          "origin": "delete_bind"
+        },
+        "getBind": {
+          "read": true,
+          "origin": "get_bind"
+        },
+        "updateBind": {
+          "read": false,
+          "origin": "update_bind"
+        }
+      }
+    },
+    "CrowdfeedService": {
+      "group": "人群与定向",
+      "product_line": "feed",
+      "methods": {
+        "getBindAdgroup": {
+          "read": true,
+          "origin": "get_bind_adgroup"
+        },
+        "getEshopEldsCrowds": {
+          "read": true,
+          "origin": "get_eshop_elds_crowds"
+        },
+        "getEshopTradeCrowds": {
+          "read": true,
+          "origin": "get_eshop_trade_crowds"
+        }
+      }
+    },
+    "CrowdshoppingService": {
+      "group": "人群与定向",
+      "product_line": "sms",
+      "methods": {
+        "getEshopTradeCrowds": {
+          "read": true,
+          "origin": "get_eshop_trade_crowds"
+        }
+      }
+    },
+    "CustommpService": {
+      "group": "信息流投放",
+      "product_line": "feed",
+      "methods": {
+        "addCustomMp": {
+          "read": false,
+          "origin": "add_custom_mp"
+        },
+        "deleteCustomMp": {
+          "read": false,
+          "origin": "delete_custom_mp"
+        },
+        "getCustomMp": {
+          "read": true,
+          "origin": "get_custom_mp"
+        },
+        "updateCustomMp": {
+          "read": false,
+          "origin": "update_custom_mp"
+        }
+      }
+    },
+    "CyctemplateService": {
+      "group": "素材与创意生产",
+      "product_line": "sms",
+      "methods": {
+        "addTemplate": {
+          "read": false,
+          "origin": "add_template"
+        },
+        "deleteTemplate": {
+          "read": false,
+          "origin": "delete_template"
+        },
+        "getBindCycTemplate": {
+          "read": true,
+          "origin": "get_bind_cyc_template"
+        },
+        "getTemplate": {
+          "read": true,
+          "origin": "get_template"
+        },
+        "updateTemplate": {
+          "read": false,
+          "origin": "update_template"
+        }
+      }
+    },
+    "DanubecreativegroupService": {
+      "group": "素材与创意生产",
+      "product_line": "sms",
+      "methods": {
+        "addDanubeCreativeGroup": {
+          "read": false,
+          "origin": "add_danube_creative_group"
+        },
+        "copyDanubeCreativeGroup": {
+          "read": false,
+          "origin": "copy_danube_creative_group"
+        },
+        "deleteDanubeCreativeGroup": {
+          "read": false,
+          "origin": "delete_danube_creative_group"
+        },
+        "getDanubeConstants": {
+          "read": true,
+          "origin": "get_danube_constants"
+        },
+        "getDanubeCreativeGroup": {
+          "read": true,
+          "origin": "get_danube_creative_group"
+        },
+        "updateDanubeCreativeGroup": {
+          "read": false,
+          "origin": "update_danube_creative_group"
+        }
+      }
+    },
+    "DpaadgroupfeedService": {
+      "group": "DPA 动态商品广告",
+      "product_line": "feed",
+      "methods": {
+        "addAdgroupFeed": {
+          "read": false,
+          "origin": "add_adgroup_feed"
+        },
+        "deleteAdgroupFeed": {
+          "read": false,
+          "origin": "delete_adgroup_feed"
+        },
+        "getAdgroupFeed": {
+          "read": true,
+          "origin": "get_adgroup_feed"
+        },
+        "updateAdgroupFeed": {
+          "read": false,
+          "origin": "update_adgroup_feed"
+        }
+      }
+    },
+    "DpaapicreativeService": {
+      "group": "DPA 动态商品广告",
+      "product_line": "sms",
+      "methods": {
+        "addDpaCreative": {
+          "read": false,
+          "origin": "add_dpa_creative"
+        },
+        "deleteDpaCreative": {
+          "read": false,
+          "origin": "delete_dpa_creative"
+        },
+        "getDpaCreative": {
+          "read": true,
+          "origin": "get_dpa_creative"
+        },
+        "getDpaMaterialTypes": {
+          "read": true,
+          "origin": "get_dpa_material_types"
+        },
+        "updateDpaCreative": {
+          "read": false,
+          "origin": "update_dpa_creative"
+        }
+      }
+    },
+    "DpaapiproductsetService": {
+      "group": "DPA 动态商品广告",
+      "product_line": "sms",
+      "methods": {
+        "addProductSet": {
+          "read": false,
+          "origin": "add_product_set"
+        },
+        "deleteProductSet": {
+          "read": false,
+          "origin": "delete_product_set"
+        },
+        "getCatalogFieldsInfo": {
+          "read": true,
+          "origin": "get_catalog_fields_info"
+        },
+        "getCatalogMaterialFieldsInfo": {
+          "read": true,
+          "origin": "get_catalog_material_fields_info"
+        },
+        "getProductSet": {
+          "read": true,
+          "origin": "get_product_set"
+        },
+        "getProductSetByCatalog": {
+          "read": true,
+          "origin": "get_product_set_by_catalog"
+        },
+        "updateProductSet": {
+          "read": false,
+          "origin": "update_product_set"
+        }
+      }
+    },
+    "DpacreativeService": {
+      "group": "DPA 动态商品广告",
+      "product_line": "sms",
+      "methods": {
+        "addCreativeGroup": {
+          "read": false,
+          "origin": "add_creative_group"
+        },
+        "addCreatives": {
+          "read": false,
+          "origin": "add_creatives"
+        },
+        "batSetRange": {
+          "read": false,
+          "origin": "bat_set_range"
+        },
+        "deleteCreativeGroup": {
+          "read": false,
+          "origin": "delete_creative_group"
+        },
+        "deleteCreatives": {
+          "read": false,
+          "origin": "delete_creatives"
+        },
+        "getCreativeGroup": {
+          "read": true,
+          "origin": "get_creative_group"
+        },
+        "getCreatives": {
+          "read": true,
+          "origin": "get_creatives"
+        },
+        "getFormatTemplates": {
+          "read": true,
+          "origin": "get_format_templates"
+        },
+        "updateCreativeGroup": {
+          "read": false,
+          "origin": "update_creative_group"
+        },
+        "updateCreatives": {
+          "read": false,
+          "origin": "update_creatives"
+        }
+      }
+    },
+    "DpacreativefeedService": {
+      "group": "DPA 动态商品广告",
+      "product_line": "feed",
+      "methods": {
+        "addCreativeFeed": {
+          "read": false,
+          "origin": "add_creative_feed"
+        },
+        "deleteCreativeFeed": {
+          "read": false,
+          "origin": "delete_creative_feed"
+        },
+        "getCreativeFeed": {
+          "read": true,
+          "origin": "get_creative_feed"
+        },
+        "getCreativePreview": {
+          "read": true,
+          "origin": "get_creative_preview"
+        },
+        "getSymbolFields": {
+          "read": true,
+          "origin": "get_symbol_fields"
+        },
+        "updateCreativeFeed": {
+          "read": false,
+          "origin": "update_creative_feed"
+        }
+      }
+    },
+    "ExtaudienceService": {
+      "group": "人群与定向",
+      "product_line": "sms",
+      "methods": {
+        "createEmptyGroup": {
+          "read": false,
+          "origin": "create_empty_group"
+        },
+        "getAudienceList": {
+          "read": true,
+          "origin": "get_audience_list"
+        },
+        "updateAudienceDsp": {
+          "read": false,
+          "origin": "update_audience_dsp"
+        },
+        "updateIdUpload4Pour": {
+          "read": false,
+          "origin": "update_id_upload4_pour"
+        }
+      }
+    },
+    "FceshopService": {
+      "group": "电商与店铺",
+      "product_line": "sms",
+      "methods": {
+        "getAutoDeeplink": {
+          "read": true,
+          "origin": "get_auto_deeplink"
+        }
+      }
+    },
+    "FcocpcService": {
+      "group": "转化追踪与线索",
+      "product_line": "sms",
+      "methods": {
+        "getSuggestCpas": {
+          "read": true,
+          "origin": "get_suggest_cpas"
+        }
+      }
+    },
+    "FctranstraceapiService": {
+      "group": "转化追踪与线索",
+      "product_line": "sms",
+      "methods": {
+        "addFcTransTrace": {
+          "read": false,
+          "origin": "add_fc_trans_trace"
+        },
+        "deleteFcTransTrace": {
+          "read": false,
+          "origin": "delete_fc_trans_trace"
+        },
+        "getFcTransTraceList": {
+          "read": true,
+          "origin": "get_fc_trans_trace_list"
+        },
+        "updateFcTransTrace": {
+          "read": false,
+          "origin": "update_fc_trans_trace"
+        }
+      }
+    },
+    "FeeddiagnosisService": {
+      "group": "报告与诊断优化",
+      "product_line": "sms",
+      "methods": {
+        "queryFeedUnitDiagnosisDetail": {
+          "read": true,
+          "origin": "query_feed_unit_diagnosis_detail"
+        }
+      }
+    },
+    "FeedmaterialsearchService": {
+      "group": "检索与工具",
+      "product_line": "sms",
+      "methods": {
+        "getMaterialInfoBySearch": {
+          "read": true,
+          "origin": "get_material_info_by_search"
+        }
+      }
+    },
+    "FluctuationanalysisService": {
+      "group": "报告与诊断优化",
+      "product_line": "sms",
+      "methods": {
+        "queryFluctuationReasons": {
+          "read": true,
+          "origin": "query_fluctuation_reasons"
+        }
+      }
+    },
+    "FmleadsupdateService": {
+      "group": "转化追踪与线索",
+      "product_line": "sms",
+      "methods": {
+        "addMark": {
+          "read": false,
+          "origin": "add_mark"
+        }
+      }
+    },
+    "FmphoneoutsideapiService": {
+      "group": "转化追踪与线索",
+      "product_line": "sms",
+      "methods": {
+        "getVirtualPhone": {
+          "read": true,
+          "origin": "get_virtual_phone"
+        }
+      }
+    },
+    "GrowthpowerService": {
+      "group": "报告与诊断优化",
+      "product_line": "sms",
+      "methods": {
+        "getGrowthPowerDetail": {
+          "read": true,
+          "origin": "get_growth_power_detail"
+        },
+        "getGrowthPowerOverview": {
+          "read": true,
+          "origin": "get_growth_power_overview"
+        }
+      }
+    },
+    "Huituapiv2Service": {
+      "group": "素材与创意生产",
+      "product_line": "sms",
+      "methods": {
+        "getUserTemplate": {
+          "read": true,
+          "origin": "get_user_template"
+        }
+      }
+    },
+    "ImageintelligentService": {
+      "group": "素材与创意生产",
+      "product_line": "sms",
+      "methods": {
+        "getSmartTemplateImage": {
+          "read": true,
+          "origin": "get_smart_template_image"
+        }
+      }
+    },
+    "ImagemanageService": {
+      "group": "素材与创意生产",
+      "product_line": "sms",
+      "methods": {
+        "delImage": {
+          "read": false,
+          "origin": "del_image"
+        },
+        "getImageList": {
+          "read": true,
+          "origin": "get_image_list"
+        },
+        "modImage": {
+          "read": false,
+          "origin": "mod_image"
+        },
+        "uploadImage": {
+          "read": false,
+          "origin": "upload_image"
+        }
+      }
+    },
+    "ImagemanagementService": {
+      "group": "素材与创意生产",
+      "product_line": "sms",
+      "methods": {
+        "getVideoExtractImage": {
+          "read": true,
+          "origin": "get_video_extract_image"
+        },
+        "uploadImage": {
+          "read": false,
+          "origin": "upload_image"
+        }
+      }
+    },
+    "ImageprocessingService": {
+      "group": "信息流投放",
+      "product_line": "feed",
+      "methods": {
+        "addCropImage": {
+          "read": false,
+          "origin": "add_crop_image"
+        },
+        "getDefaultVideoCoverFeed": {
+          "read": true,
+          "origin": "get_default_video_cover_feed"
+        }
+      }
+    },
+    "ImagesegmentService": {
+      "group": "素材与创意生产",
+      "product_line": "sms",
+      "methods": {
+        "addImageSegment": {
+          "read": false,
+          "origin": "add_image_segment"
+        },
+        "deleteImageSegment": {
+          "read": false,
+          "origin": "delete_image_segment"
+        },
+        "getImageSegment": {
+          "read": true,
+          "origin": "get_image_segment"
+        },
+        "updateImageSegment": {
+          "read": false,
+          "origin": "update_image_segment"
+        }
+      }
+    },
+    "IndexapiService": {
+      "group": "检索与工具",
+      "product_line": "sms",
+      "methods": {
+        "checkKeywords": {
+          "read": true,
+          "origin": "check_keywords"
+        },
+        "createTask": {
+          "read": false,
+          "origin": "create_task"
+        },
+        "getResult": {
+          "read": true,
+          "origin": "get_result"
+        },
+        "refreshAccessToken": {
+          "read": false,
+          "origin": "refresh_access_token"
+        }
+      }
+    },
+    "IndustrytrafficService": {
+      "group": "报告与诊断优化",
+      "product_line": "sms",
+      "methods": {
+        "getSearchTrendByDev2": {
+          "read": true,
+          "origin": "get_search_trend_by_dev2"
+        },
+        "getSearchWordList": {
+          "read": true,
+          "origin": "get_search_word_list"
+        },
+        "getTradeNodeListV2": {
+          "read": true,
+          "origin": "get_trade_node_list_v2"
+        }
+      }
+    },
+    "JmysiteService": {
+      "group": "建站落地页与小程序",
+      "product_line": "sms",
+      "methods": {
+        "createPage": {
+          "read": false,
+          "origin": "create_page"
+        },
+        "deletePage": {
+          "read": false,
+          "origin": "delete_page"
+        },
+        "editPage": {
+          "read": false,
+          "origin": "edit_page"
+        },
+        "getPageDetail": {
+          "read": true,
+          "origin": "get_page_detail"
+        },
+        "getPageList": {
+          "read": true,
+          "origin": "get_page_list"
+        },
+        "previewPage": {
+          "read": false,
+          "origin": "preview_page"
+        }
+      }
+    },
+    "KRService": {
+      "group": "检索与工具",
+      "product_line": "sms",
+      "methods": {
+        "getFilePath": {
+          "read": true,
+          "origin": "get_file_path"
+        },
+        "getFileStatus": {
+          "read": true,
+          "origin": "get_file_status"
+        },
+        "getKRCustom": {
+          "read": true,
+          "origin": "get_kr_custom"
+        },
+        "getKRFileIdByWords": {
+          "read": true,
+          "origin": "get_kr_file_id_by_words"
+        },
+        "getKRByQuery": {
+          "read": true,
+          "origin": "get_kr_by_query"
+        }
+      }
+    },
+    "KeywordService": {
+      "group": "搜索推广投放",
+      "product_line": "sms",
+      "methods": {
+        "addWord": {
+          "read": false,
+          "origin": "add_word"
+        },
+        "deleteWord": {
+          "read": false,
+          "origin": "delete_word"
+        },
+        "getWord": {
+          "read": true,
+          "origin": "get_word"
+        },
+        "updateWord": {
+          "read": false,
+          "origin": "update_word"
+        }
+      }
+    },
+    "LeadadsService": {
+      "group": "转化追踪与线索",
+      "product_line": "sms",
+      "methods": {
+        "addStrategies": {
+          "read": false,
+          "origin": "add_strategies"
+        },
+        "deleteStrategies": {
+          "read": false,
+          "origin": "delete_strategies"
+        },
+        "getMaterials": {
+          "read": true,
+          "origin": "get_materials"
+        },
+        "getStrategies": {
+          "read": true,
+          "origin": "get_strategies"
+        },
+        "updateStrategies": {
+          "read": false,
+          "origin": "update_strategies"
+        }
+      }
+    },
+    "LeadsnoticeService": {
+      "group": "转化追踪与线索",
+      "product_line": "sms",
+      "methods": {
+        "getNoticeList": {
+          "read": true,
+          "origin": "get_notice_list"
+        }
+      }
+    },
+    "MarketapiService": {
+      "group": "订单与交易",
+      "product_line": "sms",
+      "methods": {
+        "cancelOrder": {
+          "read": false,
+          "origin": "cancel_order"
+        },
+        "createOrder": {
+          "read": false,
+          "origin": "create_order"
+        },
+        "getOrderInfo": {
+          "read": true,
+          "origin": "get_order_info"
+        },
+        "getSiteInfo": {
+          "read": true,
+          "origin": "get_site_info"
+        },
+        "previewSite": {
+          "read": false,
+          "origin": "preview_site"
+        }
+      }
+    },
+    "MarketingFileService": {
+      "group": "手写部分",
+      "product_line": null,
+      "methods": {
+        "uploadFile": {
+          "read": false,
+          "origin": "uploadFile"
+        }
+      }
+    },
+    "MaterialarticleService": {
+      "group": "素材与创意生产",
+      "product_line": "sms",
+      "methods": {
+        "addArticle": {
+          "read": false,
+          "origin": "add_article"
+        },
+        "deleteArticle": {
+          "read": false,
+          "origin": "delete_article"
+        },
+        "getArticleList": {
+          "read": true,
+          "origin": "get_article_list"
+        },
+        "updateArticle": {
+          "read": false,
+          "origin": "update_article"
+        },
+        "updateCategory": {
+          "read": false,
+          "origin": "update_category"
+        },
+        "updatePutaway": {
+          "read": false,
+          "origin": "update_putaway"
+        },
+        "updateRank": {
+          "read": false,
+          "origin": "update_rank"
+        }
+      }
+    },
+    "MaterialbindmodService": {
+      "group": "素材与创意生产",
+      "product_line": "sms",
+      "methods": {
+        "addMaterialBind": {
+          "read": false,
+          "origin": "add_material_bind"
+        },
+        "deleteMaterialBind": {
+          "read": false,
+          "origin": "delete_material_bind"
+        },
+        "updateMaterialBind": {
+          "read": false,
+          "origin": "update_material_bind"
+        }
+      }
+    },
+    "MaterialbrandmodService": {
+      "group": "素材与创意生产",
+      "product_line": "sms",
+      "methods": {
+        "addBrand": {
+          "read": false,
+          "origin": "add_brand"
+        },
+        "deleteBrand": {
+          "read": false,
+          "origin": "delete_brand"
+        },
+        "updateBrand": {
+          "read": false,
+          "origin": "update_brand"
+        },
+        "updatePutaway": {
+          "read": false,
+          "origin": "update_putaway"
+        }
+      }
+    },
+    "MaterialbrandqueryService": {
+      "group": "素材与创意生产",
+      "product_line": "sms",
+      "methods": {
+        "getBrandList": {
+          "read": true,
+          "origin": "get_brand_list"
+        }
+      }
+    },
+    "MaterialcenterbindqueryService": {
+      "group": "素材与创意生产",
+      "product_line": "sms",
+      "methods": {
+        "getMaterialBind": {
+          "read": true,
+          "origin": "get_material_bind"
+        }
+      }
+    },
+    "MaterialpersonmodService": {
+      "group": "素材与创意生产",
+      "product_line": "sms",
+      "methods": {
+        "addPerson": {
+          "read": false,
+          "origin": "add_person"
+        },
+        "deletePerson": {
+          "read": false,
+          "origin": "delete_person"
+        },
+        "updateCategory": {
+          "read": false,
+          "origin": "update_category"
+        },
+        "updatePerson": {
+          "read": false,
+          "origin": "update_person"
+        },
+        "updatePutaway": {
+          "read": false,
+          "origin": "update_putaway"
+        },
+        "updateRank": {
+          "read": false,
+          "origin": "update_rank"
+        }
+      }
+    },
+    "MaterialpersonqueryService": {
+      "group": "素材与创意生产",
+      "product_line": "sms",
+      "methods": {
+        "getPersonList": {
+          "read": true,
+          "origin": "get_person_list"
+        }
+      }
+    },
+    "MaterialproductService": {
+      "group": "素材与创意生产",
+      "product_line": "sms",
+      "methods": {
+        "addProduct": {
+          "read": false,
+          "origin": "add_product"
+        },
+        "deleteProduct": {
+          "read": false,
+          "origin": "delete_product"
+        },
+        "getProductList": {
+          "read": true,
+          "origin": "get_product_list"
+        },
+        "updateCategory": {
+          "read": false,
+          "origin": "update_category"
+        },
+        "updateProduct": {
+          "read": false,
+          "origin": "update_product"
+        },
+        "updatePutaway": {
+          "read": false,
+          "origin": "update_putaway"
+        },
+        "updateRank": {
+          "read": false,
+          "origin": "update_rank"
+        }
+      }
+    },
+    "MaterialquestionmodService": {
+      "group": "素材与创意生产",
+      "product_line": "sms",
+      "methods": {
+        "addQuestion": {
+          "read": false,
+          "origin": "add_question"
+        },
+        "deleteQuestion": {
+          "read": false,
+          "origin": "delete_question"
+        },
+        "updateCategory": {
+          "read": false,
+          "origin": "update_category"
+        },
+        "updatePutaway": {
+          "read": false,
+          "origin": "update_putaway"
+        },
+        "updateQuestion": {
+          "read": false,
+          "origin": "update_question"
+        },
+        "updateRank": {
+          "read": false,
+          "origin": "update_rank"
+        }
+      }
+    },
+    "MaterialquestionqueryService": {
+      "group": "素材与创意生产",
+      "product_line": "sms",
+      "methods": {
+        "getQuestionList": {
+          "read": true,
+          "origin": "get_question_list"
+        }
+      }
+    },
+    "MaterialtradequeryService": {
+      "group": "素材与创意生产",
+      "product_line": "sms",
+      "methods": {
+        "getUserTrade": {
+          "read": true,
+          "origin": "get_user_trade"
+        }
+      }
+    },
+    "MccfeedService": {
+      "group": "账户与资金",
+      "product_line": "feed",
+      "methods": {
+        "getUserListByMccid": {
+          "read": true,
+          "origin": "get_user_list_by_mccid"
+        }
+      }
+    },
+    "McchistoryService": {
+      "group": "账户与资金",
+      "product_line": "sms",
+      "methods": {
+        "getAccountTransferHistory": {
+          "read": true,
+          "origin": "get_account_transfer_history"
+        }
+      }
+    },
+    "MiniprogramService": {
+      "group": "建站落地页与小程序",
+      "product_line": "sms",
+      "methods": {
+        "getMiniPrograms": {
+          "read": true,
+          "origin": "get_mini_programs"
+        }
+      }
+    },
+    "NegativewordService": {
+      "group": "搜索推广投放",
+      "product_line": "sms",
+      "methods": {
+        "getDuplicateNegativeWords": {
+          "read": true,
+          "origin": "get_duplicate_negative_words"
+        },
+        "updateAdgroupNegativeWords": {
+          "read": false,
+          "origin": "update_adgroup_negative_words"
+        },
+        "updateAdgroupNegativeWordsSync": {
+          "read": false,
+          "origin": "update_adgroup_negative_words_sync"
+        },
+        "updateCampaignNegativeWordsSync": {
+          "read": false,
+          "origin": "update_campaign_negative_words_sync"
+        }
+      }
+    },
+    "OAuthService": {
+      "group": "手写部分",
+      "product_line": null,
+      "methods": {
+        "getAccessToken": {
+          "read": true,
+          "origin": "getAccessToken"
+        },
+        "refreshToken": {
+          "read": false,
+          "origin": "refreshToken"
+        },
+        "getUserInfo": {
+          "read": true,
+          "origin": "getUserInfo"
+        },
+        "getOpenId": {
+          "read": true,
+          "origin": "getOpenId"
+        }
+      }
+    },
+    "OcpcService": {
+      "group": "转化追踪与线索",
+      "product_line": "sms",
+      "methods": {
+        "addTargetPackage": {
+          "read": false,
+          "origin": "add_target_package"
+        },
+        "deleteTargetPackage": {
+          "read": false,
+          "origin": "delete_target_package"
+        },
+        "getHintAuditTime": {
+          "read": true,
+          "origin": "get_hint_audit_time"
+        },
+        "getTargetPackageList": {
+          "read": true,
+          "origin": "get_target_package_list"
+        },
+        "updateTargetPackage": {
+          "read": false,
+          "origin": "update_target_package"
+        }
+      }
+    },
+    "OcpctransfeedService": {
+      "group": "转化追踪与线索",
+      "product_line": "feed",
+      "methods": {
+        "addOcpcTransFeed": {
+          "read": false,
+          "origin": "add_ocpc_trans_feed"
+        }
+      }
+    },
+    "OpenapireportService": {
+      "group": "报告与诊断优化",
+      "product_line": "sms",
+      "methods": {
+        "createReportTask": {
+          "read": false,
+          "origin": "create_report_task"
+        },
+        "getReportData": {
+          "read": true,
+          "origin": "get_report_data"
+        },
+        "getTaskStatus": {
+          "read": true,
+          "origin": "get_task_status"
+        }
+      }
+    },
+    "OptimizationcenterService": {
+      "group": "报告与诊断优化",
+      "product_line": "sms",
+      "methods": {
+        "getAdgroupRecommendHotQueryWord": {
+          "read": true,
+          "origin": "get_adgroup_recommend_hot_query_word"
+        }
+      }
+    },
+    "OrderbusinessService": {
+      "group": "订单与交易",
+      "product_line": "sms",
+      "methods": {
+        "grantCallBack": {
+          "read": false,
+          "origin": "grant_call_back"
+        }
+      }
+    },
+    "PageService": {
+      "group": "检索与工具",
+      "product_line": "sms",
+      "methods": {
+        "getBroadCastPages": {
+          "read": true,
+          "origin": "get_broad_cast_pages"
+        }
+      }
+    },
+    "PaymentService": {
+      "group": "账户与资金",
+      "product_line": "sms",
+      "methods": {
+        "getPaymentRecord": {
+          "read": true,
+          "origin": "get_payment_record"
+        }
+      }
+    },
+    "PaymentfeedService": {
+      "group": "账户与资金",
+      "product_line": "feed",
+      "methods": {
+        "getPaymentHistory": {
+          "read": true,
+          "origin": "get_payment_history"
+        }
+      }
+    },
+    "PlatbusinessorderrefundService": {
+      "group": "订单与交易",
+      "product_line": "sms",
+      "methods": {
+        "agreeOrderRefund": {
+          "read": false,
+          "origin": "agree_order_refund"
+        },
+        "agreeOrderReturn": {
+          "read": false,
+          "origin": "agree_order_return"
+        },
+        "queryOrderRefundInfo": {
+          "read": true,
+          "origin": "query_order_refund_info"
+        },
+        "queryOrderRefundList": {
+          "read": true,
+          "origin": "query_order_refund_list"
+        },
+        "rejectOrderRefund": {
+          "read": false,
+          "origin": "reject_order_refund"
+        }
+      }
+    },
+    "PlatorderbusinessService": {
+      "group": "订单与交易",
+      "product_line": "sms",
+      "methods": {
+        "confirmOrCancelOrder": {
+          "read": false,
+          "origin": "confirm_or_cancel_order"
+        },
+        "deliverOrder": {
+          "read": false,
+          "origin": "deliver_order"
+        },
+        "rejectOrder": {
+          "read": false,
+          "origin": "reject_order"
+        },
+        "takeOrder": {
+          "read": false,
+          "origin": "take_order"
+        },
+        "updateRemark": {
+          "read": false,
+          "origin": "update_remark"
+        }
+      }
+    },
+    "PlatorderbusinessqueryService": {
+      "group": "订单与交易",
+      "product_line": "sms",
+      "methods": {
+        "getExpressNameList": {
+          "read": true,
+          "origin": "get_express_name_list"
+        },
+        "getOrderDetail": {
+          "read": true,
+          "origin": "get_order_detail"
+        },
+        "getOrderExpressPackage": {
+          "read": true,
+          "origin": "get_order_express_package"
+        },
+        "getPartConsignOrderList": {
+          "read": true,
+          "origin": "get_part_consign_order_list"
+        }
+      }
+    },
+    "PlatproductService": {
+      "group": "电商与店铺",
+      "product_line": "sms",
+      "methods": {
+        "deleteProduct": {
+          "read": false,
+          "origin": "delete_product"
+        },
+        "getProductDetail": {
+          "read": true,
+          "origin": "get_product_detail"
+        },
+        "getProductList": {
+          "read": true,
+          "origin": "get_product_list"
+        },
+        "getProductSkus": {
+          "read": true,
+          "origin": "get_product_skus"
+        },
+        "modOnlineStatus": {
+          "read": false,
+          "origin": "mod_online_status"
+        },
+        "saveOrUpdateProduct": {
+          "read": false,
+          "origin": "save_or_update_product"
+        },
+        "updateStock": {
+          "read": false,
+          "origin": "update_stock"
+        }
+      }
+    },
+    "PlatshopService": {
+      "group": "电商与店铺",
+      "product_line": "sms",
+      "methods": {
+        "getShopCategoryList": {
+          "read": true,
+          "origin": "get_shop_category_list"
+        }
+      }
+    },
+    "PreauditService": {
+      "group": "检索与工具",
+      "product_line": "sms",
+      "methods": {
+        "materialPreAudit": {
+          "read": false,
+          "origin": "material_pre_audit"
+        }
+      }
+    },
+    "PricestrategyService": {
+      "group": "搜索推广投放",
+      "product_line": "sms",
+      "methods": {
+        "addPriceStrategy": {
+          "read": false,
+          "origin": "add_price_strategy"
+        },
+        "deletePriceStrategy": {
+          "read": false,
+          "origin": "delete_price_strategy"
+        },
+        "getPriceStrategy": {
+          "read": true,
+          "origin": "get_price_strategy"
+        },
+        "updatePriceStrategy": {
+          "read": false,
+          "origin": "update_price_strategy"
+        }
+      }
+    },
+    "RecmwordfeedService": {
+      "group": "信息流投放",
+      "product_line": "feed",
+      "methods": {
+        "getRecmWord": {
+          "read": true,
+          "origin": "get_recm_word"
+        }
+      }
+    },
+    "RtafeedService": {
+      "group": "人群与定向",
+      "product_line": "sms",
+      "methods": {
+        "addRtaSetting": {
+          "read": false,
+          "origin": "add_rta_setting"
+        },
+        "delRtaSetting": {
+          "read": false,
+          "origin": "del_rta_setting"
+        },
+        "delStrategy": {
+          "read": false,
+          "origin": "del_strategy"
+        },
+        "getConfigurableUsers": {
+          "read": true,
+          "origin": "get_configurable_users"
+        },
+        "getRtaSetting": {
+          "read": true,
+          "origin": "get_rta_setting"
+        },
+        "getRtaToken": {
+          "read": true,
+          "origin": "get_rta_token"
+        },
+        "getStrategy": {
+          "read": true,
+          "origin": "get_strategy"
+        },
+        "updateRtaSetting": {
+          "read": false,
+          "origin": "update_rta_setting"
+        },
+        "updateStrategy": {
+          "read": false,
+          "origin": "update_strategy"
+        }
+      }
+    },
+    "SearchService": {
+      "group": "检索与工具",
+      "product_line": "sms",
+      "methods": {
+        "getCountById": {
+          "read": true,
+          "origin": "get_count_by_id"
+        },
+        "getCreativeIdBySearch": {
+          "read": true,
+          "origin": "get_creative_id_by_search"
+        },
+        "getIdsByTabs": {
+          "read": true,
+          "origin": "get_ids_by_tabs"
+        },
+        "getKeywordIdBySearch": {
+          "read": true,
+          "origin": "get_keyword_id_by_search"
+        },
+        "getMaterialInfoBySearch": {
+          "read": true,
+          "origin": "get_material_info_by_search"
+        }
+      }
+    },
+    "SearchfeedService": {
+      "group": "信息流投放",
+      "product_line": "feed",
+      "methods": {
+        "getAppIdNameFeed": {
+          "read": true,
+          "origin": "get_app_id_name_feed"
+        },
+        "getAutoBidCost": {
+          "read": true,
+          "origin": "get_auto_bid_cost"
+        },
+        "getBizAreaFeed": {
+          "read": true,
+          "origin": "get_biz_area_feed"
+        },
+        "getCoordinateFeed": {
+          "read": true,
+          "origin": "get_coordinate_feed"
+        },
+        "getMediaPackages": {
+          "read": true,
+          "origin": "get_media_packages"
+        },
+        "getMedias": {
+          "read": true,
+          "origin": "get_medias"
+        },
+        "getOcpcTransFeed": {
+          "read": true,
+          "origin": "get_ocpc_trans_feed"
+        }
+      }
+    },
+    "SegmentshieldService": {
+      "group": "人群与定向",
+      "product_line": "sms",
+      "methods": {
+        "addSegmentShield": {
+          "read": false,
+          "origin": "add_segment_shield"
+        },
+        "getSegmentShieldPage": {
+          "read": true,
+          "origin": "get_segment_shield_page"
+        }
+      }
+    },
+    "ShareService": {
+      "group": "建站落地页与小程序",
+      "product_line": "sms",
+      "methods": {
+        "saveSharingBatchDr": {
+          "read": false,
+          "origin": "save_sharing_batch_dr"
+        }
+      }
+    },
+    "SharerepertoryService": {
+      "group": "建站落地页与小程序",
+      "product_line": "sms",
+      "methods": {
+        "addShareRepertory": {
+          "read": false,
+          "origin": "add_share_repertory"
+        },
+        "deleteShareRepertory": {
+          "read": false,
+          "origin": "delete_share_repertory"
+        },
+        "getShareRepertory": {
+          "read": true,
+          "origin": "get_share_repertory"
+        },
+        "updateShareRepertory": {
+          "read": false,
+          "origin": "update_share_repertory"
+        }
+      }
+    },
+    "ShieldService": {
+      "group": "人群与定向",
+      "product_line": "sms",
+      "methods": {
+        "addAccountExcludeIp": {
+          "read": false,
+          "origin": "add_account_exclude_ip"
+        },
+        "addBShieldPolicy": {
+          "read": false,
+          "origin": "add_b_shield_policy"
+        },
+        "delAccountExcludeIp": {
+          "read": false,
+          "origin": "del_account_exclude_ip"
+        },
+        "deleteBShieldBlackIp": {
+          "read": false,
+          "origin": "delete_b_shield_black_ip"
+        },
+        "deleteBShieldCustomer": {
+          "read": false,
+          "origin": "delete_b_shield_customer"
+        },
+        "deleteBShieldPolicy": {
+          "read": false,
+          "origin": "delete_b_shield_policy"
+        },
+        "updateBShieldBlackIp": {
+          "read": false,
+          "origin": "update_b_shield_black_ip"
+        },
+        "updateBShieldCustomer": {
+          "read": false,
+          "origin": "update_b_shield_customer"
+        },
+        "updatePolicyIptoBlackIp": {
+          "read": false,
+          "origin": "update_policy_ipto_black_ip"
+        },
+        "updateShieldPolicy": {
+          "read": false,
+          "origin": "update_shield_policy"
+        }
+      }
+    },
+    "StreamapiuploadService": {
+      "group": "检索与工具",
+      "product_line": "sms",
+      "methods": {
+        "uploadIdStream": {
+          "read": false,
+          "origin": "upload_id_stream"
+        }
+      }
+    },
+    "StyleanalyseService": {
+      "group": "报告与诊断优化",
+      "product_line": "sms",
+      "methods": {
+        "decode": {
+          "read": false,
+          "origin": "decode"
+        }
+      }
+    },
+    "SubshopmaterialopenapiService": {
+      "group": "电商与店铺",
+      "product_line": "sms",
+      "methods": {
+        "addPublicityImage": {
+          "read": false,
+          "origin": "add_publicity_image"
+        },
+        "getAlbumTypes": {
+          "read": true,
+          "origin": "get_album_types"
+        },
+        "removePublicityImage": {
+          "read": false,
+          "origin": "remove_publicity_image"
+        }
+      }
+    },
+    "SubshopopenapiService": {
+      "group": "电商与店铺",
+      "product_line": "sms",
+      "methods": {
+        "createSubShop": {
+          "read": false,
+          "origin": "create_sub_shop"
+        },
+        "updateSubShop": {
+          "read": false,
+          "origin": "update_sub_shop"
+        }
+      }
+    },
+    "TabService": {
+      "group": "检索与工具",
+      "product_line": "sms",
+      "methods": {
+        "getTabs": {
+          "read": true,
+          "origin": "get_tabs"
+        }
+      }
+    },
+    "TeslacommonrecordService": {
+      "group": "检索与工具",
+      "product_line": "sms",
+      "methods": {
+        "getDictInfo": {
+          "read": true,
+          "origin": "get_dict_info"
+        }
+      }
+    },
+    "TitlerecommendService": {
+      "group": "信息流投放",
+      "product_line": "feed",
+      "methods": {
+        "getTitle": {
+          "read": true,
+          "origin": "get_title"
+        }
+      }
+    },
+    "ToolkitService": {
+      "group": "检索与工具",
+      "product_line": "sms",
+      "methods": {
+        "getOperationRecord": {
+          "read": true,
+          "origin": "get_operation_record"
+        }
+      }
+    },
+    "TraceapiService": {
+      "group": "转化追踪与线索",
+      "product_line": "feed",
+      "methods": {
+        "updateTransTrace": {
+          "read": false,
+          "origin": "update_trans_trace"
+        }
+      }
+    },
+    "TraceurlService": {
+      "group": "转化追踪与线索",
+      "product_line": "sms",
+      "methods": {
+        "getPromotionUrls": {
+          "read": true,
+          "origin": "get_promotion_urls"
+        }
+      }
+    },
+    "UploadClient": {
+      "group": "手写部分",
+      "product_line": null,
+      "methods": {
+        "initMultipartUpload": {
+          "read": false,
+          "origin": "initMultipartUpload"
+        },
+        "uploadPart": {
+          "read": false,
+          "origin": "uploadPart"
+        },
+        "completeMultipartUpload": {
+          "read": false,
+          "origin": "completeMultipartUpload"
+        },
+        "abortMultipartUpload": {
+          "read": false,
+          "origin": "abortMultipartUpload"
+        }
+      }
+    },
+    "VideoService": {
+      "group": "素材与创意生产",
+      "product_line": "sms",
+      "methods": {
+        "deleteVideos": {
+          "read": false,
+          "origin": "delete_videos"
+        },
+        "getVideoInfos": {
+          "read": true,
+          "origin": "get_video_infos"
+        }
+      }
+    },
+    "VideoUploadService": {
+      "group": "手写部分",
+      "product_line": null,
+      "methods": {
+        "addVideo": {
+          "read": false,
+          "origin": "addVideo"
+        }
+      }
+    },
+    "VideocontentService": {
+      "group": "素材与创意生产",
+      "product_line": "sms",
+      "methods": {
+        "queryContent": {
+          "read": true,
+          "origin": "query_content"
+        }
+      }
+    },
+    "VideodataService": {
+      "group": "报告与诊断优化",
+      "product_line": "sms",
+      "methods": {
+        "getLabelData": {
+          "read": true,
+          "origin": "get_label_data"
+        },
+        "getSecondLevelData": {
+          "read": true,
+          "origin": "get_second_level_data"
+        }
+      }
+    },
+    "VideoediterService": {
+      "group": "素材与创意生产",
+      "product_line": "sms",
+      "methods": {
+        "smartAudio": {
+          "read": false,
+          "origin": "smart_audio"
+        },
+        "smartMusic": {
+          "read": false,
+          "origin": "smart_music"
+        }
+      }
+    },
+    "VideofeedService": {
+      "group": "信息流投放",
+      "product_line": "feed",
+      "methods": {
+        "getVideoTextFeed": {
+          "read": true,
+          "origin": "get_video_text_feed"
+        }
+      }
+    },
+    "VideosynthetiseService": {
+      "group": "素材与创意生产",
+      "product_line": "sms",
+      "methods": {
+        "clipVideo": {
+          "read": false,
+          "origin": "clip_video"
+        },
+        "getSmartAudioStatus": {
+          "read": true,
+          "origin": "get_smart_audio_status"
+        },
+        "getTaskVideos": {
+          "read": true,
+          "origin": "get_task_videos"
+        },
+        "pushSmartVideo": {
+          "read": false,
+          "origin": "push_smart_video"
+        },
+        "pushVideo": {
+          "read": false,
+          "origin": "push_video"
+        },
+        "queryVideoClipStatus": {
+          "read": true,
+          "origin": "query_video_clip_status"
+        },
+        "smartSynthetise": {
+          "read": false,
+          "origin": "smart_synthetise"
+        },
+        "synthetiseStatus": {
+          "read": false,
+          "origin": "synthetise_status"
+        }
+      }
+    },
+    "VideouploadService": {
+      "group": "素材与创意生产",
+      "product_line": "sms",
+      "methods": {
+        "addVideo": {
+          "read": false,
+          "origin": "add_video"
+        }
+      }
+    },
+    "WordmaterialService": {
+      "group": "素材与创意生产",
+      "product_line": "sms",
+      "methods": {
+        "search": {
+          "read": true,
+          "origin": "search"
+        }
+      }
+    },
+    "WtmaterialcategoryService": {
+      "group": "电商与店铺",
+      "product_line": "sms",
+      "methods": {
+        "deleteCategory": {
+          "read": false,
+          "origin": "delete_category"
+        },
+        "getCategoryList": {
+          "read": true,
+          "origin": "get_category_list"
+        },
+        "updateCategory": {
+          "read": false,
+          "origin": "update_category"
+        }
+      }
+    },
+    "WtpfeedService": {
+      "group": "信息流投放",
+      "product_line": "feed",
+      "methods": {
+        "addWtpFeed": {
+          "read": false,
+          "origin": "add_wtp_feed"
+        },
+        "deleteWtpFeed": {
+          "read": false,
+          "origin": "delete_wtp_feed"
+        },
+        "getWtpFeed": {
+          "read": true,
+          "origin": "get_wtp_feed"
+        },
+        "updateWtpFeed": {
+          "read": false,
+          "origin": "update_wtp_feed"
+        }
+      }
+    },
+    "WttradeService": {
+      "group": "电商与店铺",
+      "product_line": "sms",
+      "methods": {
+        "getTradeList": {
+          "read": true,
+          "origin": "get_trade_list"
+        }
+      }
+    }
+  }
+}

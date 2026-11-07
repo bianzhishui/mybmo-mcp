@@ -1,0 +1,35 @@
+{
+  "header": {
+    "status": 0,
+    "desc": "success",
+    "rquota": { "quota": 1000, "used": 39, "limit": 1000 },
+    "failures": []
+  },
+  "body": {
+    "data": [
+      {
+        "total": 2,
+        "rows": [
+          {
+            "date": "2026-11-01",
+            "impression": 12000,
+            "click": 320,
+            "cost": 486.5,
+            "ctr": 0.0267,
+            "cpc": 1.52,
+            "conversion": 8
+          },
+          {
+            "date": "2026-11-02",
+            "impression": 9800,
+            "click": 268,
+            "cost": 401.2,
+            "ctr": 0.0273,
+            "cpc": 1.5,
+            "conversion": 5
+          }
+        ]
+      }
+    ]
+  }
+}

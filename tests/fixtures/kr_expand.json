@@ -1,0 +1,20 @@
+{
+  "header": {
+    "status": 0,
+    "desc": "success",
+    "rquota": { "quota": 1000, "used": 38, "limit": 1000 },
+    "failures": []
+  },
+  "body": {
+    "data": [
+      {
+        "query": "月季",
+        "wordList": [
+          { "word": "月季花苗", "pv": 3200, "competition": "中", "recBid": 1.85 },
+          { "word": "月季花肥料", "pv": 1500, "competition": "低", "recBid": 1.2 },
+          { "word": "藤本月季", "pv": 880, "competition": "高", "recBid": 2.4 }
+        ]
+      }
+    ]
+  }
+}

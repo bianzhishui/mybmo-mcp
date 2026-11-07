@@ -17,15 +17,18 @@
 
 ## 2. P1 百度传输层
 
-- [ ] 2.1 `baidu/errors.py`：定义 `BaiduApiError`（code / position / service / method / hint）、`CredentialError`、`DryRunRequested`、`WriteNotPermitted`；错误信息脱敏
-- [ ] 2.2 `baidu/transport.py`：构造请求体 `{header:{userName, accessToken, action}, body:{...}}`，POST 到 `https://api.baidu.com/json/{sms|feed}/service/{Service}/{Method}`
-- [ ] 2.3 大小写处理：`Service` / `Method` 按 `PascalCase` 原样透传，**不做归一化**（避免 `getKRByQuery` → `getKRbyQuery` 之类的破坏）
-- [ ] 2.4 响应解析：校验 `header.status == 0`，否则抛 `BaiduApiError` 并带 `failures[0].code/message`
-- [ ] 2.5 重试策略：读 ≤2 次指数退避；写 0 次，超时抛 `state=unknown`
-- [ ] 2.6 记录 `rquota`，在响应里保留配额信息
-- [ ] 2.7 `baidu/catalog.py`：加载接口目录（Service / Method / 读写 / 必填参数），来源为 `docs/catalog.json`（先用现有 skill 的 133/399 清单，标注"待与官方文档校验"）
-- [ ] 2.8 `tests/test_transport.py`：注入 `httpx2.MockTransport`，覆盖成功、业务错误、网络超时、写不重试四个场景
-- [ ] 2.9 `tests/fixtures/` 放脱敏响应样例（账户、拓词、报表各一份）
+- [x] 2.1 `baidu/errors.py`：定义 `BaiduApiError`（code / position / service / method / hint）、`CredentialError`、`DryRunRequested`、`WriteNotPermitted`；错误信息脱敏
+- [x] 2.2 `baidu/transport.py`：构造请求体 `{header:{userName, accessToken, action}, body:{...}}`，POST 到 `https://api.baidu.com/json/sms/service/{Service}/{Method}`，信息流走 `https://api.baidu.com/json/feed/v1/{Service}/{Method}`
+- [x] 2.3 名称归一化：小写蛇形与驼峰都接受，`KR` 强制大写；对已规范的名字**幂等**。
+      原计划「不做归一化」易读但不好用，实测归一化加 `KR` 特判更省心
+- [x] 2.4 响应解析：校验 `header.status == 0`，否则抛 `BaiduApiError` 并带 `failures[0].code/message`
+- [x] 2.5 重试策略：读 ≤2 次指数退避；写 0 次，超时抛 `state=unknown`
+- [x] 2.6 记录 `rquota`，在响应里保留配额信息
+- [x] 2.7 `baidu/catalog.py`：加载接口目录（Service / Method / 读写 / 产品线）。
+      数据源改为 `src/mybmo_mcp/baidu/catalog.json`（随包分发，`scripts/build_catalog.py` 生成），
+      不放在 `docs/` 是因为安装为 wheel 后取不到；内容沿用现有 skill 的 133/399 清单，标注"待与官方文档校验"
+- [x] 2.8 `tests/test_transport.py`：注入 `httpx2.MockTransport`，覆盖成功、业务错误、网络超时、写不重试四个场景
+- [x] 2.9 `tests/fixtures/` 放脱敏响应样例（账户、拓词、报表各一份）
 
 **出口**：不联网即可证明请求体结构与错误归一化正确。
 

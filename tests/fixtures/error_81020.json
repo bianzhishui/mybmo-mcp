@@ -1,0 +1,15 @@
+{
+  "header": {
+    "status": 4,
+    "desc": "failure",
+    "rquota": { "quota": 1000, "used": 40, "limit": 1000 },
+    "failures": [
+      {
+        "code": 81020,
+        "message": "The username information in the request is incorrect",
+        "position": "header.userName"
+      }
+    ]
+  },
+  "body": {}
+}
