@@ -53,8 +53,8 @@
 
 > 定位调整见 [ADR 0003](../../../docs/decisions/0003-capability-only.md)：只提供能力，不做业务编排，不拦写。
 
-- [ ] 4.1 SDK POC：`baiduads-sdk` 在 Python 3.12 上导入、构造 RequestWrapper、请求体序列化正确；
-      结论写入 `docs/decisions/0004-sdk-poc.md`。不通过则执行层回退到 `baidu/transport.py`
+- [x] 4.1 SDK POC：结论见 `docs/decisions/0005-sdk-poc.md`——SDK 可装、端点与序列化正确，
+      但不校验未知字段、响应反序列化严格且不可关闭，因此**只作元数据源，不进运行时**
 - [ ] 4.2 能力注册表：`catalog.json` 升级为 capability 清单，补参数 schema（从 SDK 内省）、
       中文别名、`mutating` 三态（true / false / unknown）
 - [ ] 4.3 检索：中文别名词典 + BM25；`search_capabilities` 只返回短摘要，不返回 schema
@@ -65,8 +65,8 @@
 - [ ] 4.7 审计：记录 `sub` / `account` / `capability` / `request_id` / 结果状态
 - [ ] 4.8 统一响应封装沿用 `tools/_result.py` 的 `{ok,data,meta}` / `{ok,error}` 信封
 - [ ] 4.9 测试：检索命中率、schema 生成、执行链路、越权拒绝、参数错误提示
-- [ ] 4.10 生成 399 条能力骨架：从 SDK 内省参数类型、产品线、`mutating` 初判，写入注册表。
-      **每个能力必须有非空描述**，允许是骨架级
+- [ ] 4.10 生成 399 条能力骨架：**构建期**内省 SDK（递归下钻嵌套类型）生成 `capabilities.json`，
+      含端点路径、字段树、产品线、`mutating` 初判。**每个能力必须有非空描述**，允许是骨架级
 - [ ] 4.11 高频精写：账户 / 投放 / 关键词 / 报表四域约 50 条，补参数语义、金额单位、父子层级
 - [ ] 4.12 `execute_capability(wait=True)`：按能力的 `async_task` 元数据轮询；
       超时返回 `{timed_out: true}` 而非报错（见 ADR 0004 D5）

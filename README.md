@@ -119,7 +119,7 @@ mybmo-mcp/
 | 凭据库（AES-GCM / 别名隔离 / 损坏检测） | ✅ 离线可验 |
 | 百度 OAuth 绑定与令牌刷新 | ✅ 离线可验（`[live]` 待账号） |
 | 原生 HTTP 传输层 | ✅ 离线可验（降级为 fallback） |
-| **能力网关（search / schema / execute）** | ⬜ 待开工（P3） |
+| **能力网关（search / schema / execute）** | 🟡 SDK 验证已完成（ADR 0005），注册表待建 |
 | Casdoor 接入与多租户 | ⬜ 待开工（P4） |
 | 真实账户联调 | ⬜ 需要可用账号 |
 
