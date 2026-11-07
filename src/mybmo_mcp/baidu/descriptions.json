@@ -1,0 +1,687 @@
+{
+  "version": 1,
+  "note": "手写能力描述。生成器不碰这个文件：capabilities.json 由 SDK 内省生成，这份由人维护。params 的路径用点号表示层级，数组元素用 [] 结尾。写错 key 或参数路径会在加载时直接报错，不会静默失效。",
+  "capabilities": {
+    "AccountService.getAccountInfo": {
+      "description": "读账户基本信息与配置",
+      "aliases": [
+        "账户概览",
+        "账户详情"
+      ],
+      "notes": [
+        "返回的 userName 是账户中文名，也是所有接口鉴权头里必须带的那个名字，填错报 81020",
+        "accountFields 不传返回常用字段子集，传了只返回指定字段",
+        "余额不在这里，用 BalanceService.getBalanceInfo"
+      ],
+      "params": {
+        "accountFields": "指定返回字段；留空返回默认子集。字段名大小写敏感"
+      }
+    },
+    "AccountService.updateAccountInfo": {
+      "description": "改账户级配置（名称、地域等）",
+      "notes": [
+        "只改传入的字段，未传的保持原值",
+        "改完建议再调一次 getAccountInfo 复核，这个接口的成功响应不返回改后的完整对象"
+      ]
+    },
+    "BalanceService.getBalanceInfo": {
+      "description": "查账户余额",
+      "aliases": [
+        "查余额",
+        "还剩多少钱"
+      ],
+      "notes": [
+        "需要账户管理类权限。没开通时返回 89406，字面像令牌失效，实际是权限域没开——先用只读接口验证令牌本身",
+        "productIds 区分产品线，不传取全部产品线"
+      ],
+      "params": {
+        "productIds": "产品线 ID 列表；不传返回全部产品线的余额"
+      }
+    },
+    "PaymentService.getPaymentRecord": {
+      "description": "查付款与充值流水",
+      "aliases": [
+        "充值记录",
+        "资金流水"
+      ],
+      "notes": [
+        "分页取，chunksize 是单次条数，大账户流水多，先小页试探",
+        "fundtype 区分资金类型，不传返回全部类型"
+      ],
+      "params": {
+        "chunksize": "单次返回条数",
+        "fundtype": "资金类型；不传返回全部"
+      }
+    },
+    "PaymentFeedService.getPaymentHistory": {
+      "description": "查信息流账户的付款历史",
+      "notes": [
+        "信息流与搜索是两套账，账户余额和流水都不通用，信息流账户要用这个接口",
+        "startTime / endTime 是日期字符串"
+      ],
+      "params": {
+        "pageSize": "单次返回条数",
+        "startTime": "起始日期",
+        "endTime": "结束日期"
+      }
+    },
+    "ToolkitService.getOperationRecord": {
+      "description": "查账户操作记录（谁在什么时候改了什么）",
+      "aliases": [
+        "操作日志",
+        "操作记录",
+        "谁改的"
+      ],
+      "notes": [
+        "排查「投放为什么变了」的第一站，比翻自己的日志更权威",
+        "日期区间不要开太大，接口有时间跨度限制"
+      ],
+      "params": {
+        "startDate": "起始日期",
+        "endDate": "结束日期"
+      }
+    },
+    "BusinessPointService.getAllBusinessPoint": {
+      "description": "列出全部推广业务点",
+      "notes": [
+        "业务点用于把消费归到不同业务线，报表按业务点拆分时会用到",
+        "不需要业务参数，input 传空对象"
+      ]
+    },
+    "BusinessPointService.getBindBusinessPointList": {
+      "description": "列出账户已绑定的业务点",
+      "notes": [
+        "只返回已绑定的，排查「为什么业务点报表没数据」时先看这里"
+      ],
+      "params": {
+        "needPath": "是否返回业务点的层级路径"
+      }
+    },
+    "CampaignService.getCampaign": {
+      "description": "查推广计划",
+      "aliases": [
+        "计划列表",
+        "查计划"
+      ],
+      "notes": [
+        "不传 campaignIds 返回账户下全部计划，大账户可能很多，注意结果规模",
+        "campaignFields 指定返回字段，不传返回默认子集"
+      ],
+      "params": {
+        "campaignIds": "计划 ID 列表；不传返回全部",
+        "campaignFields": "需要返回的字段名列表"
+      }
+    },
+    "CampaignService.addCampaign": {
+      "description": "新建推广计划（不含单元和关键词）",
+      "aliases": [
+        "建计划",
+        "新建计划"
+      ],
+      "notes": [
+        "只建计划本身：单元和关键词要分别调 AdgroupService.addAdgroup / KeywordService.addWord",
+        "建议 pause=true 先建好，确认配置无误再开启，避免建错就开跑烧钱",
+        "金额单位是元，不是分"
+      ],
+      "params": {
+        "campaignTypes[].campaignName": "计划名称，同一账户内不要重名，便于之后按名字找",
+        "campaignTypes[].budget": "日预算，单位元",
+        "campaignTypes[].pause": "true 表示暂停；新建时建议先传 true，确认配置后再开",
+        "adType": "投放类型枚举，取值以官方文档为准；不确定就不传，走默认"
+      }
+    },
+    "CampaignService.updateCampaign": {
+      "description": "改计划（预算、名称、启停）",
+      "aliases": [
+        "改预算",
+        "调预算",
+        "暂停计划"
+      ],
+      "notes": [
+        "campaignId 必填，其余只传要改的字段",
+        "改预算只影响之后的花费，不追溯已消耗",
+        "批量改多个计划时把它们都放进 campaignTypes 数组，一次调用完成"
+      ],
+      "params": {
+        "campaignTypes[].campaignId": "计划 ID；修改时必填，新增时不要传"
+      }
+    },
+    "CampaignService.deleteCampaign": {
+      "description": "删除推广计划",
+      "aliases": [
+        "删计划"
+      ],
+      "notes": [
+        "不可逆，且会连带删除其下的单元、关键词、创意",
+        "只想停投不要用它，用 updateCampaign 把 pause 设 true",
+        "删之前先 getCampaign 确认 ID 和名称，别按顺序猜"
+      ],
+      "params": {
+        "campaignIds": "要删除的计划 ID 列表"
+      }
+    },
+    "AdgroupService.getAdgroup": {
+      "description": "查推广单元",
+      "aliases": [
+        "单元列表",
+        "查单元"
+      ],
+      "notes": [
+        "单元必须挂在计划下，返回里带 campaignId 可以确认归属",
+        "不传 ids 返回全部；idType 指明这批 ID 的类型"
+      ],
+      "params": {
+        "ids": "单元 ID 列表；不传返回全部",
+        "adgroupFields": "需要返回的字段名列表"
+      }
+    },
+    "AdgroupService.addAdgroup": {
+      "description": "新建推广单元",
+      "aliases": [
+        "建单元",
+        "新建单元"
+      ],
+      "notes": [
+        "必须传 campaignId，单元不能脱离计划存在",
+        "maxPrice 是单元出价上限，单位元；实际出价还受关键词出价影响",
+        "建议 pause=true 建，确认后开启"
+      ],
+      "params": {
+        "adgroupTypes[].campaignId": "所属计划 ID；新增单元时必填",
+        "adgroupTypes[].adgroupName": "单元名称",
+        "adgroupTypes[].maxPrice": "单元出价上限，单位元",
+        "adgroupTypes[].pause": "true 表示暂停；新建时建议先传 true"
+      }
+    },
+    "AdgroupService.updateAdgroup": {
+      "description": "改单元（出价上限、名称、启停）",
+      "aliases": [
+        "调单元出价",
+        "改单元"
+      ],
+      "notes": [
+        "adgroupId 必填",
+        "调出价就是改 maxPrice，单位元"
+      ],
+      "params": {
+        "adgroupTypes[].adgroupId": "单元 ID；修改时必填，新增时不要传",
+        "adgroupTypes[].maxPrice": "单元出价上限，单位元"
+      }
+    },
+    "AdgroupService.deleteAdgroup": {
+      "description": "删除推广单元",
+      "aliases": [
+        "删单元"
+      ],
+      "notes": [
+        "不可逆，连带删除其下关键词与创意",
+        "只想停投用 updateAdgroup 把 pause 设 true"
+      ],
+      "params": {
+        "adgroupIds": "要删除的单元 ID 列表"
+      }
+    },
+    "CreativeService.getCreative": {
+      "description": "查创意",
+      "aliases": [
+        "创意列表",
+        "查创意"
+      ],
+      "notes": [
+        "创意挂在单元下，一条创意由 title + description1 + description2 组成，展示时组合出现",
+        "不传 ids 返回全部"
+      ],
+      "params": {
+        "ids": "创意 ID 列表；不传返回全部",
+        "creativeFields": "需要返回的字段名列表"
+      }
+    },
+    "CreativeService.addCreative": {
+      "description": "新建创意",
+      "aliases": [
+        "建创意",
+        "新增创意"
+      ],
+      "notes": [
+        "必须传 adgroupId",
+        "标题和描述都有长度限制，超长会被接口拒绝",
+        "一个单元至少要有一条可用创意，否则该单元不投放"
+      ],
+      "params": {
+        "creativeTypes[].adgroupId": "所属单元 ID；新增创意时必填",
+        "creativeTypes[].title": "创意标题",
+        "creativeTypes[].description1": "创意描述第一行"
+      }
+    },
+    "CreativeService.updateCreative": {
+      "description": "改创意（标题、描述、启停）",
+      "notes": [
+        "creativeId 必填",
+        "改标题或描述后会重新进入审核，审核期间可能暂停展示——别在跑量期随手改"
+      ],
+      "params": {
+        "creativeTypes[].creativeId": "创意 ID；修改时必填，新增时不要传"
+      }
+    },
+    "CreativeService.deleteCreative": {
+      "description": "删除创意",
+      "notes": [
+        "单元的创意被删光会导致该单元停投",
+        "只想下线用 updateCreative 把 pause 设 true"
+      ],
+      "params": {
+        "creativeIds": "要删除的创意 ID 列表"
+      }
+    },
+    "KeywordService.getWord": {
+      "description": "查关键词",
+      "aliases": [
+        "关键词列表",
+        "查词"
+      ],
+      "notes": [
+        "不传 ids 返回全部，大账户可能上万条，注意规模",
+        "关键词必须属于某个单元，返回里带 adgroupId"
+      ],
+      "params": {
+        "ids": "关键词 ID 列表；不传返回全部",
+        "wordFields": "需要返回的字段名列表"
+      }
+    },
+    "KeywordService.addWord": {
+      "description": "新增关键词",
+      "aliases": [
+        "加词",
+        "新增关键词"
+      ],
+      "notes": [
+        "必须传 adgroupId",
+        "price 单位元；同一单元内重复词会被判重",
+        "建议 pause=true 建，确认出价后再开；批量加词时放进同一个 keywordTypes 数组"
+      ],
+      "params": {
+        "keywordTypes[].adgroupId": "所属单元 ID；新增关键词时必填",
+        "keywordTypes[].keyword": "关键词文本",
+        "keywordTypes[].price": "出价，单位元",
+        "keywordTypes[].pause": "true 表示暂停；新建时建议先传 true"
+      }
+    },
+    "KeywordService.updateWord": {
+      "description": "改关键词（出价、启停、匹配模式）",
+      "aliases": [
+        "改出价",
+        "调出价",
+        "暂停关键词"
+      ],
+      "notes": [
+        "keywordId 必填",
+        "改出价就是改 price，单位元",
+        "匹配模式的枚举值不要猜：先用 getWord 读一个现有词，看它返回什么"
+      ],
+      "params": {
+        "keywordTypes[].keywordId": "关键词 ID；修改时必填，新增时不要传",
+        "keywordTypes[].price": "出价，单位元"
+      }
+    },
+    "KeywordService.deleteWord": {
+      "description": "删除关键词",
+      "aliases": [
+        "删词",
+        "删除关键词"
+      ],
+      "notes": [
+        "不可逆",
+        "只想停投用 updateWord 把 pause 设 true"
+      ],
+      "params": {
+        "keywordIds": "要删除的关键词 ID 列表"
+      }
+    },
+    "KRService.getKRByQuery": {
+      "description": "关键词规划师拓词：给种子词，返回推荐词、搜索量、竞争度、指导价",
+      "aliases": [
+        "拓词",
+        "找词",
+        "关键词挖掘",
+        "挖词"
+      ],
+      "notes": [
+        "query 是**字符串**不是数组，传数组会报 99912",
+        "单次返回条数上限未实测（既有资料称 300）。统计总数前先确认是否被截断，不要把单次结果说成全量",
+        "返回的词是按搜索量排序的候选，不是可以直接投放的词表——落地前要人工或规则筛一遍"
+      ],
+      "params": {
+        "query": "种子词，字符串",
+        "seedFilter.maxNum": "返回条数上限",
+        "seedFilter.negativeWords": "排除词，用来剔掉不相关行业"
+      }
+    },
+    "KRService.getKRCustom": {
+      "description": "按现有计划/单元取推荐词",
+      "aliases": [
+        "自定义拓词",
+        "按单元扩词"
+      ],
+      "notes": [
+        "用账户里已有的投放结构做种子，比手写种子词更贴近实际业务",
+        "idType + id 指定取词范围"
+      ],
+      "params": {
+        "id": "取词依据的 ID，配合 idType 使用",
+        "idType": "id 的类型（计划/单元等），枚举以官方文档为准"
+      }
+    },
+    "NegativeWordService.updateAdgroupNegativeWordsSync": {
+      "description": "设置单元否词（同步版）",
+      "aliases": [
+        "否词",
+        "否定关键词",
+        "加否词"
+      ],
+      "notes": [
+        "同步返回结果，单次条数有限；大批量用不带 Sync 的异步版本",
+        "否词分短语否定与精确否定两组，别混在一组里",
+        "updateType 决定覆盖还是追加——先确认语义再调，覆盖会把原有否词清掉"
+      ],
+      "params": {
+        "updateType": "更新方式（覆盖/追加/删除），枚举以官方文档为准",
+        "negativeWordTypes[].adgroupId": "要设置否词的单元 ID"
+      }
+    },
+    "NegativeWordService.updateCampaignNegativeWordsSync": {
+      "description": "设置计划否词（同步版）",
+      "aliases": [
+        "计划否词"
+      ],
+      "notes": [
+        "计划级否词对该计划下所有单元生效，范围比单元否词大",
+        "只想影响单个单元就用单元级接口，别在计划级否定"
+      ],
+      "params": {
+        "updateType": "更新方式（覆盖/追加/删除）",
+        "negativeWordTypes[].campaignId": "要设置否词的计划 ID"
+      }
+    },
+    "SearchService.getKeywordIdBySearch": {
+      "description": "按条件搜关键词 ID",
+      "notes": [
+        "按计划、状态、质量度筛，只返回 ID 列表",
+        "拿 ID 之后再调 KeywordService.getWord 取详情，两步走"
+      ],
+      "params": {
+        "campaignIds": "限定在哪些计划内搜索",
+        "page": "分页页码"
+      }
+    },
+    "SearchService.getIdsByTabs": {
+      "description": "按标签页取对象 ID",
+      "notes": [
+        "标签页是账户里保存的筛选视图，先拿到 tabIds 再调这里"
+      ],
+      "params": {
+        "tabIds": "标签页 ID 列表",
+        "idType": "要取的对象类型"
+      }
+    },
+    "SearchService.getCreativeIdBySearch": {
+      "description": "按条件搜创意 ID",
+      "notes": [
+        "和 getKeywordIdBySearch 一个套路：先取 ID，再按 ID 取详情"
+      ],
+      "params": {
+        "campaignIds": "限定在哪些计划内搜索",
+        "page": "分页页码"
+      }
+    },
+    "SearchService.getMaterialInfoBySearch": {
+      "description": "按关键词搜素材/创意信息",
+      "notes": [
+        "searchWord 是素材里的文字，不是关键词——用来查「哪条创意用了这个词」"
+      ],
+      "params": {
+        "searchWord": "搜索的素材文本",
+        "campaignId": "限定计划范围",
+        "adgroupId": "限定单元范围"
+      }
+    },
+    "OpenApiReportService.createReportTask": {
+      "description": "建异步报表任务，产出可下载文件",
+      "aliases": [
+        "导出报表",
+        "生成报表文件"
+      ],
+      "notes": [
+        "异步三步：本接口返回 taskId → getTaskStatus 轮询 → getFilePath 取下载地址",
+        "要直接拿数据不要用这个，用 getReportData 同步取",
+        "日期格式 YYYY-MM-DD"
+      ],
+      "params": {
+        "startDate": "起始日期，格式 YYYY-MM-DD",
+        "endDate": "结束日期，格式 YYYY-MM-DD",
+        "columns": "报表列名列表，英文标识（如 impression / click / cost）；完整清单以官方文档为准",
+        "reportType": "报表类型枚举，取值以官方文档为准"
+      }
+    },
+    "OpenApiReportService.getTaskStatus": {
+      "description": "查报表任务状态",
+      "aliases": [
+        "报表任务状态"
+      ],
+      "notes": [
+        "轮询间隔建议 2 秒以上，太密会被限流",
+        "完成状态的取值以接口返回为准，不要凭猜"
+      ],
+      "params": {
+        "taskId": "createReportTask 返回的任务 ID"
+      }
+    },
+    "OpenApiReportService.getReportData": {
+      "description": "同步取报表数据，按行分页",
+      "aliases": [
+        "拉报表",
+        "取报表数据",
+        "报表取数"
+      ],
+      "notes": [
+        "分页用 startRow + rowCount：若返回条数等于 rowCount，很可能还有下一页",
+        "列名是英文标识，不确定时传 withColumnMeta=true 让接口把列元数据一起返回",
+        "单次返回上限未实测（tasks 9.3），不要断言一次就取全"
+      ],
+      "params": {
+        "startRow": "起始行号，从 0 开始",
+        "rowCount": "本次取多少行",
+        "columns": "报表列名列表，英文标识",
+        "withColumnMeta": "true 时返回列元数据，适合不确定列名时先探一次"
+      }
+    },
+    "CampaignFeedService.getCampaignFeed": {
+      "description": "查信息流计划",
+      "aliases": [
+        "信息流计划列表"
+      ],
+      "notes": [
+        "信息流与搜索是两套接口，计划 ID 不通用，别把 SMS 的 ID 传进来"
+      ],
+      "params": {
+        "campaignFeedIds": "信息流计划 ID 列表；不传返回全部",
+        "campaignFeedFields": "需要返回的字段名列表"
+      }
+    },
+    "CampaignFeedService.addCampaignFeed": {
+      "description": "新建信息流计划",
+      "aliases": [
+        "建信息流计划"
+      ],
+      "notes": [
+        "信息流计划的字段与搜索计划不同（有 subject / appinfo / starttime / endtime，没有 regionTarget）",
+        "投放期用 starttime / endtime 控制，不是 pause"
+      ],
+      "params": {
+        "campaignFeedTypes[].campaignFeedName": "信息流计划名称",
+        "campaignFeedTypes[].budget": "预算，单位元"
+      }
+    },
+    "CampaignFeedService.updateCampaignFeed": {
+      "description": "改信息流计划（预算、投放期、启停）",
+      "notes": [
+        "campaignFeedId 必填，其余只传要改的字段"
+      ],
+      "params": {
+        "campaignFeedTypes[].campaignFeedId": "信息流计划 ID；修改时必填，新增时不要传"
+      }
+    },
+    "AdgroupFeedService.getAdgroupFeed": {
+      "description": "查信息流单元",
+      "aliases": [
+        "信息流单元列表"
+      ],
+      "notes": [
+        "单元挂在信息流计划下，返回里带 campaignFeedId"
+      ],
+      "params": {
+        "ids": "信息流单元 ID 列表",
+        "adgroupFeedFields": "需要返回的字段名列表"
+      }
+    },
+    "AdgroupFeedService.addAdgroupFeed": {
+      "description": "新建信息流单元",
+      "aliases": [
+        "建信息流单元"
+      ],
+      "notes": [
+        "必须传 campaignFeedId",
+        "audience 里放定向人群，ftypes 放投放类型，结构比搜索单元复杂"
+      ],
+      "params": {
+        "adgroupFeedTypes[].campaignFeedId": "所属信息流计划 ID；新增时必填",
+        "adgroupFeedTypes[].adgroupFeedName": "单元名称"
+      }
+    },
+    "CreativeFeedService.getCreativeFeed": {
+      "description": "查信息流创意",
+      "aliases": [
+        "信息流创意列表"
+      ],
+      "notes": [
+        "素材在 material 字段里，结构随 materialstyle 变化"
+      ],
+      "params": {
+        "ids": "创意 ID 列表",
+        "creativeFeedFields": "需要返回的字段名列表"
+      }
+    },
+    "CreativeFeedService.addCreativeFeed": {
+      "description": "新建信息流创意",
+      "aliases": [
+        "建信息流创意"
+      ],
+      "notes": [
+        "必须传 adgroupFeedId",
+        "materialstyle 决定 material 的结构，两者必须匹配，否则会被拒绝"
+      ],
+      "params": {
+        "creativeFeedTypes[].adgroupFeedId": "所属信息流单元 ID；新增时必填",
+        "creativeFeedTypes[].creativeFeedName": "创意名称"
+      }
+    },
+    "RecmWordFeedService.getRecmWord": {
+      "description": "取信息流推荐词",
+      "notes": [
+        "和搜索的拓词不是一回事：这里按已有词扩，不按种子词挖"
+      ],
+      "params": {
+        "query": "作为参考的词列表"
+      }
+    },
+    "BulkJobService.getAllObjects": {
+      "description": "导出账户全量对象（异步生成文件）",
+      "aliases": [
+        "全量导出",
+        "导出账户结构"
+      ],
+      "notes": [
+        "异步三步：本接口拿 fileId → getFileStatus 轮询 → getFilePath 取下载地址",
+        "每个层级用各自的 xxxFields 选字段，不传返回默认子集",
+        "生成的文件有时效，过期要重新生成"
+      ],
+      "params": {
+        "campaignIds": "限定导出哪些计划；不传导出全部",
+        "format": "文件格式（如 csv），枚举以官方文档为准"
+      }
+    },
+    "BulkJobService.getChangedItemId": {
+      "description": "取指定时间之后发生变更的对象 ID",
+      "aliases": [
+        "增量变更",
+        "变更对象"
+      ],
+      "notes": [
+        "增量同步用：先取变更 ID，再按 ID 调对应的 get 接口",
+        "startTime 是时间字符串",
+        "各层级用 xxxLevel 布尔开关选择要不要包含"
+      ],
+      "params": {
+        "startTime": "从这个时间点之后开始取变更",
+        "itemType": "要取的对象类型"
+      }
+    },
+    "BulkJobService.getChangedScale": {
+      "description": "查变更规模（各层级改了多少条）",
+      "notes": [
+        "先看规模再决定要不要拉明细，避免一次拉回几十万条把上下文撑爆"
+      ],
+      "params": {
+        "startTime": "从这个时间点之后统计变更"
+      }
+    },
+    "BulkJobService.getFilePath": {
+      "description": "取异步文件的下载地址",
+      "notes": [
+        "文件有时效（通常几小时），过期要重新生成任务"
+      ],
+      "params": {
+        "fileId": "异步任务返回的文件 ID"
+      }
+    },
+    "BulkJobService.getFileStatus": {
+      "description": "查异步文件生成状态",
+      "notes": [
+        "生成完成前不要高频轮询，间隔 2 秒以上"
+      ],
+      "params": {
+        "fileId": "异步任务返回的文件 ID"
+      }
+    },
+    "PreAuditService.materialPreAudit": {
+      "description": "提交素材预审",
+      "aliases": [
+        "素材预审",
+        "预审核"
+      ],
+      "notes": [
+        "不改投放、不扣费，但会创建审核任务并占用配额",
+        "当前 mutating 标为 unknown，权限上按写处理（需要 write 授权）"
+      ],
+      "params": {
+        "adElems": "待预审的素材元素列表"
+      }
+    },
+    "VideoUploadService.addVideo": {
+      "description": "通过 BOS 地址添加视频素材",
+      "aliases": [
+        "加视频",
+        "上传视频素材"
+      ],
+      "notes": [
+        "传的是已经上传到 BOS 的地址，不是二进制内容；二进制上传走另一套分片接口",
+        "fileMd5 用于校验完整性，传错会失败",
+        "转码是异步的，加完要再查视频状态才能用"
+      ],
+      "params": {
+        "fileUrl": "BOS 上的视频地址",
+        "fileMd5": "视频文件的 MD5，用于校验",
+        "videoName": "视频名称"
+      }
+    }
+  }
+}

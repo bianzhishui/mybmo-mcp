@@ -64,7 +64,8 @@ async def get_capability_schema(capability: str) -> dict[str, Any]:
     if cap is None:
         return _not_found(registry, capability)
 
-    notes = ["参数名用驼峰（如 campaignName）；传 snake_case 会自动转换"]
+    # 手写要点在前：单位、层级、前置条件这类信息比通用提示重要得多
+    notes = [*cap.notes, "参数名用驼峰（如 campaignName）；传 snake_case 会自动转换"]
     input_schema = registry.resolved_input_schema(cap)
     if not (input_schema.get("properties") or {}):
         notes.append("该能力不需要业务参数，input 传空对象即可")
@@ -73,6 +74,7 @@ async def get_capability_schema(capability: str) -> dict[str, Any]:
         {
             "capability": cap.key,
             "summary": cap.summary,
+            "description": cap.description,
             "endpoint": cap.endpoint,
             "product_line": cap.product_line,
             "mutating": cap.mutating,

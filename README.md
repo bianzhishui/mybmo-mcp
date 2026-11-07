@@ -97,6 +97,29 @@
 - **写操作不做服务端审批**：能力元数据会标 `mutating` / `destructive`，是否要求人工确认
   由 skill 工作流决定。生产环境可通过配置整体置为只读
 
+### 能力描述从哪来
+
+两层，不要混：
+
+| 文件 | 谁生成 | 怎么改 |
+|---|---|---|
+| `baidu/capabilities.json` | `scripts/build_capabilities.py` 内省 SDK 生成 | **不要手改**，接口有变化就重新生成 |
+| `baidu/descriptions.json` | 人写 | 直接改，重启生效 |
+
+`descriptions.json` 每条可以给三样东西：
+
+- `description` —— 一句话，会成为检索结果里的摘要（`新建推广计划｜写`）
+- `notes` —— 单位、层级、前置条件、易错点，`get_capability_schema` 原样返回
+- `params` —— 按 `campaignTypes[].budget` 这样的路径，写进 JSON Schema 的 `description`，
+  agent 在字段旁边就能看到「单位元」「新增时必填」
+
+写错能力名或参数路径会在**加载时直接报错**。静默失效比不写更糟：维护的人会以为已经写过了。
+
+一个约束值得单独说：参数说明写在**共享模型**上（`ApiKeywordType` 同时用于加词和改词），
+所以措辞必须上下文中立——不能写「修改时必填」，那对「加词」是错的。
+
+目前 50 条精写（账户 / 投放 / 关键词 / 报表 / 信息流 / 批量），其余 339 条是自动生成的骨架描述。
+
 ## 四、目录结构
 
 ```text
@@ -142,6 +165,7 @@ mybmo-mcp/
 | **能力网关（search / schema / execute）** | ✅ 五工具端到端跑通 |
 | 账户归属校验（三档权限 / 默认拒绝） | ✅ 离线可验（`tests/test_tenancy.py`） |
 | 调用审计（JSONL / 脱敏 / 四态） | ✅ 离线可验（`tests/test_audit.py`） |
+| 能力描述精写（50 条 + 参数级说明） | ✅ 离线可验（`tests/test_descriptions.py`） |
 | Casdoor 接入与多租户 | ⬜ 待开工（P4） |
 | 真实账户联调 | ⬜ 需要可用账号 |
 

@@ -76,7 +76,12 @@
 - [x] 4.10 生成 399 条能力骨架：**构建期**内省 SDK（递归下钻嵌套类型）生成 `capabilities.json`。
       实际产出 **389 条**（SDK 覆盖数，手写 10 个上传/OAuth 接口不在其中），
       585 个去重模型，`mutating` true=208 / false=180 / unknown=1（`PreAuditService.materialPreAudit` 待人工裁决）
-- [ ] 4.11 高频精写：账户 / 投放 / 关键词 / 报表四域约 50 条，补参数语义、金额单位、父子层级
+- [x] 4.11 高频精写：`baidu/descriptions.json`，**50 条**覆盖账户 / 投放 / 关键词 / 报表 /
+      信息流 / 批量六域。三类内容分开写：`description`（一句话，成为检索摘要）、
+      `notes`（单位、层级、前置条件、易错点）、`params`（按 `campaignTypes[].budget`
+      这样的路径写进 JSON Schema 的 `description`，agent 在 schema 里直接看到）。
+      另修一个真 bug：别名表写成 `OpenapiReportService`，与实际 `OpenApiReportService`
+      大小写不符，「报表」整组搜不到；已加 `validate_aliases()` 与用例守卫
 - [ ] 4.12 `execute_capability(wait=True)`：按能力的 `async_task` 元数据轮询；
       超时返回 `{timed_out: true}` 而非报错（见 ADR 0004 D5）
 
