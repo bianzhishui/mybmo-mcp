@@ -44,7 +44,7 @@ from typing import Any
 import baiduads
 
 ROOT = Path(__file__).resolve().parents[1]
-CATALOG = ROOT / "src" / "mybmo_mcp" / "baidu" / "catalog.json"
+GROUPS = ROOT / "scripts" / "service_groups.json"
 OUTPUT = ROOT / "src" / "mybmo_mcp" / "baidu" / "capabilities.json"
 
 #: 明确会改变投放或账户配置的动词
@@ -300,8 +300,9 @@ def _camel(snake: str) -> str:
 
 
 def main() -> int:
-    catalog = json.loads(CATALOG.read_text(encoding="utf-8"))
-    groups = {name: entry.get("group", "") for name, entry in catalog["services"].items()}
+    # 能力域标签是人定的归类，SDK 里没有这个信息，只能单独维护。
+    # 缺一个服务就是空分组，不影响生成，检索里只是少一层权重。
+    groups = json.loads(GROUPS.read_text(encoding="utf-8"))
 
     builder = SchemaBuilder()
     capabilities: dict[str, dict[str, Any]] = {}

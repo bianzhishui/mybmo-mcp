@@ -24,9 +24,11 @@
 - [x] 2.4 响应解析：校验 `header.status == 0`，否则抛 `BaiduApiError` 并带 `failures[0].code/message`
 - [x] 2.5 重试策略：读 ≤2 次指数退避；写 0 次，超时抛 `state=unknown`
 - [x] 2.6 记录 `rquota`，在响应里保留配额信息
-- [x] 2.7 `baidu/catalog.py`：加载接口目录（Service / Method / 读写 / 产品线）。
-      数据源改为 `src/mybmo_mcp/baidu/catalog.json`（随包分发，`scripts/build_catalog.py` 生成），
-      不放在 `docs/` 是因为安装为 wheel 后取不到；内容沿用现有 skill 的 133/399 清单，标注"待与官方文档校验"
+- [x] 2.7 接口目录：先按 133 服务 / 399 接口建了 `catalog.py` + `catalog.json`（源自 skill 的 api-index.md）。
+      **P3 后整体删除**（catalog.py / catalog.json / build_catalog.py / test_catalog.py）：
+      `capabilities.json` 从 SDK 内省出 129 服务 / 389 接口（差的 10 个是手写的上传、OAuth 等
+      非 JSON 协议接口），职责完全覆盖，两份接口数据只会互相漂移。
+      13 个能力域标签保留为 `scripts/service_groups.json`，只作生成器输入
 - [x] 2.8 `tests/test_transport.py`：注入 `httpx2.MockTransport`，覆盖成功、业务错误、网络超时、写不重试四个场景
 - [x] 2.9 `tests/fixtures/` 放脱敏响应样例（账户、拓词、报表各一份）
 
