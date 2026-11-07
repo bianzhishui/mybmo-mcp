@@ -59,23 +59,24 @@
 
 ## 三、工具设计
 
-不做 399 个工具。首批按"业务闭环"划：
+**本项目只提供能力，不做业务编排。** 拓词、报表汇总、写前确认属于调用方（skill / agent 工作流）的职责，
+不在这里实现。理由见 [`docs/decisions/0003-capability-only.md`](docs/decisions/0003-capability-only.md)。
 
-| 分类 | 工具 | 说明 |
+常驻工具 5 个，数量与接口总数无关：
+
+| 类型 | 工具 | 说明 |
 |---|---|---|
-| 账户 | `list_accounts` | 当前身份可访问的百度账户 |
-| 账户 | `account_snapshot` | 余额、预算、状态、当日消耗 |
+| 能力 | `search_capabilities` | 按中文/英文关键词检索能力，覆盖 SDK 全部接口 |
+| 能力 | `get_capability_schema` | 取某个能力的完整参数定义 |
+| 能力 | `execute_capability` | 忠实执行；**不拦截写操作**，由调用方决定是否确认 |
+| 账户 | `list_accounts` | 当前用户可访问的百度账户 |
 | 账户 | `auth_status` | 令牌有效期、是否需要重新授权 |
-| 只读 | `keyword_plan` | 种子词拓词 + 推荐出价 + 竞争度 |
-| 只读 | `query_report` | 按日/单元/关键词拉报表 |
-| 只读 | `get_entity` / `list_entities` | 计划、单元、关键词、创意读取 |
-| 发现 | `api_describe` | 查接口方法、参数、是否可写 |
-| 透传 | `api_read` | 仅只读白名的长尾接口 |
-| 写入 | `change_preview` | 生成完整报文 + `approval_id` |
-| 写入 | `change_execute` | 校验 `approval_id` 后执行 |
-| 资源 | `baidu://accounts`、`baidu://catalog` | 上下文资源，不进工具列表 |
 
-写接口**不做通用透传**。任何写操作必须走 `change_preview` → 用户确认 → `change_execute`。
+两个要点：
+
+- **上下文成本 O(1)**：接口从 389 增到 1000，工具定义不变，只有检索结果随目录增长
+- **写操作不做服务端审批**：能力元数据会标 `mutating` / `destructive`，是否要求人工确认
+  由 skill 工作流决定。生产环境可通过配置整体置为只读
 
 ## 四、目录结构
 
@@ -83,18 +84,16 @@
 mybmo-mcp/
 ├── src/mybmo_mcp/
 │   ├── server.py           # MCP 入口，stdio / streamable-http
-│   ├── tools/              # 按工具域拆：accounts / keyword / report / write
+│   ├── tools/
+│   │   ├── accounts.py     # list_accounts / auth_status（本项目自身能力）
+│   │   ├── _result.py      # 统一响应信封
+│   │   └── capability.py   # search / get_schema / execute（待建）
 │   ├── baidu/
-│   │   ├── transport.py    # 百度网关请求、重试策略、错误归一化
-│   │   ├── services/       # 账户、关键词、报表、投放
-│   │   └── catalog.py      # 接口目录（Service/Method/读写/参数）
-│   ├── auth/
-│   │   ├── oauth.py        # 百度 OAuth：授权码、刷新、轮换
-│   │   ├── vault.py        # 凭据加密存储（本地 keyring / KMS）
-│   │   ├── resource.py     # MCP Resource Server：JWT 校验、audience
-│   │   └── tenancy.py      # 用户、租户、账户授权关系
-│   ├── approval/           # preview / digest / approval_id / TTL
-│   └── audit/              # 调用与写入审计（四态）
+│   │   ├── catalog.py      # 接口目录，能力注册表的基础
+│   │   ├── errors.py       # 错误码释义、凭据脱敏
+│   │   └── transport.py    # 原生 HTTP fallback（SDK 不可用时启用）
+│   ├── auth/               # 凭据加密、OAuth、刷新锁、账户注册表、绑定
+│   └── audit/              # 调用审计（待建）
 ├── deploy/                 # Casdoor + 服务端 compose、Caddy 配置
 ├── tests/                  # 离线优先，不打真实百度接口
 ├── docs/                   # 架构、决策记录、运维
@@ -103,23 +102,27 @@ mybmo-mcp/
 
 ## 五、当前状态
 
-**P0 / P1 已完成，P2 代码完成（只差真实账号验收）。** 骨架、百度传输层、凭据库与
-OAuth 链路都已就绪，但还没有注册任何 MCP 工具，所以现在启动服务仍取不到投放数据。
+**P0 / P1 已归档，P2 的凭据部分保留并可复用。** 当前已按
+[ADR 0003](docs/decisions/0003-capability-only.md) 清掉业务组合层与写审批，
+正在往「能力层」重建：账户能力可用，能力网关（search / schema / execute）待建。
 
 | 项 | 状态 |
 |---|---|
 | uv 项目骨架 | ✅ |
 | 鉴权架构决策 | ✅ ADR 0001 |
 | 技术栈选型 | ✅ ADR 0002 |
-| 契约文档 | ✅ `docs/` |
+| 定位调整（能力层） | ✅ ADR 0003 |
 | MCP 入口（stdio / streamable-http） | ✅ 可启动 |
-| 百度传输层（请求构造 / 错误归一化 / 读写重试分离） | ✅ 离线可验 |
+| 账户工具（`list_accounts` / `auth_status`） | ✅ 已注册 |
 | 接口目录（133 服务 / 399 接口） | ✅ 随包分发 |
 | 凭据库（AES-GCM / 别名隔离 / 损坏检测） | ✅ 离线可验 |
 | 百度 OAuth 绑定与令牌刷新 | ✅ 离线可验（`[live]` 待账号） |
-| 只读工具暴露为 MCP 工具 | 🟡 5 个已注册（P3 进行中） |
-| Casdoor 接入 | ⬜ 待开工（P4） |
+| 原生 HTTP 传输层 | ✅ 离线可验（降级为 fallback） |
+| **能力网关（search / schema / execute）** | ⬜ 待开工（P3） |
+| Casdoor 接入与多租户 | ⬜ 待开工（P4） |
 | 真实账户联调 | ⬜ 需要可用账号 |
+
+遗留说明：`v0.1-poc` tag 保留了「10 个业务工具 + 写审批」的旧形态，仅作参考，不再维护。
 
 待办清单在 [`openspec/changes/bootstrap-mcp-server/tasks.md`](openspec/changes/bootstrap-mcp-server/tasks.md)，
 技术取舍在 [`design.md`](openspec/changes/bootstrap-mcp-server/design.md)。

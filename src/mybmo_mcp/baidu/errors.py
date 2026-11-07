@@ -117,50 +117,31 @@ class CredentialError(BaiduError):
     """凭据缺失、已过期且无法刷新，或刷新被拒绝。"""
 
 
-class WriteNotPermitted(BaiduError):
-    """写操作被本地策略拦住。
-
-    这不是网络或权限报错，而是主动拒绝执行——避免在无权限的情况下反复调用写接口，
-    或让调用方误以为写成功。
-    """
-
-
-class ApprovalRequired(BaiduError):
-    """写操作缺少审批，或审批凭据与当前报文不符。
-
-    写操作不可逆，必须走「预览 → 用户确认 → 凭预览里的 approval_id 执行」。
-    缺少 approval_id 说明没预览过，不匹配说明预览之后报文被改过，两种情况都必须重来。
-    """
-
-
 class DryRunRequested(Exception):
     """dry-run 模式下的短路信号。
 
-    用异常而不是返回特殊字典，是为了不污染 services 层的返回类型——
-    业务函数始终可以假定自己拿到的是真实 data 或正常异常。
+    用异常而不是返回特殊字典，是为了不污染调用方的返回类型——
+    能力网关可以假定自己拿到的是真实 data 或正常异常。
 
     这里不继承 :class:`BaiduError`：它不是错误，是正常的控制流。
     """
 
-    def __init__(
-        self, url: str, payload: dict[str, Any], *, approval: dict[str, Any] | None = None
-    ):
+    def __init__(self, url: str, payload: dict[str, Any]):
         super().__init__("dry-run")
         self.url = url
         self.payload = payload
-        self.approval = approval
 
     def to_dict(self) -> dict[str, Any]:
         header = self.payload.get("header", {})
-        safe = {
-            "header": {
-                "userName": header.get("userName"),
-                "accessToken": "***",
-                "action": header.get("action"),
+        return {
+            "dry_run": True,
+            "url": self.url,
+            "payload": {
+                "header": {
+                    "userName": header.get("userName"),
+                    "accessToken": "***",
+                    "action": header.get("action"),
+                },
+                "body": self.payload.get("body"),
             },
-            "body": self.payload.get("body"),
         }
-        result: dict[str, Any] = {"dry_run": True, "url": self.url, "payload": safe}
-        if self.approval:
-            result["approval"] = self.approval
-        return result

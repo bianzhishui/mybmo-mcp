@@ -60,17 +60,16 @@ WWW-Authenticate: Bearer resource_metadata="https://mcp.example.com/.well-known/
 | 百度 `accessToken` | 内存或 Redis | ~24 小时 |
 | 账户中文名 `userName` | 凭据库明文（非敏感） | 随账户 |
 
-### 第三层：写操作审批
+### 第三层：写操作（已移出本项目）
 
-scope 只回答"有没有写权限"，不回答"这次要不要写"。
+本层原本设计为 `change_preview → 用户确认 → change_execute` 的审批闭环。
 
-```text
-change_preview  → 完整报文 + 影响范围 + approval_id(sub, tenant, account, payload_hash, ttl)
-用户确认        → 在可信界面完成，模型无法自证
-change_execute  → 校验 approval_id 未被使用、未过期、哈希一致 → 执行
-```
+按 [ADR 0003](decisions/0003-capability-only.md) 的方向调整，**审批不再由本服务承担**：
+MCP 只忠实执行 `execute_capability`，是否要求人工确认由调用方（skill 工作流）决定。
+能力元数据里会标 `mutating` / `destructive`，把判断所需的事实给足，但不替调用方做决定。
 
-写请求**不自动重试**。网络超时属于"结果未知"，必须先查询后台状态，禁止直接重发。
+仍然保留的约束：**写请求不自动重试**。网络超时属于"结果未知"，必须先查询后台状态，
+禁止直接重发——这是可靠性要求，与审批无关。
 
 ## 三、关键时序
 

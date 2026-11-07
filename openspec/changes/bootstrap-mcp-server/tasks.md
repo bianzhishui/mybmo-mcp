@@ -49,20 +49,24 @@
 
 **出口**：`[live]` 用一个真实账户完成一次绑定 → 刷新 → 调 `getUserInfo` 成功。
 
-## 4. P3 只读工具
+## 4. P3 能力层
 
-- [x] 4.1 `tools/accounts.py`：`list_accounts`、`account_snapshot`（余额、预算、状态、当日消耗）、`auth_status`
-- [x] 4.2 `tools/keyword.py`：`keyword_plan`（种子词 → 词表 + 推荐出价 + 竞争度），显式标注是否触达接口上限
-- [ ] 4.3 `tools/report.py`：`query_report`（维度：日 / 单元 / 关键词；返回带 `truncated` 与 `total`）
-- [ ] 4.4 `tools/entities.py`：`get_entity` / `list_entities`（计划、单元、关键词、创意）
-- [ ] 4.5 `tools/discover.py`：`api_describe`（查目录）、`api_read`（仅只读白名单，非白名单直接拒绝）
-- [x] 4.6 统一响应封装：成功 `{ok:true, data, meta}`；失败 `{ok:false, error:{code,message,hint}}`。
-      封装在 `tools/_result.py`，异常在工具边界翻译成结构化失败，不把栈甩给客户端
-- [ ] 4.7 无凭据时的标准应答：说清现状 → 给一条可直接复制的绑定命令 → 给当前能做的（如按目录确认接口参数）
-- [ ] 4.8 富内容渲染：报表返回表格型 `TextContent`，账户快照返回简短摘要而非原始 JSON
-- [x] 4.9 字段映射与截断标记的断言（落在 `tests/test_services.py` 与 `tests/test_tools.py`，未单独建 `test_tools_read.py`）
+> 定位调整见 [ADR 0003](../../../docs/decisions/0003-capability-only.md)：只提供能力，不做业务编排，不拦写。
 
-**出口**：`[live]` 三个只读工具在真实账户返回正确数据；断网时 `api_read` 报错清晰不挂起。
+- [ ] 4.1 SDK POC：`baiduads-sdk` 在 Python 3.12 上导入、构造 RequestWrapper、请求体序列化正确；
+      结论写入 `docs/decisions/0004-sdk-poc.md`。不通过则执行层回退到 `baidu/transport.py`
+- [ ] 4.2 能力注册表：`catalog.json` 升级为 capability 清单，补参数 schema（从 SDK 内省）、
+      中文别名、`mutating` 三态（true / false / unknown）
+- [ ] 4.3 检索：中文别名词典 + BM25；`search_capabilities` 只返回短摘要，不返回 schema
+- [ ] 4.4 `get_capability_schema`：按需返回完整 JSON Schema 与字段说明，命中缓存不重复生成
+- [ ] 4.5 `execute_capability`：SDK 调用走 `asyncio.to_thread`、本地参数校验、错误归一化；
+      **不做写操作拦截**
+- [ ] 4.6 账户归属校验：`sub → account_grants`，alias 不在授权列表内直接拒绝（越权防线）
+- [ ] 4.7 审计：记录 `sub` / `account` / `capability` / `request_id` / 结果状态
+- [ ] 4.8 统一响应封装沿用 `tools/_result.py` 的 `{ok,data,meta}` / `{ok,error}` 信封
+- [ ] 4.9 测试：检索命中率、schema 生成、执行链路、越权拒绝、参数错误提示
+
+**出口**：不联网即可用 fixture 跑通 search → schema → execute 全链路；越权账户被拒。
 
 ## 5. P4 Casdoor 接入
 
@@ -78,19 +82,13 @@
 
 **出口**：未知客户端可自助接入；跨服务令牌被拒。
 
-## 6. P5 写操作审批
+## 6. P5 写操作审批（已取消）
 
-- [ ] 6.1 `approval/store.py`：`approval_id`、`payload_hash`、`scope`、`expires_at`（5 min）、`used_at`
-- [ ] 6.2 `change_preview`：生成完整报文、影响条数、风险提示（消耗、状态变更、预算），返回 `approval_id`
-- [ ] 6.3 `change_execute`：四项全等校验（哈希 / 未使用 / 未过期 / 账户归属），任一不符即拒
-- [ ] 6.4 越权防线：`account_id` 必须经 `account_grants` 校验，模型传入的账户不在列表内直接拒绝
-- [ ] 6.5 写前预检：批量上限（关键词 200 / 创意 50）、产品线匹配（SMS 与 FEED 不得混用）、必填字段
-- [ ] 6.6 默认暂停：新建计划/单元/关键词/创意默认暂停。**暂停字段未经官方 schema 核实前，真实执行必须拒绝**，预览可生成
-- [ ] 6.7 部分成功处理：保留已创建物料的 ID 与层级路径，明确告知需要手工清理什么
-- [ ] 6.8 `tests/test_approval.py`：哈希被改、重复使用、过期、跨账户四种拒绝
-- [ ] 6.9 `[live]` 在测试账户上完成一次"加 5 个词"的预览 → 执行 → 核对
+按 [ADR 0003](../../../docs/decisions/0003-capability-only.md)，本服务不再承担写审批：
+`execute_capability` 忠实执行，是否要求人工确认由 skill 工作流决定。
 
-**出口**：无 `approval_id` 无法写入；改一个字段即失效。
+原 6.1–6.9 中只有「账户归属校验」保留，已并入 4.6；其余（`approval_id`、`change_preview`、
+`change_execute`、写前预检、默认暂停）不再实施。编号保留，便于对齐历史记录。
 
 ## 7. P6 多租户与审计
 

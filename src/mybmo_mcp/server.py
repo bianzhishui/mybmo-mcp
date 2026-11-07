@@ -27,9 +27,11 @@ _LOG_LEVELS = {
 }
 
 _INSTRUCTIONS = (
-    "百度营销投放助手。调用工具前先确认账户别名，账户只能从 list_accounts "
-    "返回的列表中选择。任何写操作必须先调用 change_preview 生成预览，"
-    "由用户确认后再凭 approval_id 调用 change_execute。"
+    "百度营销投放能力网关。调用任何接口前，先用 list_accounts 确认账户别名——"
+    "账户只能从返回的列表里选择，不能自己编。"
+    "接口能力通过 search_capabilities 检索，用 get_capability_schema 取参数定义，"
+    "再用 execute_capability 执行。本服务不判断操作是否安全，写操作前是否需要"
+    "人工确认，由调用方自己的工作流决定。"
 )
 
 app = typer.Typer(
