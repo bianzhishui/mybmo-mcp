@@ -33,8 +33,12 @@ class FakeRuntime:
     def __init__(self) -> None:
         self.capabilities = CapabilityRegistry.load()
         self.transport = FakeTransport()
+        self.permissions: list[str] = []
 
-    def transport_for(self, alias: str | None = None) -> FakeTransport:
+    def transport_for(
+        self, alias: str | None = None, *, permission: str = "read", **_: Any
+    ) -> FakeTransport:
+        self.permissions.append(permission)
         return self.transport
 
 
@@ -124,3 +128,24 @@ async def test_execute_unknown_capability(runtime: FakeRuntime) -> None:
 
     assert result["ok"] is False
     assert "没有这个能力" in result["error"]["message"]
+
+
+async def test_execute_requires_write_permission_for_mutating(runtime: FakeRuntime) -> None:
+    """写能力要 write 档位。判定依据是能力的 mutating，不是方法名前缀。"""
+    result = await capability_tools.execute_capability(
+        "CampaignService.addCampaign", input={"campaignTypes": []}
+    )
+
+    assert result["ok"] is True
+    assert runtime.permissions == ["write"]
+    assert result["meta"]["required_permission"] == "write"
+
+
+async def test_execute_requires_only_read_permission_for_query(runtime: FakeRuntime) -> None:
+    result = await capability_tools.execute_capability(
+        "KRService.getKRByQuery", input={"query": "月季"}
+    )
+
+    assert result["ok"] is True
+    assert runtime.permissions == ["read"]
+    assert result["meta"]["required_permission"] == "read"

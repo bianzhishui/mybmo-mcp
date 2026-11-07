@@ -19,6 +19,7 @@ from typing import Any
 
 from mcp.server import MCPServer
 
+from mybmo_mcp.auth.tenancy import required_permission
 from mybmo_mcp.baidu.capabilities import Capability, CapabilityRegistry
 from mybmo_mcp.baidu.errors import BaiduError
 from mybmo_mcp.tools._result import fail, fail_from, guarded, ok
@@ -82,8 +83,11 @@ async def execute_capability(
 ) -> dict[str, Any]:
     """执行一个能力。``input`` 原样作为请求体业务参数发出去。
 
-    ``account`` 传账户别名（见 list_accounts），留空用默认账户。
+    ``account`` 传账户别名（见 list_accounts），留空只在当前身份只有一个可用账户时生效。
     ``wait=True`` 只对声明了异步任务的能力生效，其余会忽略并在 meta 里说明。
+
+    权限按能力的读写属性判定：只读能力要 read，写能力要 write。
+    ``mutating=unknown`` 按写处理——判不准时偏向更严的一侧。
     """
     runtime = get_runtime()
     registry = runtime.capabilities
@@ -98,8 +102,9 @@ async def execute_capability(
     except ValueError as exc:
         return fail(str(exc), hint="先用 get_capability_schema 看参数名与层级")
 
+    permission = required_permission(cap.mutating)
     try:
-        transport = runtime.transport_for(account)
+        transport = runtime.transport_for(account, permission=permission)
         data = await transport.call(cap.service, cap.method, payload, product_line=cap.product_line)
     except (BaiduError, ValueError) as exc:
         return fail_from(exc)
@@ -109,6 +114,7 @@ async def execute_capability(
         "endpoint": cap.endpoint,
         "product_line": cap.product_line,
         "mutating": cap.mutating,
+        "required_permission": permission,
     }
     if notes:
         meta["normalized"] = notes

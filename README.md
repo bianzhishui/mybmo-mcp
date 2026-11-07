@@ -57,6 +57,25 @@
 细节见 [`docs/architecture.md`](docs/architecture.md)，
 选型理由见 [`docs/decisions/0001-auth-architecture.md`](docs/decisions/0001-auth-architecture.md)。
 
+### 账户归属
+
+**别名不是凭据。** 知道别人的 `axd` 不等于能用它：每次取账户都经过 `AccountAccess`，
+先按身份筛出可见账户，再按档位判定。三个档位有顺序：`read < write < admin`。
+
+| 配置 | 含义 |
+|---|---|
+| `MYBMO_AUTH_MODE=local`（默认） | stdio 单用户，本机进程即本人，对全部账户有 admin |
+| `MYBMO_AUTH_MODE=oidc` | 多用户，身份来自 JWT，权限**只**来自 `data/tenancy.json` 的 grants |
+
+两条默认拒绝，写在这里是为了让后来人别改回去：
+
+- 多用户模式下授权表缺失 → 直接报错。回退成"人人可用"的代价远大于停机
+- 不传 `account` → 只在当前身份**唯一**可用账户时生效。有多个候选就报错，
+  绝不落到进程级默认账户上——多用户下它极可能属于别人
+
+`tenancy.json` 里 `role` 之类字段不参与判定，所有权限只来自 `grants`，
+没有隐含的租户管理员。示例见 [`tenancy.example.json`](tenancy.example.json)。
+
 ## 三、工具设计
 
 **本项目只提供能力，不做业务编排。** 拓词、报表汇总、写前确认属于调用方（skill / agent 工作流）的职责，
@@ -121,6 +140,7 @@ mybmo-mcp/
 | 原生 HTTP 传输层 | ✅ 离线可验（降级为 fallback） |
 | 能力注册表（389 条 / 585 模型） | ✅ 构建期从 SDK 内省生成 |
 | **能力网关（search / schema / execute）** | ✅ 五工具端到端跑通 |
+| 账户归属校验（三档权限 / 默认拒绝） | ✅ 离线可验（`tests/test_tenancy.py`） |
 | Casdoor 接入与多租户 | ⬜ 待开工（P4） |
 | 真实账户联调 | ⬜ 需要可用账号 |
 

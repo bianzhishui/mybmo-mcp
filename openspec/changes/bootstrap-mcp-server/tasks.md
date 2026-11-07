@@ -63,11 +63,14 @@
 - [x] 4.4 `get_capability_schema`：解开顶层 `$ref` 返回可读 schema，附带 `$ref` 闭包（只带用到的模型）
 - [x] 4.5 `execute_capability`：参数按 schema 递归对齐（snake_case 自动转驼峰，未知字段拒绝并给候选），
       经 `transport.py` 发送（ADR 0005 结论：不用 SDK 发送）；**不做写操作拦截**
-- [ ] 4.6 账户归属校验：`sub → account_grants`，alias 不在授权列表内直接拒绝（越权防线）
+- [x] 4.6 账户归属校验：`auth/tenancy.py`（`Principal` / `Grant` / 三档权限 / 授权表加载）
+      + `auth/access.py`（先筛后判，未知 alias 与无权 alias 同一条错误）。
+      多用户模式下授权表缺失**直接报错**，不回退成人人可用；不传 alias 只在唯一账户时生效，
+      不落进程级默认账户
 - [ ] 4.7 审计：记录 `sub` / `account` / `capability` / `request_id` / 结果状态
 - [x] 4.8 统一响应封装沿用 `tools/_result.py` 的 `{ok,data,meta}` / `{ok,error}` 信封
 - [ ] 4.9 测试：检索命中率、schema 生成、执行链路、参数错误提示**已完成**；
-      越权拒绝的用例待 4.6
+      越权拒绝见 `tests/test_tenancy.py`（覆盖默认拒绝、档位顺序、账户名探测、默认账户回落）
 - [x] 4.10 生成 399 条能力骨架：**构建期**内省 SDK（递归下钻嵌套类型）生成 `capabilities.json`。
       实际产出 **389 条**（SDK 覆盖数，手写 10 个上传/OAuth 接口不在其中），
       585 个去重模型，`mutating` true=208 / false=180 / unknown=1（`PreAuditService.materialPreAudit` 待人工裁决）

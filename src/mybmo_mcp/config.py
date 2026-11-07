@@ -32,6 +32,9 @@ class Settings(BaseSettings):
     baidu_secret_key: str = ""
     mybmo_data_dir: Path = Path("./data")
     mybmo_master_key: str = ""
+    #: local = stdio 单用户，本机进程即身份；oidc = 多用户，身份来自 JWT。
+    #: 取任何其他值都按多用户处理（失败关闭），避免拼错导致越权。
+    mybmo_auth_mode: str = "local"
     casdoor_issuer: str = ""
     mybmo_resource_url: str = ""
     mybmo_database_url: str = ""

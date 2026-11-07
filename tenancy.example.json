@@ -1,0 +1,28 @@
+{
+  "_note": "复制为 data/tenancy.json 使用。仅在 MYBMO_AUTH_MODE=oidc 时生效；local 模式下本文件不存在即视为本机用户全权。permission 只能是 read / write / admin，缺失按 read 处理。alias 必须与 list_accounts 里的一致。",
+  "version": 1,
+  "users": [
+    {
+      "sub": "u_zhang",
+      "tenant_id": "t_acme",
+      "display_name": "张三"
+    },
+    {
+      "sub": "u_li",
+      "tenant_id": "t_acme",
+      "display_name": "李四"
+    }
+  ],
+  "grants": [
+    {
+      "sub": "u_zhang",
+      "alias": "axd",
+      "permission": "read"
+    },
+    {
+      "sub": "u_li",
+      "alias": "axd",
+      "permission": "write"
+    }
+  ]
+}
