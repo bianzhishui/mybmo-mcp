@@ -51,15 +51,16 @@
 
 ## 4. P3 只读工具
 
-- [ ] 4.1 `tools/accounts.py`：`list_accounts`、`account_snapshot`（余额、预算、状态、当日消耗）、`auth_status`
-- [ ] 4.2 `tools/keyword.py`：`keyword_plan`（种子词 → 词表 + 推荐出价 + 竞争度），显式标注是否触达接口上限
+- [x] 4.1 `tools/accounts.py`：`list_accounts`、`account_snapshot`（余额、预算、状态、当日消耗）、`auth_status`
+- [x] 4.2 `tools/keyword.py`：`keyword_plan`（种子词 → 词表 + 推荐出价 + 竞争度），显式标注是否触达接口上限
 - [ ] 4.3 `tools/report.py`：`query_report`（维度：日 / 单元 / 关键词；返回带 `truncated` 与 `total`）
 - [ ] 4.4 `tools/entities.py`：`get_entity` / `list_entities`（计划、单元、关键词、创意）
 - [ ] 4.5 `tools/discover.py`：`api_describe`（查目录）、`api_read`（仅只读白名单，非白名单直接拒绝）
-- [ ] 4.6 统一响应封装：成功 `{ok:true, data, meta}`；失败 `{ok:false, error:{code,message,hint}}`
+- [x] 4.6 统一响应封装：成功 `{ok:true, data, meta}`；失败 `{ok:false, error:{code,message,hint}}`。
+      封装在 `tools/_result.py`，异常在工具边界翻译成结构化失败，不把栈甩给客户端
 - [ ] 4.7 无凭据时的标准应答：说清现状 → 给一条可直接复制的绑定命令 → 给当前能做的（如按目录确认接口参数）
 - [ ] 4.8 富内容渲染：报表返回表格型 `TextContent`，账户快照返回简短摘要而非原始 JSON
-- [ ] 4.9 `tests/test_tools_read.py`：用 fixture 断言字段映射与截断标记
+- [x] 4.9 字段映射与截断标记的断言（落在 `tests/test_services.py` 与 `tests/test_tools.py`，未单独建 `test_tools_read.py`）
 
 **出口**：`[live]` 三个只读工具在真实账户返回正确数据；断网时 `api_read` 报错清晰不挂起。
 

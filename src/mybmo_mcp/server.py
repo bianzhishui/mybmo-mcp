@@ -15,6 +15,7 @@ import typer
 from mcp.server import MCPServer
 
 from mybmo_mcp import __version__
+from mybmo_mcp.tools import register_all
 
 Transport = Literal["stdio", "streamable-http"]
 
@@ -44,8 +45,10 @@ app = typer.Typer(
 
 
 def build_server() -> MCPServer:
-    """构造 MCP 服务实例。工具、资源与鉴权在后续阶段挂载。"""
-    return MCPServer(name="mybmo-mcp", version=__version__, instructions=_INSTRUCTIONS)
+    """构造 MCP 服务实例并挂载工具。"""
+    server = MCPServer(name="mybmo-mcp", version=__version__, instructions=_INSTRUCTIONS)
+    register_all(server)
+    return server
 
 
 def _configure_logging(level: str) -> None:

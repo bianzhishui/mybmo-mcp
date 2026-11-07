@@ -8,12 +8,52 @@
   "body": {
     "data": [
       {
-        "query": "月季",
-        "wordList": [
-          { "word": "月季花苗", "pv": 3200, "competition": "中", "recBid": 1.85 },
-          { "word": "月季花肥料", "pv": 1500, "competition": "低", "recBid": 1.2 },
-          { "word": "藤本月季", "pv": 880, "competition": "高", "recBid": 2.4 }
-        ]
+        "word": "月季花苗",
+        "pv": 3200,
+        "show": 18000,
+        "click": 420,
+        "competition": 3,
+        "recBid": 1.85,
+        "pcPV": 2100,
+        "mobilePV": 1100,
+        "groupName": "花卉苗木",
+        "wordPackage": "月季相关",
+        "recommendPricePc": 2.1,
+        "recommendPriceMobile": 1.5,
+        "showReasons": ["搜索意图匹配"],
+        "similar": ["玫瑰花苗"]
+      },
+      {
+        "word": "月季花肥料",
+        "pv": 1500,
+        "show": 7200,
+        "click": 180,
+        "competition": 1,
+        "recBid": 1.2,
+        "pcPV": 900,
+        "mobilePV": 600,
+        "groupName": "花肥",
+        "wordPackage": "肥料相关",
+        "recommendPricePc": 1.4,
+        "recommendPriceMobile": 0.9,
+        "showReasons": [],
+        "similar": []
+      },
+      {
+        "word": "藤本月季",
+        "pv": 880,
+        "show": 3900,
+        "click": 96,
+        "competition": 5,
+        "recBid": 2.4,
+        "pcPV": 500,
+        "mobilePV": 380,
+        "groupName": "花卉苗木",
+        "wordPackage": "月季相关",
+        "recommendPricePc": 2.6,
+        "recommendPriceMobile": 2.0,
+        "showReasons": ["竞争度高"],
+        "similar": []
       }
     ]
   }
