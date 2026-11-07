@@ -124,21 +124,39 @@ MCP 只忠实执行 `execute_capability`，是否要求人工确认由调用方�
 
 ## 四、数据模型
 
+详见 [ADR 0004](decisions/0004-multi-tenant-accounts.md)。
+
 ```sql
-users            (id, idp_subject, email, status, created_at)
-tenants          (id, name, plan, created_at)
-baidu_accounts   (id, tenant_id, alias, baidu_user_id, user_name,
-                  app_id, secret_key_cipher, refresh_token_cipher,
-                  access_token_expires_at, status, created_at)
-account_grants   (user_id, account_id, permission)   -- read | write | admin
+tenants          (id, name, plan, status, created_at)
+users            (id, tenant_id, idp_subject, email, display_name,
+                  role, status, created_at)              -- owner | admin | member
+baidu_accounts   (id, tenant_id, alias, kind, baidu_user_id, user_name,
+                  parent_account_id, app_id, secret_key_cipher,
+                  refresh_token_cipher, access_token_expires_at,
+                  status, created_at, updated_at)
+account_grants   (user_id, account_id, permission, created_at)  -- read | write | admin
 audit_log        (id, tenant_id, account_id, user_id, capability,
                   request_id, state, payload_digest, error, created_at)
+
+UNIQUE (tenant_id, alias)         -- 别名在租户内唯一，跨租户可重名
+UNIQUE (tenant_id, idp_subject)   -- 一个 Casdoor 身份在一个租户内只对应一个用户
 ```
+
+账户两种形态：
+
+| `kind` | 令牌 | 调用时的 `userName` |
+|---|---|---|
+| `standalone` 独立账户 | 自己的 `app_id` + `refresh_token` | 该账户中文名 |
+| `mcc_child` 管家子账户 | **复用** `parent_account_id` 的令牌 | **子账户**中文名（填错报 81020） |
+
+`mcc_child` 不存令牌，取凭据时沿 `parent_account_id` 上溯一层。
 
 多租户隔离原则：
 
 - 所有查询带 `tenant_id`，不靠应用层 if 判断
-- `account_id` 必须经 `account_grants` 校验，不能直接信任工具入参
+- 执行前必须经 `account_grants` 校验，不能直接信任入参 alias
+- 权限档位：`read` 只能调 `mutating=false` 的能力，`write` 可调写，`admin` 另可管理授权
+- `mutating=unknown` 的能力按写处理（收紧而非放开）
 - 凭据表每个租户独立 DEK（信封加密），主密钥在 KMS
 
 ## 五、凭据生命周期

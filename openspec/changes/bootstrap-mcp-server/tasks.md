@@ -65,8 +65,14 @@
 - [ ] 4.7 审计：记录 `sub` / `account` / `capability` / `request_id` / 结果状态
 - [ ] 4.8 统一响应封装沿用 `tools/_result.py` 的 `{ok,data,meta}` / `{ok,error}` 信封
 - [ ] 4.9 测试：检索命中率、schema 生成、执行链路、越权拒绝、参数错误提示
+- [ ] 4.10 生成 399 条能力骨架：从 SDK 内省参数类型、产品线、`mutating` 初判，写入注册表。
+      **每个能力必须有非空描述**，允许是骨架级
+- [ ] 4.11 高频精写：账户 / 投放 / 关键词 / 报表四域约 50 条，补参数语义、金额单位、父子层级
+- [ ] 4.12 `execute_capability(wait=True)`：按能力的 `async_task` 元数据轮询；
+      超时返回 `{timed_out: true}` 而非报错（见 ADR 0004 D5）
 
-**出口**：不联网即可用 fixture 跑通 search → schema → execute 全链路；越权账户被拒。
+**出口**：不联网即可用 fixture 跑通 search → schema → execute 全链路；越权账户被拒；
+每个能力都有非空描述（骨架级或精写）。
 
 ## 5. P4 Casdoor 接入
 
@@ -79,8 +85,13 @@
 - [ ] 5.7 scope 设计：`baidu:read` / `baidu:write` / `baidu:admin`；权限不足返回 403 + `insufficient_scope`
 - [ ] 5.8 `tests/test_resource.py`：伪造签名、错 audience、过期、缺 scope 四种拒绝路径
 - [ ] 5.9 `[live]` 用 Claude Desktop / Cursor 贴 URL 完成自助注册 → 登录 → 调用一个能力
+- [ ] 5.10 `tenants` / `users` / `account_grants` 三表与仓储层：`sub → tenant` 映射，
+      按 grant 判定可执行档位（详见 ADR 0004 D1/D3）
+- [ ] 5.11 MCC 子账户：`kind=mcc_child` 沿 `parent_account_id` 取令牌，`userName` 用子账户中文名；
+      解绑主账户前先处理子账户
+- [ ] 5.12 权限档位与 `mutating` 联动：`read` 拒绝写能力，`mutating=unknown` 按写处理
 
-**出口**：未知客户端可自助接入；跨服务令牌被拒。
+**出口**：未知客户端可自助接入；跨服务令牌被拒；跨租户账户不可见，越权按 grant 拒绝。
 
 ## 6. P5 写操作审批（已取消）
 
@@ -92,7 +103,7 @@
 
 ## 7. P6 多租户与审计
 
-- [ ] 7.1 `auth/tenancy.py`：`users` / `tenants` / `account_grants` 三表与查询接口
+- [x] 7.1 已前移至 5.10：租户三表在 P4 建，因为按 grant 的授权校验在 P4 就要用
 - [ ] 7.2 所有查询强制带 `tenant_id`，用仓储层封装而非散落的 if 判断
 - [ ] 7.3 `audit/log.py`：JSONL 追加，字段含 `tenant_id`、`account_id`、`sub`、`tool`、`request_id`、`state`、`payload_digest`
 - [ ] 7.4 四态：`attempted` / `succeeded` / `failed` / `unknown`；失败也留痕

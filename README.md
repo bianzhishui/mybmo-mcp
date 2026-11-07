@@ -112,6 +112,7 @@ mybmo-mcp/
 | 鉴权架构决策 | ✅ ADR 0001 |
 | 技术栈选型 | ✅ ADR 0002 |
 | 定位调整（能力层） | ✅ ADR 0003 |
+| 多租户账户模型（租户共享 + MCC） | ✅ ADR 0004 |
 | MCP 入口（stdio / streamable-http） | ✅ 可启动 |
 | 账户工具（`list_accounts` / `auth_status`） | ✅ 已注册 |
 | 接口目录（133 服务 / 399 接口） | ✅ 随包分发 |
