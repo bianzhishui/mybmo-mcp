@@ -39,13 +39,13 @@
 - [x] 3.3 账户别名规则：`^[a-z0-9][a-z0-9_-]{0,31}$`；文件名即身份，禁止 JSON 内的 alias 与文件名不一致
 - [x] 3.4 `auth/registry.py`：`list_accounts()` 返回别名、账户中文名、是否可用、是否默认；**环境变量提供的凭据也要出现在列表里**
 - [x] 3.5 损坏的凭据文件必须报错并列出路径，不静默跳过
-- [ ] 3.6 `auth/oauth.py`：换令牌 `POST u.baidu.com/oauth/accessToken`，刷新 `refreshToken`，`getUserInfo` 取中文名
-- [ ] 3.7 刷新加分布式锁（单机用文件锁 / 生产用 PG advisory lock），新令牌**先落库再使用**
-- [ ] 3.8 刷新失败标记 `reauth_required`，不重试旧令牌
-- [ ] 3.9 `auth/binding.py`：一次性 state（nonce + `sub` + `tenant` + TTL 15min），回调校验后换令牌、取用户名、落库
-- [ ] 3.10 state 不匹配时退化为按 `acct_<userId>` 命名并标记 `unconfirmed`，不静默接受
-- [ ] 3.11 换令牌失败**不回显 authCode**，错误信息不含令牌片段
-- [ ] 3.12 `tests/test_vault.py`、`test_registry.py`、`test_oauth.py`：覆盖多账户隔离、别名冲突、损坏文件、刷新轮换、state 重放被拒
+- [x] 3.6 `auth/oauth.py`：换令牌 `POST u.baidu.com/oauth/accessToken`，刷新 `refreshToken`，`getUserInfo` 取中文名
+- [x] 3.7 刷新加分布式锁（单机用文件锁 / 生产用 PG advisory lock），新令牌**先落库再使用**
+- [x] 3.8 刷新失败标记 `reauth_required`，不重试旧令牌
+- [x] 3.9 `auth/binding.py`：一次性 state（nonce + `sub` + `tenant` + TTL 15min），回调校验后换令牌、取用户名、落库
+- [x] 3.10 state 不匹配时退化为按 `acct_<userId>` 命名并标记 `unconfirmed`，不静默接受
+- [x] 3.11 换令牌失败**不回显 authCode**，错误信息不含令牌片段
+- [x] 3.12 `tests/test_vault.py`、`test_registry.py`、`test_oauth.py`：覆盖多账户隔离、别名冲突、损坏文件、刷新轮换、state 重放被拒
 
 **出口**：`[live]` 用一个真实账户完成一次绑定 → 刷新 → 调 `getUserInfo` 成功。
 

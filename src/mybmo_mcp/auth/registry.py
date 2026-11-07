@@ -165,6 +165,11 @@ class AccountRegistry:
     def default_alias(self) -> str | None:
         return self._vault.default_alias()
 
+    def is_environment(self, alias: str) -> bool:
+        """该 alias 是否指向环境变量提供的临时凭据（不可落盘）。"""
+        env_cred = credential_from_env(self._env)
+        return env_cred is not None and alias == env_cred.alias
+
     def set_default(self, alias: str) -> None:
         self._vault.set_default(alias)
 
