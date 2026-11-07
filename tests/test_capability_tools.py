@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
 
+from mybmo_mcp.audit.log import AuditLog
+from mybmo_mcp.auth.tenancy import Principal
 from mybmo_mcp.baidu.capabilities import CapabilityRegistry
 from mybmo_mcp.tools import capability as capability_tools
 from mybmo_mcp.tools.runtime import set_runtime
@@ -29,11 +32,26 @@ class FakeTransport:
         return {"requestId": "fake", "data": []}
 
 
+class PermissiveAccess:
+    """放行一切的授权层。真实的越权判定在 test_tenancy.py 里测。"""
+
+    def resolve(
+        self, principal: Principal, requested: str | None = None, *, permission: str = "read"
+    ) -> SimpleNamespace:
+        return SimpleNamespace(alias=requested or "axd")
+
+
 class FakeRuntime:
     def __init__(self) -> None:
         self.capabilities = CapabilityRegistry.load()
         self.transport = FakeTransport()
         self.permissions: list[str] = []
+        self.access = PermissiveAccess()
+        self.audit = AuditLog(None)
+        self.principal: Principal | None = None
+
+    def current_principal(self) -> Principal:
+        return self.principal or Principal.local_admin()
 
     def transport_for(
         self, alias: str | None = None, *, permission: str = "read", **_: Any

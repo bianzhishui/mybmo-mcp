@@ -141,6 +141,7 @@ mybmo-mcp/
 | 能力注册表（389 条 / 585 模型） | ✅ 构建期从 SDK 内省生成 |
 | **能力网关（search / schema / execute）** | ✅ 五工具端到端跑通 |
 | 账户归属校验（三档权限 / 默认拒绝） | ✅ 离线可验（`tests/test_tenancy.py`） |
+| 调用审计（JSONL / 脱敏 / 四态） | ✅ 离线可验（`tests/test_audit.py`） |
 | Casdoor 接入与多租户 | ⬜ 待开工（P4） |
 | 真实账户联调 | ⬜ 需要可用账号 |
 

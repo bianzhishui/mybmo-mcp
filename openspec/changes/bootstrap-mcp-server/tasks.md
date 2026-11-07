@@ -67,7 +67,9 @@
       + `auth/access.py`（先筛后判，未知 alias 与无权 alias 同一条错误）。
       多用户模式下授权表缺失**直接报错**，不回退成人人可用；不传 alias 只在唯一账户时生效，
       不落进程级默认账户
-- [ ] 4.7 审计：记录 `sub` / `account` / `capability` / `request_id` / 结果状态
+- [x] 4.7 审计：`audit/log.py` JSONL 按天分文件，记录 `sub` / `tenant_id` / `account` /
+      `capability` / `permission` / `call_id` / `state` / `payload_digest` / `duration_ms`。
+      错误信息过 `redact()`，报文不落盘只留摘要；写失败打 stderr 但不中断调用
 - [x] 4.8 统一响应封装沿用 `tools/_result.py` 的 `{ok,data,meta}` / `{ok,error}` 信封
 - [ ] 4.9 测试：检索命中率、schema 生成、执行链路、参数错误提示**已完成**；
       越权拒绝见 `tests/test_tenancy.py`（覆盖默认拒绝、档位顺序、账户名探测、默认账户回落）
@@ -112,10 +114,15 @@
 
 - [x] 7.1 已前移至 5.10：租户三表在 P4 建，因为按 grant 的授权校验在 P4 就要用
 - [ ] 7.2 所有查询强制带 `tenant_id`，用仓储层封装而非散落的 if 判断
-- [ ] 7.3 `audit/log.py`：JSONL 追加，字段含 `tenant_id`、`account_id`、`sub`、`tool`、`request_id`、`state`、`payload_digest`
-- [ ] 7.4 四态：`attempted` / `succeeded` / `failed` / `unknown`；失败也留痕
-- [ ] 7.5 脱敏断言：审计与日志中不得出现 `access_token`、`refresh_token`、`secret_key`
-- [ ] 7.6 `tests/test_tenancy.py`、`test_audit.py`：跨租户账户不可见、令牌不入日志
+      （文件式授权表没有租户维度，等 5.10 落 PostgreSQL 后由仓储层保证）
+- [x] 7.3 已前移至 4.7：`audit/log.py` JSONL 追加，字段含 `tenant_id`、`account`、`sub`、
+      `capability`、`call_id`、`state`、`payload_digest`
+- [x] 7.4 已前移至 4.7：状态为 `succeeded` / `failed` / `unknown` / `denied`。
+      与原文的四态差异：`attempted` 不单独记（一次调用只写一行终态，避免日志翻倍），
+      另加 `denied`——越权时请求根本没发出去，记成 `failed` 会误判成百度侧故障
+- [x] 7.5 已前移至 4.7：`tests/test_audit.py::test_error_message_is_redacted`
+      与 `test_payload_is_not_stored_only_its_digest`
+- [x] 7.6 `tests/test_tenancy.py`（跨租户/越权不可见）、`tests/test_audit.py`（令牌不入日志）
 
 **出口**：A 租户的身份无法通过任何工具参数触达 B 租户的账户。
 

@@ -15,13 +15,21 @@
 from __future__ import annotations
 
 import difflib
+import time
 from typing import Any
 
 from mcp.server import MCPServer
 
-from mybmo_mcp.auth.tenancy import required_permission
+from mybmo_mcp.audit.log import (
+    STATE_DENIED,
+    STATE_FAILED,
+    STATE_SUCCEEDED,
+    STATE_UNKNOWN,
+    new_call_id,
+)
+from mybmo_mcp.auth.tenancy import AccessDenied, required_permission
 from mybmo_mcp.baidu.capabilities import Capability, CapabilityRegistry
-from mybmo_mcp.baidu.errors import BaiduError
+from mybmo_mcp.baidu.errors import BaiduApiError, BaiduError
 from mybmo_mcp.tools._result import fail, fail_from, guarded, ok
 from mybmo_mcp.tools.runtime import get_runtime
 
@@ -88,6 +96,9 @@ async def execute_capability(
 
     权限按能力的读写属性判定：只读能力要 read，写能力要 write。
     ``mutating=unknown`` 按写处理——判不准时偏向更严的一侧。
+
+    每次调用都会写一条审计，返回的 ``meta.call_id`` 是它的编号。
+    结果未知（超时、5xx）会被记成 ``unknown``，此时应先查询后台状态，不要直接重发。
     """
     runtime = get_runtime()
     registry = runtime.capabilities
@@ -103,11 +114,55 @@ async def execute_capability(
         return fail(str(exc), hint="先用 get_capability_schema 看参数名与层级")
 
     permission = required_permission(cap.mutating)
+    call_id = new_call_id()
+
     try:
-        transport = runtime.transport_for(account, permission=permission)
-        data = await transport.call(cap.service, cap.method, payload, product_line=cap.product_line)
-    except (BaiduError, ValueError) as exc:
+        principal = runtime.current_principal()
+    except BaiduError as exc:
+        # 连身份都没有，无法归属审计；这不是账户级失败，直接报给调用方。
         return fail_from(exc)
+
+    started = time.perf_counter()
+
+    def _audit(state: str, *, alias: str = "", error: str = "", code: int | None = None) -> None:
+        runtime.audit.record(
+            sub=principal.sub,
+            tenant_id=principal.tenant_id,
+            account=alias,
+            capability=cap.key,
+            permission=permission,
+            mutating=cap.mutating,
+            state=state,
+            call_id=call_id,
+            duration_ms=(time.perf_counter() - started) * 1000,
+            error_code=code,
+            error=error,
+            payload=payload,
+        )
+
+    try:
+        entry = runtime.access.resolve(principal, account, permission=permission)
+    except AccessDenied as exc:
+        # 优先用异常里带回的 alias：不传 account 时它已经被解析成具体账户了，
+        # 记成空字符串会让「谁想动哪个账户被拒」这条线索断掉。
+        _audit(STATE_DENIED, alias=exc.alias or account or "", error=str(exc))
+        return fail_from(exc)
+    except (BaiduError, ValueError) as exc:
+        _audit(STATE_FAILED, alias=account or "", error=str(exc))
+        return fail_from(exc)
+
+    try:
+        transport = runtime.transport_for(entry.alias, principal=principal, permission=permission)
+        data = await transport.call(cap.service, cap.method, payload, product_line=cap.product_line)
+    except BaiduApiError as exc:
+        state = STATE_UNKNOWN if exc.outcome == "unknown" else STATE_FAILED
+        _audit(state, alias=entry.alias, error=str(exc), code=exc.code)
+        return fail_from(exc)
+    except (BaiduError, ValueError) as exc:
+        _audit(STATE_FAILED, alias=entry.alias, error=str(exc))
+        return fail_from(exc)
+
+    _audit(STATE_SUCCEEDED, alias=entry.alias)
 
     meta: dict[str, Any] = {
         "capability": cap.key,
@@ -115,6 +170,8 @@ async def execute_capability(
         "product_line": cap.product_line,
         "mutating": cap.mutating,
         "required_permission": permission,
+        "account": entry.alias,
+        "call_id": call_id,
     }
     if notes:
         meta["normalized"] = notes

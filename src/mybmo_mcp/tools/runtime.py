@@ -24,6 +24,7 @@ from functools import cached_property
 
 import httpx2
 
+from mybmo_mcp.audit.log import AuditLog
 from mybmo_mcp.auth.access import AccountAccess
 from mybmo_mcp.auth.oauth import BaiduOAuth
 from mybmo_mcp.auth.registry import AccountRegistry
@@ -129,6 +130,10 @@ class Runtime:
     def capabilities(self) -> CapabilityRegistry:
         """能力注册表。389 条能力 + 585 个模型，进程内只加载一次。"""
         return CapabilityRegistry.load()
+
+    @cached_property
+    def audit(self) -> AuditLog:
+        return AuditLog(self.settings.mybmo_data_dir / "audit")
 
     @cached_property
     def client(self) -> httpx2.AsyncClient:
