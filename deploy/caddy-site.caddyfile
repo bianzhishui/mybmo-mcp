@@ -1,0 +1,43 @@
+# 共享宿主机用的站点配置片段。
+#
+# 适用场景：这台机器上已经有 Caddy 在服务别的站点，不能把 80/443 让给容器。
+# 做法是把下面这段追加到 /etc/caddy/Caddyfile，然后 `sudo systemctl reload caddy`。
+#
+# 与 deploy/Caddyfile 的区别：那份是完整配置（专用宿主机，跑在容器里）；
+# 这份是片段，假定宿主 Caddy 已有自己的全局配置，不带 global 块。
+#
+# 注意：Caddy 的全局 `email` 只能出现在文件最前面。如果宿主 Caddyfile 里没有，
+# 可以在第一行加：
+#   {
+#       email admin@pandabase.top
+#   }
+# 不加也能签发证书，只是收不到到期提醒。
+
+baiduads.pandabase.top {
+	encode zstd gzip
+
+	# /healthz 不鉴权：容器 HEALTHCHECK、外部监控、排障都要能直接打到。
+	# 它只返回版本、能力条数、凭据是否已配置，不含账户与令牌。
+	handle /healthz {
+		reverse_proxy 127.0.0.1:8000
+	}
+
+	handle {
+		# Casdoor 上线前，这里是唯一的门。
+		# 生成：caddy hash-password --plaintext '密码'
+		basic_auth {
+			mybmo $2a$14$REPLACE_WITH_REAL_HASH
+		}
+
+		# 默认不缓冲，Streamable HTTP 的长连接可以直接穿透
+		reverse_proxy 127.0.0.1:8000
+	}
+}
+
+# ---------------------------------------------------------------------------
+# P4：Casdoor 上线后追加。issuer 一旦启用不可更改（见 ADR 0001）。
+#
+# auth.pandabase.top {
+# 	reverse_proxy 127.0.0.1:8080
+# }
+# ---------------------------------------------------------------------------

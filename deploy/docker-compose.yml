@@ -1,9 +1,15 @@
-# 部署编排。
+# 部署编排。两种形态共用这一个文件：
 #
-# 现在只有两个服务：mcp + caddy。Casdoor 和 PostgreSQL 的段落是**注释掉的**，
-# 不是漏了——见 docs/operations.md 的「什么时候加 Casdoor」。
+#   共享宿主机（当前生产）——宿主已有 Caddy 在跑别的站点：
+#     docker compose -f deploy/docker-compose.yml up -d
+#     只起 mcp，端口绑在 127.0.0.1，由宿主 Caddy 反代。
+#     站点配置见 deploy/caddy-site.caddyfile，追加进 /etc/caddy/Caddyfile。
 #
-# 端口暴露原则：mcp 只走内部网络，公网入口只有 caddy 的 80/443。
+#   专用宿主机——整台机器只服务这一个站点：
+#     docker compose -f deploy/docker-compose.yml --profile dedicated up -d
+#     多起一个 Caddy 容器，独占 80/443，用 deploy/Caddyfile。
+#
+# 端口暴露原则不变：mcp 永远不直接对公网开放。
 
 name: mybmo
 
@@ -21,13 +27,16 @@ services:
       MYBMO_DATA_DIR: /data
     volumes:
       - data:/data
-    expose:
-      - "8000"
+    ports:
+      # 只绑回环：宿主 Caddy 能打到，公网打不到
+      - "127.0.0.1:8000:8000"
     networks:
       - internal
 
   caddy:
     image: caddy:2-alpine
+    profiles:
+      - dedicated
     restart: unless-stopped
     depends_on:
       - mcp

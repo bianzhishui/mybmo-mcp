@@ -4,21 +4,27 @@
 下面是**当前阶段**（Casdoor 未接入）的完整流程。
 
 ```text
-公网 ──:443──▶ caddy ──internal──▶ mcp:8000
-                │
-                └ /healthz 不鉴权，其余路径要 basic auth
+公网 ──:443──▶ 宿主 Caddy（systemd 托管）──127.0.0.1:8000──▶ mcp 容器
+                    │
+                    └ /healthz 不鉴权，其余路径要 basic auth
 ```
+
+TLS 交给宿主上已有的 Caddy（`/etc/caddy/Caddyfile`），不额外跑容器：
+少一个进程，也避免和机器上别的站点抢 80/443。若这台机器是专用的，改用
+`--profile dedicated` 起容器版 Caddy（见第五节）。
 
 ## 一、前置条件
 
 | 项 | 要求 | 检查方式 |
 |---|---|---|
-| DNS | `baiduads.pandabase.top` A 记录指向服务器公网 IP | `dig +short baiduads.pandabase.top` |
-| 端口 | 安全组 / 防火墙放通 80、443（Caddy 申请证书要用 80） | 控制台确认 |
+| DNS | `baiduads` **和** `auth` 两条 A 记录都指向本机公网 IP | `dig +short baiduads.pandabase.top` |
+| 端口 | 安全组 / 防火墙放通 80、443（申请证书要用 80） | `nc -z 公网IP 443` |
 | Docker | 20.10+，含 compose v2 | `docker compose version` |
-| 内存 | MCP + Caddy 约 200 MB，1.9 GiB 机器足够 | `free -m` |
+| 内存 | mcp + Caddy 约 200 MB，1.9 GiB 机器足够 | `free -m` |
 
-DNS 没生效就启动，Caddy 会反复重试签证书并失败——先 `dig` 确认再往下走。
+**通配符 `*.pandabase.top` 不等于有记录**——实测这台机器的权威 NS（DNSPod）上
+只有 apex 记录，子域必须显式加。DNS 没生效就启动，Caddy 会反复重试签证书并失败，
+先 `dig` 确认再往下走。
 
 ## 二、首次部署
 
@@ -38,7 +44,30 @@ docker compose -f deploy/docker-compose.yml ps
 生成口令哈希（不要在别处复用这个密码）：
 
 ```bash
+caddy hash-password --plaintext '你的密码'     # 宿主已装 caddy 时
+# 或
 docker run --rm caddy:2-alpine caddy hash-password --plaintext '你的密码'
+```
+
+### 让 Caddy 接管这个域名
+
+宿主机已有 Caddy 服务时**不要**再起 Caddy 容器，把
+[`deploy/caddy-site.caddyfile`](../deploy/caddy-site.caddyfile) 里的站点块追加到
+`/etc/caddy/Caddyfile`，把 `mybmo $2a$14$REPLACE...` 换成真实用户名与哈希：
+
+```bash
+sudo cp /etc/caddy/Caddyfile /etc/caddy/Caddyfile.bak-$(date +%F)
+sudo tee -a /etc/caddy/Caddyfile < deploy/caddy-site.caddyfile   # 追加后再手工改哈希
+sudo caddy validate --config /etc/caddy/Caddyfile
+sudo systemctl reload caddy
+```
+
+原来的默认站点（`:80 { file_server }`）留着不影响；它只服务 IP 直连，域名走新块。
+
+专用宿主机则改用容器版：
+
+```bash
+docker compose -f deploy/docker-compose.yml --profile dedicated up -d --build
 ```
 
 验证：
@@ -51,6 +80,14 @@ curl -fsS https://baiduads.pandabase.top/healthz
 
 `credentials=unconfigured` 说明 `MYBMO_MASTER_KEY` 没填对——此时服务能检索接口目录，
 但调不动百度。这是刻意的：没有密钥不该让容器起不来，只该让它干不了活。
+
+顺带确认鉴权真的生效（不带凭据应当被拒）：
+
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' -X POST \
+  -H 'Content-Type: application/json' -d '{}' https://baiduads.pandabase.top/mcp
+# 期望 401
+```
 
 ## 三、接客户端
 
@@ -81,7 +118,7 @@ Docker 自带的 HEALTHCHECK 已指向它，`docker ps` 里能看到 `healthy`�
 
 ```bash
 docker compose -f deploy/docker-compose.yml logs -f mcp     # 应用日志（stderr）
-docker compose -f deploy/docker-compose.yml logs -f caddy   # 证书与访问日志
+sudo journalctl -u caddy -f                                # 证书与访问日志（宿主 Caddy）
 ```
 
 **审计日志不在 stdout**，在数据卷里，按天分文件：
@@ -162,9 +199,10 @@ basic auth 挡住外人就够了。等下面任意一条成立再上：
 
 | 现象 | 原因 | 处理 |
 |---|---|---|
-| Caddy 反复重启、日志报 ACME 失败 | 80 端口未放通 / DNS 没生效 | 先 `dig`，再查安全组 |
-| `401 Unauthorized` | 没带 basic auth，或 hash 写错 | 重新 `caddy hash-password` |
+| Caddy 日志报 ACME 失败 | 子域没有 A 记录 / 80 端口未放通 | `dig +short baiduads.pandabase.top`，再查安全组 |
+| `401 Unauthorized` | 没带 basic auth，或哈希写错 | 重新 `caddy hash-password` 并 reload |
 | 容器 `unhealthy` | `/healthz` 打不通 | `logs mcp` 看是否启动即崩 |
+| 502 Bad Gateway | Caddy 连不到 `127.0.0.1:8000` | `docker compose ps` 看 mcp 是否在跑、端口映射是否被占 |
 | 工具调用挂住不返回 | 反向代理缓冲了 SSE | 本配置默认不缓冲；若改过 Caddyfile 检查 `flush_interval` |
 | `credentials: unconfigured` | `MYBMO_MASTER_KEY` 缺失或格式错 | 32 字节 base64，重启生效 |
 | 所有账户报 `reauth_required` | 换了主密钥 | 用原密钥，或重新绑定 |
