@@ -19,7 +19,7 @@
 | 测试 | `pytest` + `pytest-asyncio` | 1.4.x |
 | Lint | `ruff` | 0.9+ |
 
-`psycopg` 是 `optional-dependencies.p4` 里的未启用依赖——多租户落库还没做，见 D3。
+`psycopg` 是 `optional-dependencies.db` 里的未启用依赖——多租户落库还没做，见 D3。
 
 ## D1. MCP 框架用官方 `mcp`，不用 `fastmcp`
 

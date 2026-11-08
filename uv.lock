@@ -410,7 +410,7 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
-p4 = [
+db = [
     { name = "psycopg", extra = ["binary", "pool"] },
 ]
 
@@ -427,13 +427,13 @@ requires-dist = [
     { name = "cryptography", specifier = ">=43" },
     { name = "httpx2", specifier = ">=2.16.0,<3" },
     { name = "mcp", extras = ["cli"], specifier = ">=2.3.0,<3" },
-    { name = "psycopg", extras = ["binary", "pool"], marker = "extra == 'p4'", specifier = ">=3.3,<4" },
+    { name = "psycopg", extras = ["binary", "pool"], marker = "extra == 'db'", specifier = ">=3.3,<4" },
     { name = "pydantic-settings", specifier = ">=2.16,<3" },
     { name = "pyjwt", extras = ["crypto"], specifier = ">=2.15,<3" },
     { name = "starlette", specifier = ">=0.40" },
     { name = "typer", specifier = ">=0.28,<1" },
 ]
-provides-extras = ["p4"]
+provides-extras = ["db"]
 
 [package.metadata.requires-dev]
 dev = [

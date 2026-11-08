@@ -27,9 +27,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# P4 之后做多租户落库时才需要。当前授权表还是文件式（data/tenancy.json）。
-# 启用时在 Dockerfile 的两条 uv sync 后追加 --extra p4。
-p4 = [
+# 多租户落库时才需要。当前授权表还是文件式（data/tenancy.json）。
+# 启用时在 Dockerfile 的两条 uv sync 后追加 --extra db。
+db = [
     "psycopg[binary,pool]>=3.3,<4",
 ]
 

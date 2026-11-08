@@ -1,13 +1,13 @@
 # syntax=docker/dockerfile:1
 #
-# 构建耗时几乎全在拉基础镜像。实测 ghcr.io/astral-sh/uv 那个镜像要 745 秒，
+# 构建耗时几乎全在拉基础镜像。ghcr.io/astral-sh/uv 在国内拉取极慢，
 # 所以这里只用 Docker Hub 的 python 镜像 —— uv 是单文件二进制，pip 装它快得多。
 #
 # 两阶段：builder 装依赖，运行镜像只留 venv，不带 pip 缓存与编译工具。
 # 两个 sync 参数都是刻意的：
-#   --no-dev         baiduads-sdk 只在生成 capabilities.json 时用，运行时不碰
-#   不带 --extra p4  psycopg / pyjwt 是 P4 才用，现在不装（省 ~5 MB 二进制与几分钟）
-# 启用 P4 时在两条 uv sync 后追加 --extra p4 即可。
+#   --no-dev      baiduads-sdk 只在生成 capabilities.json 时用，运行时不碰
+#   不带 --extra  psycopg 只在多租户落库时才需要，现在不装（省 ~5 MB 二进制与几分钟）
+# 落库时在两条 uv sync 后追加 --extra db 即可。
 
 FROM python:3.12-slim AS builder
 

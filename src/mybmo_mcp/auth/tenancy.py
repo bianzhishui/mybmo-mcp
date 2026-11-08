@@ -8,7 +8,7 @@
 3. **别名不是凭据**。知道别人的 alias 不等于能用它，必须落在自己的授权列表里。
 
 当前是文件式实现（``data/tenancy.json``），只覆盖单租户：账户还在文件凭据库里，
-没有 ``tenant_id`` 维度。多租户要等 P4 把账户表落到 PostgreSQL（tasks 5.10），
+没有 ``tenant_id`` 维度。多租户需要把账户表落到 PostgreSQL，
 届时把 :class:`TenancyStore` 换成仓储实现，接口不变。
 """
 

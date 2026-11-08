@@ -264,8 +264,8 @@ def test_scopes_are_the_three_documented() -> None:
 
 # ---------- audience 白名单 ----------
 #
-# Casdoor 把 aud 填成 client_id（ADR 0006），所以"哪些客户端能调用本服务"这件事
-# 只能靠一份 client_id 白名单来表达（ADR 0007：DCR 动态注册的客户端不自动进白名单）。
+# IdP 把 aud 填成 client_id，所以"哪些客户端能调用本服务"这件事
+# 只能靠一份 client_id 白名单来表达（不走 DCR：动态注册的客户端不自动进白名单）。
 
 CLAUDE_ID = "60fda1d9bedd4615eb90"
 CURSOR_ID = "06fbc30987245dbe95e9"
@@ -290,7 +290,7 @@ def test_client_outside_allowlist_is_rejected(
 ) -> None:
     """DCR 自助注册拿到的 client_id 不在名单里，必须拒。
 
-    这条用例固化的是 ADR 0007 的结论：开放 DCR 不会让陌生客户端获得可用令牌。
+    这条用例固化的是当前结论：开放 DCR 不会让陌生客户端获得可用令牌。
     """
     private, jwk = keypair
     verifier = JwtVerifier(issuer=ISSUER, audience=CLAUDE_ID)

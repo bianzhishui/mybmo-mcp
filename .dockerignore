@@ -8,7 +8,6 @@
 # 运行时数据与密钥：绝不能进镜像
 data/
 deploy/.env
-deploy/.env.caddy
 .env
 .env.*
 *.jsonl
@@ -17,7 +16,6 @@ deploy/.env.caddy
 # 测试与文档
 tests/
 docs/
-openspec/
 scripts/
 deploy/
 *.md

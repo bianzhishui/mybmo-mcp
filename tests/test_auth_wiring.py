@@ -43,7 +43,7 @@ def make_settings(tmp_path: Path, *, mode: str = MODE_OIDC, **overrides) -> Sett
         "mybmo_auth_mode": mode,
         "casdoor_issuer": ISSUER,
         "mybmo_resource_url": RESOURCE,
-        # aud 是 client_id 而非资源地址，见 ADR 0006
+        # aud 是 client_id 而非资源地址，见 docs/auth-contract.md
         "mybmo_oidc_audience": CLIENT_ID,
     }
     values.update(overrides)
