@@ -89,6 +89,9 @@ curl -fsS https://baiduads.pandabase.top/healthz
 **尚未验证的是真实百度接口**——没有可用账号，所以 `execute_capability` 从未真正
 打到 `api.baidu.com`。拿到 AppID 后跑一次绑定即可确认。
 
+待办与验收标准在 [`openspec/`](openspec/)：`live-validation` 是 v1 的唯一阻塞项，
+`multi-tenant-persistence` 要等出现第二个真实用户才启动。
+
 ## 文档
 
 | 文档 | 内容 |
