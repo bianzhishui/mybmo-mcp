@@ -20,17 +20,17 @@ dependencies = [
     "httpx2>=2.16.0,<3",
     "mcp[cli]>=2.3.0,<3",
     "pydantic-settings>=2.16,<3",
+    # JWT 校验是 Resource Server 的运行时能力（auth/resource.py），不是可选项
+    "pyjwt[crypto]>=2.15,<3",
     "starlette>=0.40",
     "typer>=0.28,<1",
 ]
 
 [project.optional-dependencies]
-# P4（Casdoor 接入）才用，当前代码一行都没引用。
-# 放进 dependencies 会让每次镜像构建都多下 5 MB 的 psycopg 二进制与 pyjwt 的 crypto 依赖，
-# 在 2 核机器上是实打实的几分钟。启用时改 Dockerfile 的 sync 参数带上 --extra p4。
+# P4 之后做多租户落库时才需要。当前授权表还是文件式（data/tenancy.json）。
+# 启用时在 Dockerfile 的两条 uv sync 后追加 --extra p4。
 p4 = [
     "psycopg[binary,pool]>=3.3,<4",
-    "pyjwt[crypto]>=2.15,<3",
 ]
 
 [project.scripts]

@@ -92,20 +92,35 @@
 
 ## 5. P4 Casdoor 接入
 
-- [ ] 5.1 `deploy/casdoor/docker-compose.yml`：Casdoor + PostgreSQL，管理台端口只绑 `127.0.0.1`
-- [ ] 5.2 `deploy/README.md`：首次启动、改默认口令、建管理员、确认 issuer 的操作步骤
-- [ ] 5.3 验证 discovery：`registration_endpoint` 与 `client_id_metadata_document_supported` 的实际取值记录到 `docs/casdoor-notes.md`
-- [ ] 5.4 开启组织级 DCR（`dcrPolicy`），配置回调 URI 白名单与注册频率限制
-- [ ] 5.5 `auth/resource.py`：JWT 校验（JWKS 缓存、`iss` / `aud` / `exp` / `scope`），失败返回 401 并带 `WWW-Authenticate`
-- [ ] 5.6 发布 `/.well-known/oauth-protected-resource`，`resource` 与 `authorization_servers` 正确
-- [ ] 5.7 scope 设计：`baidu:read` / `baidu:write` / `baidu:admin`；权限不足返回 403 + `insufficient_scope`
-- [ ] 5.8 `tests/test_resource.py`：伪造签名、错 audience、过期、缺 scope 四种拒绝路径
+> 代码侧已完成并可离线验（`tests/test_resource.py` + `tests/test_auth_wiring.py`，共 24 例）。
+> **剩下的都是需要真实 Casdoor 实例的步骤**，见 `deploy/casdoor/README.md`。
+
+- [x] 5.1 `deploy/casdoor/docker-compose.yml`：Casdoor + PostgreSQL，管理台只绑 `127.0.0.1:8001`；
+      与主 compose **分离**，避免 Casdoor 升级把 mcp 一起重启
+- [x] 5.2 `deploy/casdoor/README.md`：起容器 → Caddy 接管 auth 子域 → 改默认口令 → 建应用 →
+      discovery 验证 → 开 DCR → 切 oidc → 回滚，九节
+- [ ] 5.3 验证 discovery：`registration_endpoint` 与 `client_id_metadata_document_supported`
+      的实际取值记录到 `docs/casdoor-notes.md`（**需要实例**，README 第四节写了怎么取）
+- [ ] 5.4 开启组织级 DCR 与回调白名单（**需要实例**）
+- [x] 5.5 `auth/resource.py`：`JwtVerifier` 实现 SDK 的 `TokenVerifier` 协议。
+      验签（JWKS 缓存 + kid 查找）、`iss` / `aud` / `exp` / `nbf`，60 秒时钟容忍。
+      **JWKS 取不到时拒绝而非放行**；令牌畸形在取 kid 阶段抛 `DecodeError` 也接住了
+- [x] 5.6 `/.well-known/oauth-protected-resource` 由 SDK 自动挂载（`AuthSettings.resource_server_url`），
+      实测返回 `{"resource":"https://baiduads.pandabase.top/","authorization_servers":
+      ["https://auth.pandabase.top/"],"scopes_supported":["baidu:read"]}`；
+      无令牌访问 `/mcp` 实测 401 + `WWW-Authenticate: Bearer resource_metadata="..."`
+- [x] 5.7 scope 设计：`baidu:read` / `baidu:write` / `baidu:admin`（`SCOPES_SUPPORTED`）。
+      **缺 scope 不当作令牌无效**——校验层不管权限，那是工具层按 `mutating` 判档位
+- [x] 5.8 `tests/test_resource.py`：伪造签名、错 audience、过期、issuer 不符四条；
+      另加 issuer 尾斜杠、缺 scope、JWKS 失败、令牌畸形四个边界
 - [ ] 5.9 `[live]` 用 Claude Desktop / Cursor 贴 URL 完成自助注册 → 登录 → 调用一个能力
-- [ ] 5.10 `tenants` / `users` / `account_grants` 三表与仓储层：`sub → tenant` 映射，
-      按 grant 判定可执行档位（详见 ADR 0004 D1/D3）
-- [ ] 5.11 MCC 子账户：`kind=mcc_child` 沿 `parent_account_id` 取令牌，`userName` 用子账户中文名；
-      解绑主账户前先处理子账户
-- [ ] 5.12 权限档位与 `mutating` 联动：`read` 拒绝写能力，`mutating=unknown` 按写处理
+      （**需要 5.3/5.4 先做**）
+- [ ] 5.10 `tenants` / `users` / `account_grants` 三表与仓储层：`sub → tenant` 映射。
+      **当前用文件式 `data/tenancy.json` 替代**，`TenancyStore.resolve_principal`
+      已实现 `sub → Principal`；落库是下一步（`optional-dependencies.p4` 里备了 psycopg）
+- [ ] 5.11 MCC 子账户：`kind=mcc_child` 沿 `parent_account_id` 取令牌（**ADR 0004 D2，未开工**）
+- [x] 5.12 权限档位与 `mutating` 联动：`required_permission()` 把 `mutating=unknown` 按写处理，
+      `execute_capability` 据此定所需档位；`tests/test_tenancy.py` 覆盖 read 拒绝写能力
 
 **出口**：未知客户端可自助接入；跨服务令牌被拒；跨租户账户不可见，越权按 grant 拒绝。
 

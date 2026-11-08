@@ -199,18 +199,31 @@ basic auth 挡住外人就够了。等下面任意一条成立再上：
 - 要给别人用，且不想共享一个口令
 - 需要按账户授权（A 只能看 `axd`，B 能改 `bcd`）
 - 需要审计到人（现在审计里的 `sub` 恒为 `local`）
+- **需要 Claude Desktop 直连**——它只认 OAuth，接不了 basic auth
 
-接入时必须一次做对的事：**issuer 定死就是 https://auth.pandabase.top，之后不能改**，
-它写进每个 JWT 的 `iss`（理由见 ADR 0001）。步骤：
+**代码侧已就绪**：`auth/resource.py` 的 JWT 校验、SDK 自动挂载的
+`/.well-known/oauth-protected-resource`、401 + `WWW-Authenticate` 都已实测通过
+（`tests/test_resource.py` 14 例 + `tests/test_auth_wiring.py` 10 例）。
+缺的是真实 Casdoor 实例上的那几步：discovery 字段核实、DCR 开启、客户端实连。
 
-1. DNS 加 `auth.pandabase.top` 的 A 记录
-2. 解除 `docker-compose.yml` 里 casdoor / postgres 的注释
-3. 解除 `Caddyfile` 里 auth 站点块的注释
-4. `deploy/.env` 设 `CASDOOR_ISSUER`、`MYBMO_RESOURCE_URL`、`MYBMO_DATABASE_URL`
-5. 起容器，在 Casdoor 后台建应用，回调地址填 MCP 客户端用的那个
-6. 建用户与 `data/tenancy.json`（格式见 `tenancy.example.json`）
-7. `MYBMO_AUTH_MODE=oidc` 重启，**此时缺授权表会直接报错**，这是有意的
-8. 客户端从 basic auth 换成 OAuth
+完整步骤见 [`deploy/casdoor/README.md`](../deploy/casdoor/README.md)。这里只列切换时的
+**不可逆决定**：
+
+> **issuer 定死就是 `https://auth.pandabase.top`，之后不能改。**
+> 它写进每个 JWT 的 `iss`，改一次 = 所有令牌失效 + 所有客户端重新配置。
+
+切换前必须先建 `data/tenancy.json`，否则所有调用报"缺少授权表"——这是有意的，
+理由见 README 的三条硬规则。切 in 与切回各一条命令：
+
+```bash
+# 切到 oidc
+# deploy/.env: MYBMO_AUTH_MODE=oidc / CASDOOR_ISSUER / MYBMO_RESOURCE_URL
+docker compose -f deploy/docker-compose.yml up -d --force-recreate
+
+# 出问题时切回（basic auth 立刻恢复生效）
+# deploy/.env: MYBMO_AUTH_MODE=local
+docker compose -f deploy/docker-compose.yml up -d --force-recreate
+```
 
 ## 九、常见故障
 

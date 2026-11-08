@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 import sys
 from collections.abc import Sequence
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 import typer
 from mcp.server import MCPServer
@@ -19,6 +19,7 @@ from starlette.responses import JSONResponse
 from mybmo_mcp import __version__
 from mybmo_mcp.health import health_payload
 from mybmo_mcp.tools import register_all
+from mybmo_mcp.tools.runtime import get_runtime
 
 Transport = Literal["stdio", "streamable-http"]
 
@@ -58,12 +59,38 @@ def _register_health(server: MCPServer) -> None:
         return JSONResponse(health_payload())
 
 
-def build_server() -> MCPServer:
-    """构造 MCP 服务实例并挂载工具。"""
-    server = MCPServer(name="mybmo-mcp", version=__version__, instructions=_INSTRUCTIONS)
+def build_server(*, with_auth: bool = True) -> MCPServer:
+    """构造 MCP 服务实例并挂载工具。
+
+    ``with_auth`` 只对 streamable-http 有意义：stdio 下没有 HTTP 层，
+    也就没有 bearer 令牌可校验。装配由 :func:`_auth_kwargs` 决定，
+    local 模式返回空字典（不装中间件），oidc 模式返回 ``auth`` + ``token_verifier``。
+    """
+    kwargs = _auth_kwargs() if with_auth else {}
+    server = MCPServer(
+        name="mybmo-mcp",
+        version=__version__,
+        instructions=_INSTRUCTIONS,
+        **kwargs,
+    )
     register_all(server)
     _register_health(server)
     return server
+
+
+def _auth_kwargs() -> dict[str, Any]:
+    """按配置决定是否挂载 OAuth Resource Server。
+
+    local 模式下**故意不装鉴权**：stdio 没有 HTTP 层，加了反而让 SDK 期望 bearer 令牌。
+    oidc 模式下 ``Runtime.auth_settings()`` 必然非空——缺配置会在构造 verifier 时抛错，
+    而不是悄悄退化成"不鉴权"。后者是最坏的结果：看起来配好了，实际谁都能进。
+    """
+    runtime = get_runtime()
+    settings = runtime.auth_settings()
+    verifier = runtime.verifier
+    if settings is None or verifier is None:
+        return {}
+    return {"auth": settings, "token_verifier": verifier}
 
 
 def _configure_logging(level: str) -> None:

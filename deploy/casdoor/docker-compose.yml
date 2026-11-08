@@ -1,0 +1,59 @@
+# Casdoor + PostgreSQL。与 deploy/docker-compose.yml 是**两套独立的编排**：
+#
+#   docker compose -f deploy/docker-compose.yml up -d          # mcp（+ 可选 caddy）
+#   docker compose -f deploy/casdoor/docker-compose.yml up -d  # casdoor + pg
+#
+# 分开的理由：mcp 可以单独跑（local 模式不需要 Casdoor），
+# 而 Casdoor 升级频繁，混在一起会让一次 Casdoor 升级把 mcp 一起重启。
+#
+# 端口原则：Casdoor 管理台只绑 127.0.0.1，公网只能经宿主 Caddy 访问 auth 子域。
+
+name: mybmo-casdoor
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: casdoor
+      # Casdoor 要求 UTF-8；默认 locale 在 alpine 上不一定是，显式指定避免中文乱码
+      LANG: C.UTF-8
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d casdoor"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - casdoor
+
+  casdoor:
+    image: casbin/casdoor:latest
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      driverName: postgres
+      dataSourceName: "user=${POSTGRES_USER} password=${POSTGRES_PASSWORD} host=postgres port=5432 dbname=casdoor sslmode=disable"
+      # Casdoor 自身的对外地址，必须与 JWT 里的 iss 完全一致
+      origin: ${CASDOOR_ORIGIN}
+      # 关掉自带的管理台演示数据
+      runmode: prod
+    volumes:
+      - casdoor_data:/var/lib/casdoor
+    ports:
+      # 只绑回环：管理台不暴露公网，公网入口走宿主 Caddy 的 auth 子域
+      - "127.0.0.1:8001:8000"
+    networks:
+      - casdoor
+
+volumes:
+  pgdata:
+  casdoor_data:
+
+networks:
+  casdoor:

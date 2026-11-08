@@ -176,6 +176,26 @@ class TenancyStore:
         self._loaded = False
         self._ensure_loaded()
 
+    # ---------- 身份 ----------
+
+    def resolve_principal(self, sub: str) -> Principal:
+        """把 JWT 的 ``sub`` 映射成身份。
+
+        **未登记的身份不自动创建**。用户表缺失时也允许通过——但那时它拿不到任何
+        grants，等于什么都做不了。这样"新用户登录成功但看不到账户"是可解释的状态，
+        而不是一个悄悄拥有权限的账户。
+
+        授权表整体缺失时也不抛错：身份解析发生在鉴权之后、判权之前。
+        在这里抛错会让"没建 tenancy.json"表现为 500，而实际应该是
+        "登录成功，但没有可用账户"。真正的拒绝发生在 :meth:`require`。
+        """
+        if not self._path.exists():
+            return Principal(sub=sub, tenant_id="", source=MODE_OIDC)
+        self._ensure_loaded()
+        if sub in self._users:
+            return self._users[sub]
+        return Principal(sub=sub, tenant_id="", source=MODE_OIDC)
+
     # ---------- 查询 ----------
 
     def permission_for(self, principal: Principal, alias: str) -> str | None:

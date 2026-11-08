@@ -23,11 +23,14 @@ from dataclasses import dataclass
 from functools import cached_property
 
 import httpx2
+from mcp.server.auth.settings import AuthSettings
+from pydantic import AnyHttpUrl
 
 from mybmo_mcp.audit.log import AuditLog
 from mybmo_mcp.auth.access import AccountAccess
 from mybmo_mcp.auth.oauth import BaiduOAuth
 from mybmo_mcp.auth.registry import AccountRegistry
+from mybmo_mcp.auth.resource import SCOPE_READ, JwtVerifier
 from mybmo_mcp.auth.service import CredentialService
 from mybmo_mcp.auth.tenancy import (
     MODE_LOCAL,
@@ -48,12 +51,29 @@ _current_principal: ContextVar[Principal | None] = ContextVar("mybmo_principal",
 
 
 def set_current_principal(principal: Principal | None) -> Token[Principal | None]:
-    """为当前上下文绑定身份（P4 的中间件与测试用）。用完应 ``reset``。"""
+    """为当前上下文绑定身份（测试用；生产由 JWT 派生）。用完应 ``reset``。"""
     return _current_principal.set(principal)
 
 
 def reset_current_principal(token: Token[Principal | None]) -> None:
     _current_principal.reset(token)
+
+
+def _principal_from_bearer_token() -> str | None:
+    """从 SDK 的鉴权上下文里取 ``sub``。
+
+    SDK 的 ``AuthContextMiddleware`` 把已验证的 ``AccessToken`` 放进 ContextVar，
+    这里只读它——**不重新解析 JWT**。令牌在中间件里已经验过签名、iss、aud、exp，
+    再解析一遍只会引入"两处校验规则不一致"的风险。
+    """
+    try:
+        from mcp.server.auth.middleware.auth_context import get_access_token
+    except ImportError:  # SDK 版本变化时不影响 local 模式
+        return None
+    access = get_access_token()
+    if access is None or not access.subject:
+        return None
+    return access.subject
 
 
 class _AccountCredentials:
@@ -143,11 +163,21 @@ class Runtime:
     # ---------- 身份 ----------
 
     def current_principal(self) -> Principal:
+        """定出这次调用的身份。四级来源，优先级递减。
+
+        第 4 级只在 ``MYBMO_AUTH_MODE=local`` 才允许——多用户下回退成"本机就是管理员"
+        等于全量越权，所以那条路径是显式报错而不是默认放行。
+        """
         scoped = _current_principal.get()
         if scoped is not None:
             return scoped
         if self.principal is not None:
             return self.principal
+
+        bearer = _principal_from_bearer_token()
+        if bearer is not None:
+            return self.tenancy.resolve_principal(bearer)
+
         if self.settings.mybmo_auth_mode != MODE_LOCAL:
             raise TenancyError(
                 f"当前处于多用户模式（mode={self.settings.mybmo_auth_mode}），"
@@ -155,6 +185,32 @@ class Runtime:
                 "不能回退成本地隐式身份——那等于任何人都是管理员"
             )
         return Principal.local_admin()
+
+    @cached_property
+    def verifier(self) -> JwtVerifier | None:
+        """多用户模式才有校验器。local 模式返回 ``None``，SDK 也就不装鉴权中间件。"""
+        if self.settings.mybmo_auth_mode == MODE_LOCAL:
+            return None
+        return JwtVerifier(
+            issuer=self.settings.casdoor_issuer,
+            audience=self.settings.mybmo_resource_url,
+            jwks_url=self.settings.mybmo_jwks_url or None,
+        )
+
+    def auth_settings(self) -> AuthSettings | None:
+        """给 ``MCPServer`` 用的 Resource Server 配置。
+
+        SDK 会据此挂载 ``/.well-known/oauth-protected-resource`` 与 401 + ``WWW-Authenticate``，
+        不需要我们再写一遍中间件。
+        """
+        if self.verifier is None:
+            return None
+        return AuthSettings(
+            issuer_url=AnyHttpUrl(self.verifier.issuer),
+            resource_server_url=AnyHttpUrl(self.settings.mybmo_resource_url),
+            required_scopes=[SCOPE_READ],
+            validate_token_resource=False,  # verifier 自己校验 aud
+        )
 
     # ---------- 取用 ----------
 

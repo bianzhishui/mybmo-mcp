@@ -37,6 +37,7 @@ class Settings(BaseSettings):
     mybmo_auth_mode: str = "local"
     casdoor_issuer: str = ""
     mybmo_resource_url: str = ""
+    mybmo_jwks_url: str = ""
     mybmo_database_url: str = ""
 
     def master_key_bytes(self) -> bytes:
