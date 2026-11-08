@@ -1,10 +1,17 @@
 # syntax=docker/dockerfile:1
 #
-# 两阶段构建：builder 里用 uv 装依赖并构建 wheel，运行镜像里不留编译期工具。
-# 关键点是 --no-dev：baiduads-sdk 只在生成 capabilities.json 时用，运行时不需要，
-# 装进镜像会让体积翻倍且引入 urllib3 的传递依赖。
+# 构建耗时几乎全在拉基础镜像。实测 ghcr.io/astral-sh/uv 那个镜像要 745 秒，
+# 所以这里只用 Docker Hub 的 python 镜像 —— uv 是单文件二进制，pip 装它快得多。
+#
+# 两阶段：builder 装依赖，运行镜像只留 venv，不带 pip 缓存与编译工具。
+# 两个 sync 参数都是刻意的：
+#   --no-dev         baiduads-sdk 只在生成 capabilities.json 时用，运行时不碰
+#   不带 --extra p4  psycopg / pyjwt 是 P4 才用，现在不装（省 ~5 MB 二进制与几分钟）
+# 启用 P4 时在两条 uv sync 后追加 --extra p4 即可。
 
-FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim AS builder
+FROM python:3.12-slim AS builder
+
+RUN pip install --no-cache-dir uv
 
 ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
@@ -44,6 +51,6 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=3s --start-period=15s --retries=3 \
     CMD ["python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=2).status == 200 else 1)"]
 
-# 容器内必须监听 0.0.0.0，否则 Caddy 通过服务名访问不到；
-# 不映射到宿主机端口，公网入口只有 Caddy。
+# 容器内必须监听 0.0.0.0，否则宿主 Caddy 通过端口映射访问不到；
+# 端口只绑宿主的 127.0.0.1，公网入口只有 Caddy。
 CMD ["mybmo-mcp", "-t", "streamable-http", "--host", "0.0.0.0", "-p", "8000"]
