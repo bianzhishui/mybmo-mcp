@@ -191,7 +191,8 @@ class Runtime:
         """多用户模式才有校验器。local 模式返回 ``None``，SDK 也就不装鉴权中间件。
 
         ``audience`` 取 ``MYBMO_OIDC_AUDIENCE`` 而不是资源地址——Casdoor 把 ``aud``
-        填成 client_id，见 ADR 0006。两个都不配就拒绝启动。
+        填成 client_id，见 ADR 0006。可以填多个（逗号分隔），每个显式注册的客户端一个；
+        不配就拒绝启动。
         """
         if self.settings.mybmo_auth_mode == MODE_LOCAL:
             return None

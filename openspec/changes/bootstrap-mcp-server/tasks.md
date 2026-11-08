@@ -98,13 +98,18 @@
 - [x] 5.1 `deploy/casdoor/docker-compose.yml`：Casdoor + PostgreSQL，管理台只绑 `127.0.0.1:8001`；
       与主 compose **分离**，避免 Casdoor 升级把 mcp 一起重启
 - [x] 5.2 `deploy/casdoor/README.md`：起容器 → Caddy 接管 auth 子域 → 改默认口令 → 建应用 →
-      discovery 验证 → 开 DCR → 切 oidc → 回滚，九节
+      discovery 验证 → DCR 决策（保持关闭）→ 切 oidc → 回滚
 - [x] 5.3 验证 discovery：`docs/casdoor-notes.md` 记录了实测值。
-      `registration_endpoint` = `/api/oauth/register`（**存在**，DCR 可用）；
+      `registration_endpoint` = `/api/oauth/register`（存在，但组织级 DCR 已关，见 5.4）；
       `client_id_metadata_document_supported` = **false**（CIMD 不可用）；
       `jwks_uri` = `/.well-known/jwks`（**不是直觉的 `/api/v1/jwks`**）
-- [ ] 5.4 开启组织级 DCR 与回调白名单（**需要人操作界面**，notes 第六节写了 scope 登记方式）
-      ——注：`app-built-in` 的 scope 已登记，但 DCR 策略未开
+- [x] 5.4 DCR 评估完成，**结论是不启用**（[ADR 0007](../../../docs/decisions/0007-no-dcr.md)）。
+      实测：`dcr_policy` 只有 `open`/`disabled` 两个值，**没有回调白名单、没有频率限制**；
+      `open` 后 `POST /api/oauth/register` 接受任意 `redirect_uris`（含
+      `https://evil.example.com/cb`，实测 201），每次都新建应用；
+      而它签出的令牌 `aud` 是新 client_id，不在白名单里 → 调不动本服务。
+      改为：客户端逐个显式注册，`MYBMO_OIDC_AUDIENCE` 支持逗号分隔白名单。
+      探针应用已删，`dcr_policy` 已回滚为 `disabled`（注册端点返回 400 已复验）
 - [x] 5.5 `auth/resource.py`：`JwtVerifier` 实现 SDK 的 `TokenVerifier` 协议。
       验签（JWKS 缓存 + kid 查找）、`iss` / `aud` / `exp` / `nbf`，60 秒时钟容忍。
       **JWKS 取不到时拒绝而非放行**；令牌畸形在取 kid 阶段抛 `DecodeError` 也接住了。
@@ -120,11 +125,12 @@
       登记后令牌里出现 `scope: "openid profile baidu:read baidu:write"`
 - [x] 5.8 `tests/test_resource.py`：伪造签名、错 audience、过期、issuer 不符四条；
       另加 issuer 尾斜杠、缺 scope、JWKS 失败、令牌畸形四个边界
-- [ ] 5.9 `[live]` 用 Claude Desktop / Cursor 贴 URL 完成自助注册 → 登录 → 调用一个能力
+- [ ] 5.9 `[live]` 用 Claude Desktop / Cursor 贴 URL 完成接入 → 登录 → 调用一个能力
       ——**后端已验证**：真实 Casdoor 令牌可完成 MCP 握手并调用工具
       （`list_accounts` 返回 `identity.source=oidc`、`unrestricted=false`）；
       无令牌 401、无 `baidu:read` 的令牌 403、有则 200。
-      缺的是桌面客户端的浏览器授权流程与 DCR（依赖 5.4）
+      **接入方式已定为手工注册**（5.4 证明 DCR 不可用）：在 Casdoor 建应用、填客户端固定回调、
+      把 clientId 加进 `MYBMO_OIDC_AUDIENCE`。缺的是浏览器授权码流程的实跑
 - [ ] 5.10 `tenants` / `users` / `account_grants` 三表与仓储层：`sub → tenant` 映射。
       **当前用文件式 `data/tenancy.json` 替代**，`TenancyStore.resolve_principal`
       已实现 `sub → Principal`；落库是下一步（`optional-dependencies.p4` 里备了 psycopg）

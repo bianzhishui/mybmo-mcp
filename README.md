@@ -30,8 +30,8 @@ uv run mybmo-mcp --help
 公网接入：`uv run mybmo-mcp -t streamable-http --host 127.0.0.1 -p 8000`。
 默认只监听回环，**不要**在没有鉴权的情况下直接暴露到公网，原因见下文"三条硬规则"。
 
-已上线实例：**`https://baiduads.pandabase.top/mcp`**（basic auth，当前 `MYBMO_AUTH_MODE=local`）。
-部署、备份、回滚、Casdoor 切换见 [`docs/operations.md`](docs/operations.md)。
+已上线实例：**`https://baiduads.pandabase.top/mcp`**（OAuth Bearer，Casdoor 作授权服务器）。
+部署、备份、回滚、新增客户端见 [`docs/operations.md`](docs/operations.md)。
 
 没有百度账号也能用：`search_capabilities` / `get_capability_schema` 只读随包的接口元数据，
 不碰凭据、不联网。
@@ -63,8 +63,12 @@ uv run mybmo-mcp --help
 
 ## 当前状态
 
-P0–P3 已完成，176 个测试离线全绿：能力网关、账户与凭据、归属校验、调用审计都可验。
-P7 已上线（`/healthz` 200、TLS 已签发、客户端能列出 5 个工具），P4（Casdoor）未开工。
+P0–P3 已完成，P7 已上线（`/healthz` 200、TLS 已签发、客户端能列出 5 个工具），
+P4 已切到 `oidc`（Casdoor 真实令牌可握手并调用工具）。205 个测试离线全绿。
+
+**两处已知的"计划与实测不符"**：Casdoor 的 `aud` 是 client_id 而非资源地址
+（[ADR 0006](docs/decisions/0006-casdoor-audience.md)）；DCR 无白名单无限流且签出的令牌
+调不动本服务，因此不启用（[ADR 0007](docs/decisions/0007-no-dcr.md)）。
 
 **唯一未验证的是真实百度接口**——没有可用账号，所以 `execute_capability` 从未真正
 打到 `api.baidu.com`。拿到 AppID 后跑一次绑定就能确认。
@@ -83,6 +87,8 @@ P7 已上线（`/healthz` 200、TLS 已签发、客户端能列出 5 个工具�
 | [`ADR 0003`](docs/decisions/0003-capability-only.md) | 从"业务工具"转向能力网关，以及为什么不拦写操作 |
 | [`ADR 0004`](docs/decisions/0004-multi-tenant-accounts.md) | 多租户账户模型、MCC 子账户、`wait` 语义 |
 | [`ADR 0005`](docs/decisions/0005-sdk-poc.md) | `baiduads-sdk` 可行性验证：为什么只做元数据源 |
+| [`ADR 0006`](docs/decisions/0006-casdoor-audience.md) | Casdoor 的 `aud` 是 client_id，不是资源地址 |
+| [`ADR 0007`](docs/decisions/0007-no-dcr.md) | 为什么不启用 DCR，客户端改为显式注册 |
 | [`.env.example`](.env.example) | 全部环境变量与取值说明 |
 
 接口元数据分两层，不要混：`baidu/capabilities.json` 由

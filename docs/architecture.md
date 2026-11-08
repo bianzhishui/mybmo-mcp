@@ -11,7 +11,7 @@
 | `userName` 必须是令牌所属账户中文名 | 百度接口要求（错误码 81020） | 账户名不能靠猜，必须授权后落库 |
 | 百度自定义 state 是否原样回传未实证 | 百度 OAuth 行为 | 回调必须能退化为按 userId 命名 |
 | MCP 规范要求校验 token audience | MCP 2026-07-28 | 不能把百度令牌当接入令牌 |
-| Casdoor DCR 默认关闭 | Casdoor 设计 | 上线前必须按组织开启并加白名单 |
+| Casdoor DCR 不可用 | 实测（ADR 0007） | 无回调白名单、无限流、aud 不匹配；客户端改为显式注册 |
 
 ## 二、三层信任边界
 
@@ -207,7 +207,8 @@ Casdoor 配置要点：
 
 - 管理台（:8000）**不对公网开放**，只走 SSH 隧道或内网
 - 首次登录立刻改掉 `admin/123`
-- 开启组织级 DCR（`dcrPolicy`），并限制回调 URI 白名单
+- **保持 DCR 关闭**（[ADR 0007](decisions/0007-no-dcr.md)），客户端逐个显式注册：
+  建应用 → 填该客户端固定回调 → clientId 加进 `MYBMO_OIDC_AUDIENCE`
 - 确认 discovery 中 `registration_endpoint` 与 `client_id_metadata_document_supported` 的实际取值
 - `issuer` 绑定域名，**第一天上错后面全废**
 
@@ -227,7 +228,7 @@ Casdoor 配置要点：
 - [ ] JWT 必须校验 `aud`，不接受跨服务令牌
 - [ ] 百度令牌不出服务端，不进日志、不进模型上下文
 - [ ] 回调 state 一次性、绑定用户与租户、有 TTL
-- [ ] DCR 开启后限制注册来源，避免任意注册
+- [ ] DCR 保持关闭，客户端逐个显式注册（已决定，见 ADR 0007）
 - [ ] 管理台不对公网暴露
 - [ ] 账户归属校验生效：alias 不在 `account_grants` 内直接拒绝
 - [ ] 审计记录可追溯到 `sub` + `tenant` + `account`

@@ -5,7 +5,7 @@ mybmo-mcp 不做授权服务器——令牌由 Casdoor 签发，这里只负责*
 
 1. **签名**：用 issuer 的 JWKS 验，密钥按 ``kid`` 找；缓存 10 分钟并支持强制刷新
 2. **iss**：必须与配置完全一致（RFC 8414 要求精确字符串比较，末尾斜杠都算不同）
-3. **aud**：必须包含本服务规范地址，否则就是"别的服务签的令牌拿来用了"
+3. **aud**：必须命中白名单里的某个 client_id，否则就是"别的客户端签的令牌拿来用了"
 4. **exp / nbf**：容忍 60 秒时钟偏移
 5. **scope**：交给 SDK 的中间件按工具要求判定，这里只做解析
 
@@ -16,11 +16,17 @@ mybmo-mcp 不做授权服务器——令牌由 Casdoor 签发，这里只负责*
 
 JWKS 拉取失败时**拒绝而非放行**。缓存过期 + 网络故障的瞬间，如果选择"先信旧密钥"，
 那就等于在故障期间接受任何人的令牌。
+
+关于 ``aud``：Casdoor 把 ``aud`` 填成**客户端的 client_id**，不是 RFC 8707 的资源标识
+（实测见 ADR 0006）。所以这里的 audience 是一个**白名单**——每个在 Casdoor 里显式注册、
+允许调用本服务的客户端，把它的 client_id 加进来。DCR 动态注册的客户端拿到的 aud 是新
+client_id，不在白名单里，因此**无法调用本服务**（ADR 0007）。
 """
 
 from __future__ import annotations
 
 import time
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -80,12 +86,42 @@ class JwksCache:
 class VerifiedToken:
     subject: str
     client_id: str
+    #: 令牌声明的 aud 中，命中白名单的那一个（Casdoor 里就是 client_id）
+    audience: str
     scopes: tuple[str, ...]
     expires_at: int | None
     claims: dict[str, Any]
 
     def has_scope(self, scope: str) -> bool:
         return scope in self.scopes
+
+
+def _normalize_audiences(value: str | Sequence[str]) -> tuple[str, ...]:
+    """把配置值变成去重后的白名单。
+
+    支持三种写法：单个 client_id、逗号分隔的一串、以及已经切好的序列。
+    允许尾斜杠差异——``AnyHttpUrl`` 会强制补斜杠，配置里手写时未必带。
+    """
+    raw = value.split(",") if isinstance(value, str) else list(value)
+    seen: list[str] = []
+    for item in raw:
+        text = str(item).strip().rstrip("/")
+        if text and text not in seen:
+            seen.append(text)
+    return tuple(seen)
+
+
+def _matched_audience(claim: Any, allowed: tuple[str, ...]) -> str:
+    """从令牌的 ``aud`` 里挑出命中白名单的那个。
+
+    走到这里说明 PyJWT 已经确认至少命中一个，所以兜底返回 ``allowed[0]`` 只是防御性写法。
+    """
+    values = [claim] if isinstance(claim, str) else list(claim or [])
+    for item in values:
+        text = str(item).rstrip("/")
+        if text in allowed:
+            return text
+    return allowed[0]
 
 
 class JwtVerifier:
@@ -99,16 +135,17 @@ class JwtVerifier:
         self,
         *,
         issuer: str,
-        audience: str,
+        audience: str | Sequence[str],
         jwks_url: str | None = None,
         clock_skew: int = CLOCK_SKEW_SECONDS,
     ) -> None:
         if not issuer:
             raise ValueError("issuer 不能为空：多用户模式下必须配置 CASDOOR_ISSUER")
-        if not audience:
-            raise ValueError("audience 不能为空：必须配置 MYBMO_RESOURCE_URL")
+        audiences = _normalize_audiences(audience)
+        if not audiences:
+            raise ValueError("audience 不能为空：必须配置 MYBMO_OIDC_AUDIENCE")
         self._issuer = issuer.rstrip("/")
-        self._audience = audience.rstrip("/")
+        self._audiences = audiences
         self._clock_skew = clock_skew
         # 默认值只是兜底：Casdoor 实测给的是 /.well-known/jwks，不是这里推导的路径。
         # 部署时必须显式设 MYBMO_JWKS_URL，见 docs/casdoor-notes.md。
@@ -119,8 +156,14 @@ class JwtVerifier:
         return self._issuer
 
     @property
+    def audiences(self) -> tuple[str, ...]:
+        """全部被允许的 client_id。"""
+        return self._audiences
+
+    @property
     def audience(self) -> str:
-        return self._audience
+        """兼容单值调用方：返回第一个。校验请用 :attr:`audiences`。"""
+        return self._audiences[0]
 
     def verify(self, token: str, *, now: float | None = None) -> VerifiedToken:
         """同步校验。抛 :class:`TokenError` 表示不可接受。"""
@@ -142,7 +185,7 @@ class JwtVerifier:
                 token,
                 signing_key.key,
                 algorithms=["RS256", "ES256"],
-                audience=self._audience,
+                audience=list(self._audiences),
                 issuer=self._issuer,
                 leeway=self._clock_skew,
                 options={
@@ -156,8 +199,11 @@ class JwtVerifier:
         except jwt.ExpiredSignatureError as exc:
             raise TokenError("令牌已过期，请重新登录") from exc
         except jwt.InvalidAudienceError as exc:
+            allowed = "、".join(self._audiences)
             raise TokenError(
-                f"令牌的 audience 不是本服务（期望 {self._audience}）。这通常是拿别的服务的令牌来用"
+                f"令牌的 audience 不在允许的客户端列表里（允许 {allowed}）。"
+                "Casdoor 把 aud 填成 client_id，所以每个要调用本服务的客户端都得"
+                "显式注册并加入 MYBMO_OIDC_AUDIENCE，见 ADR 0007"
             ) from exc
         except jwt.InvalidIssuerError as exc:
             raise TokenError(f"令牌的 issuer 不受信任（期望 {self._issuer}）") from exc
@@ -170,6 +216,7 @@ class JwtVerifier:
         return VerifiedToken(
             subject=str(claims["sub"]),
             client_id=str(claims.get("client_id") or claims.get("azp") or ""),
+            audience=_matched_audience(claims.get("aud"), self._audiences),
             scopes=scopes,
             expires_at=int(claims["exp"]) if claims.get("exp") else None,
             claims=claims,
@@ -195,7 +242,9 @@ class JwtVerifier:
             client_id=verified.client_id,
             scopes=list(verified.scopes),
             expires_at=verified.expires_at,
-            resource=self._audience,
+            # Casdoor 没有 RFC 8707 的资源标识，aud 就是 client_id，
+            # 这里如实回填命中的那一个，不用资源地址冒充
+            resource=verified.audience,
             subject=verified.subject,
             claims=verified.claims,
         )

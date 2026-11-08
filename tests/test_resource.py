@@ -142,7 +142,7 @@ def test_foreign_signature_is_rejected(
 def test_wrong_audience_is_rejected(
     verifier: JwtVerifier, keypair: tuple[Any, dict[str, Any]]
 ) -> None:
-    with pytest.raises(TokenError, match="audience 不是本服务"):
+    with pytest.raises(TokenError, match="不在允许的客户端列表里"):
         verifier.verify(make_token(keypair, aud=OTHER_AUDIENCE))
 
 
@@ -260,3 +260,50 @@ def test_empty_audience_is_refused() -> None:
 
 def test_scopes_are_the_three_documented() -> None:
     assert SCOPES_SUPPORTED == (SCOPE_READ, SCOPE_WRITE, SCOPE_ADMIN)
+
+
+# ---------- audience 白名单 ----------
+#
+# Casdoor 把 aud 填成 client_id（ADR 0006），所以"哪些客户端能调用本服务"这件事
+# 只能靠一份 client_id 白名单来表达（ADR 0007：DCR 动态注册的客户端不自动进白名单）。
+
+CLAUDE_ID = "60fda1d9bedd4615eb90"
+CURSOR_ID = "06fbc30987245dbe95e9"
+
+
+def test_any_client_in_allowlist_is_accepted(
+    keypair: tuple[Any, dict[str, Any]], monkeypatch
+) -> None:
+    """白名单里第二个客户端也要能过，且回填的 resource 是它自己那个 id。"""
+    private, jwk = keypair
+    verifier = JwtVerifier(issuer=ISSUER, audience=f"{CLAUDE_ID}, {CURSOR_ID}")
+    monkeypatch.setattr(type(verifier._jwks), "get", lambda self, now=None: _StubJwks(private, jwk))
+
+    verified = verifier.verify(make_token(keypair, aud=CURSOR_ID))
+
+    assert verified.audience == CURSOR_ID
+    assert verifier.audiences == (CLAUDE_ID, CURSOR_ID)
+
+
+def test_client_outside_allowlist_is_rejected(
+    keypair: tuple[Any, dict[str, Any]], monkeypatch
+) -> None:
+    """DCR 自助注册拿到的 client_id 不在名单里，必须拒。
+
+    这条用例固化的是 ADR 0007 的结论：开放 DCR 不会让陌生客户端获得可用令牌。
+    """
+    private, jwk = keypair
+    verifier = JwtVerifier(issuer=ISSUER, audience=CLAUDE_ID)
+    monkeypatch.setattr(type(verifier._jwks), "get", lambda self, now=None: _StubJwks(private, jwk))
+
+    with pytest.raises(TokenError, match="不在允许的客户端列表里"):
+        verifier.verify(make_token(keypair, aud="dcr_wh7gkj"))
+
+
+def test_audience_string_is_split_deduped_and_trimmed() -> None:
+    from mybmo_mcp.auth.resource import _normalize_audiences
+
+    assert _normalize_audiences(f" {CLAUDE_ID} , {CURSOR_ID},, {CLAUDE_ID}/ ") == (
+        CLAUDE_ID,
+        CURSOR_ID,
+    )

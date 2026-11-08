@@ -91,33 +91,45 @@ curl -s -o /dev/null -w '%{http_code}\n' -X POST \
 
 ## 三、接客户端
 
-MCP 端点是 `https://baiduads.pandabase.top/mcp`，走 Streamable HTTP。
-因为现在是 basic auth 而不是 OAuth，客户端要能自定义请求头。
+MCP 端点是 `https://baiduads.pandabase.top/mcp`，走 Streamable HTTP，
+认证是 **OAuth Bearer**（`MYBMO_AUTH_MODE=oidc`）。Caddy 上**没有** basic auth。
 
-**已经实测通过的方式**（Python MCP SDK）：
+无令牌访问会拿到：
+
+```http
+HTTP/2 401
+www-authenticate: Bearer error="invalid_token",
+  resource_metadata="https://baiduads.pandabase.top/.well-known/oauth-protected-resource"
+```
+
+**已经实测通过的方式**（Python MCP SDK + Casdoor 真实令牌）：
 
 ```python
-import base64, httpx2
+import httpx2
 from mcp import ClientSession
 from mcp.client.streamable_http import streamable_http_client
 
-auth = "Basic " + base64.b64encode(b"mybmo:密码").decode()
-async with httpx2.AsyncClient(headers={"Authorization": auth}, timeout=20.0) as http:
+token = "..."  # Casdoor 签发的 access_token
+async with httpx2.AsyncClient(headers={"Authorization": f"Bearer {token}"}, timeout=20.0) as http:
     async with streamable_http_client("https://baiduads.pandabase.top/mcp", http_client=http) as s:
         async with ClientSession(s[0], s[1]) as session:
             await session.initialize()
-            (await session.list_tools()).tools   # 5 个
+            (await session.list_tools()).tools  # 5 个
 ```
 
-命令行方式（需要 Node）：
+命令行调试取令牌（`app-built-in` 现在临时开着 password grant，见
+[`casdoor-notes.md`](casdoor-notes.md) 第八节①，**对外前要关**）：
 
 ```bash
-npx -y mcp-remote@latest https://baiduads.pandabase.top/mcp \
-  --header "Authorization: Basic $(printf 'mybmo:密码' | base64)"
+curl -s https://auth.pandabase.top/api/login/oauth/access_token \
+  -d grant_type=password -d client_id=$CID -d client_secret=$CSECRET \
+  -d username=$USER -d password=$PASS -d 'scope=openid baidu:read'
 ```
 
-直接支持 `headers` 的客户端（如 Cursor）可以把这一行写进配置。
-**Claude Desktop 的远程连接要求 OAuth，接不了 basic auth**——它要等 Casdoor。
+桌面客户端（Claude Desktop / Cursor）**不能贴 URL 直接用**：它们要自助注册，
+而我们不放 DCR（[ADR 0007](decisions/0007-no-dcr.md)）。必须先按 8.1 在 Casdoor 建应用、
+把回调地址填成该客户端的固定值、clientId 加进 `MYBMO_OIDC_AUDIENCE`。
+这条浏览器授权码流程**尚未实跑**（tasks 5.9）。
 
 ## 四、健康检查与监控
 
@@ -191,39 +203,53 @@ git checkout <上一个提交或 tag>
 docker compose -f deploy/docker-compose.yml up -d --build
 ```
 
-## 八、什么时候加 Casdoor
+## 八、Casdoor 与新增客户端
 
-现在不接，原因是它还不需要：`MYBMO_AUTH_MODE=local` 下没有"用户"这个概念，
-basic auth 挡住外人就够了。等下面任意一条成立再上：
+Casdoor 已在同机运行，`MYBMO_AUTH_MODE=oidc`，身份来自 JWT（详见
+[`casdoor-notes.md`](casdoor-notes.md)）。三件事需要长期维护。
 
-- 要给别人用，且不想共享一个口令
-- 需要按账户授权（A 只能看 `axd`，B 能改 `bcd`）
-- 需要审计到人（现在审计里的 `sub` 恒为 `local`）
-- **需要 Claude Desktop 直连**——它只认 OAuth，接不了 basic auth
+### 8.1 新增一个客户端
 
-**代码侧已就绪**：`auth/resource.py` 的 JWT 校验、SDK 自动挂载的
-`/.well-known/oauth-protected-resource`、401 + `WWW-Authenticate` 都已实测通过
-（`tests/test_resource.py` 14 例 + `tests/test_auth_wiring.py` 10 例）。
-缺的是真实 Casdoor 实例上的那几步：discovery 字段核实、DCR 开启、客户端实连。
+**没有自助注册。** Casdoor 的 DCR 不可用——没有回调白名单、没有限流，
+而且它签出的令牌 `aud` 是客户端自己的 client_id，不在白名单里就调不动本服务
+（[ADR 0007](decisions/0007-no-dcr.md)）。
 
-完整步骤见 [`deploy/casdoor/README.md`](../deploy/casdoor/README.md)。这里只列切换时的
-**不可逆决定**：
+```text
+1. Casdoor 控制台 → Applications → 新建
+2. Redirect URL 填该客户端的固定回调（例：https://claude.ai/api/mcp/auth_callback）
+3. 只勾 authorization_code + refresh_token，不要勾 password
+4. 记下 Client ID
+5. deploy/.env：MYBMO_OIDC_AUDIENCE=<原 id>,<新 id>
+6. docker compose -f deploy/docker-compose.yml up -d mcp
+```
+
+漏掉第 5 步的表现：客户端能登录、能拿到令牌，但每个请求都 401。
+
+### 8.2 不可逆的事
 
 > **issuer 定死就是 `https://auth.pandabase.top`，之后不能改。**
 > 它写进每个 JWT 的 `iss`，改一次 = 所有令牌失效 + 所有客户端重新配置。
 
-切换前必须先建 `data/tenancy.json`，否则所有调用报"缺少授权表"——这是有意的，
-理由见 README 的三条硬规则。切 in 与切回各一条命令：
+### 8.3 切回 local 模式（应急）
+
+`oidc` 模式下 Caddy **不能**再叠 basic auth——它会在令牌到达容器前拦下请求，
+表现是永远 `401 Basic realm`。所以进出 oidc 要同时改两处：
 
 ```bash
-# 切到 oidc
-# deploy/.env: MYBMO_AUTH_MODE=oidc / CASDOOR_ISSUER / MYBMO_RESOURCE_URL
+# 切到 oidc：deploy/.env 设 MYBMO_AUTH_MODE=oidc + CASDOOR_ISSUER +
+#            MYBMO_OIDC_AUDIENCE + MYBMO_JWKS_URL + MYBMO_RESOURCE_URL
+#            /etc/caddy/Caddyfile 去掉 basic_auth
 docker compose -f deploy/docker-compose.yml up -d --force-recreate
+sudo systemctl reload caddy
 
-# 出问题时切回（basic auth 立刻恢复生效）
-# deploy/.env: MYBMO_AUTH_MODE=local
+# 切回 local：deploy/.env 设 MYBMO_AUTH_MODE=local，Caddyfile 加回 basic_auth
 docker compose -f deploy/docker-compose.yml up -d --force-recreate
+sudo systemctl reload caddy
 ```
+
+切回前先建 `data/tenancy.json` 是不必要的（local 模式不看它），
+但**切到 oidc 前必须有**，否则所有调用报"缺少授权表"——这是有意的，
+理由见 README 的三条硬规则。
 
 ## 九、常见故障
 

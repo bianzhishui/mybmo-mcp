@@ -37,8 +37,9 @@ class Settings(BaseSettings):
     mybmo_auth_mode: str = "local"
     casdoor_issuer: str = ""
     mybmo_resource_url: str = ""
-    #: JWT 的 audience。**不是资源地址，是 OAuth 客户端的 client_id**（见 ADR 0006：
-    #: Casdoor 把 aud 填成 client_id，与 RFC 8707 的资源标识语义不同）。
+    #: JWT 的 audience **白名单**。**不是资源地址，是 OAuth 客户端的 client_id**
+    #: （见 ADR 0006：Casdoor 把 aud 填成 client_id，与 RFC 8707 的资源标识语义不同）。
+    #: 多个客户端用逗号分隔；每个都必须先在 Casdoor 里显式注册（ADR 0007：不开 DCR）。
     #: 不设就拒绝启动——猜一个默认值比报错更危险。
     mybmo_oidc_audience: str = ""
     mybmo_jwks_url: str = ""

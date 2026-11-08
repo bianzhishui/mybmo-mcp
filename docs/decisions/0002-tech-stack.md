@@ -147,8 +147,9 @@ autogenerate 的价值抵消不了多一层抽象的成本。
 
 - **反代不做鉴权**。让 Caddy 注入 `X-User` 头、应用信任它，等于留了一条直连回环地址即可伪造的旁路。
   鉴权只在应用层（`token_verifier`）做。
-- **反代不做限流兜底**。Caddy 标准构建无 `rate_limit`（需 xcaddy 编译）。
-  防 DCR 滥用靠 Casdoor 的 `dcrPolicy` + 回调白名单，其次才是云 WAF。
+- **反代不做限流兜底**。Caddy 标准构建无 `rate_limit`（需 xcaddy 编译，实测本机
+  `caddy list-modules` 无该模块）。原先设想"防 DCR 滥用靠 Casdoor 的 `dcrPolicy` +
+  回调白名单"——实测 Casdoor **没有**这两项（ADR 0007），因此改为不开启 DCR。
 - **不叠两层代理**。要 nginx 就顶掉 Caddy，不要串起来。
 
 ## D7. 凭据加密统一走 AES-GCM，不用 `keyring`

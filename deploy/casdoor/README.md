@@ -83,15 +83,31 @@ curl -s https://auth.pandabase.top/.well-known/oauth-authorization-server | pyth
 把实际返回值记进 `docs/casdoor-notes.md`——**不要凭印象写**，Casdoor 版本迭代快，
 不同版本这些字段差异很大。
 
-## 六、开 DCR（tasks 5.4）
+## 六、DCR 保持关闭，客户端显式注册（tasks 5.4）
 
-`Applications` 页有个组织级设置。开启后：
+**不要打开"Enable dynamic client registration"。** 实测（ADR 0007）：
 
-- 回调 URI 白名单：先只放 `http://127.0.0.1:*` 与 `https://claude.ai/*` 这类已知模式
-- 注册频率限制：按 IP，防止被刷成垃圾应用
+- 那个开关只有 `open` / `disabled` 两个值，**没有回调白名单，也没有频率限制**
+- 打开后 `POST /api/oauth/register` 接受**任意** `redirect_uris`，包括
+  `https://evil.example.com/cb`，每次都新建一个应用
+- 而且它签出的令牌 `aud` 是新 client_id，不在 `MYBMO_OIDC_AUDIENCE` 白名单里，
+  **根本调不动本服务**
 
-**不做这步的后果**是任何人可以注册一个 client 然后把你这里当跳板。
-虽然最终还要过 `tenancy.json` 的授权，但没必要让陌生人先拿到有效令牌。
+也就是说：开了只会白送一个可被用于钓鱼的注册端点，换不来自助接入。
+
+要接入一个新客户端（Claude Desktop、Cursor 等）：
+
+```text
+1. Casdoor 控制台 → Applications → 新建
+2. Redirect URL 填该客户端的固定回调（例：https://claude.ai/api/mcp/auth_callback）
+3. 只勾 authorization_code + refresh_token，不要勾 password
+4. 记下 Client ID
+5. deploy/.env：MYBMO_OIDC_AUDIENCE=<原 id>,<新 id>
+6. docker compose -f deploy/docker-compose.yml up -d mcp
+```
+
+第 5 步是必须的：Casdoor 把 `aud` 填成 client_id（ADR 0006），资源服务器只认白名单。
+漏了这步的表现是客户端能登录、但每个请求都 401。
 
 ## 七、切 mcp 到 oidc 模式
 
