@@ -169,6 +169,18 @@ Casdoor 也不给改写的机会：传 `resource=`（RFC 8707）和 `audience=`
 完整推理与重新评估的触发条件见 [ADR 0007](decisions/0007-no-dcr.md)。
 探针应用已删除，`application` 表只剩 `app-built-in` 一行。
 
+### 5.4 部署后 A/B
+
+白名单上线后，用那个 DCR 客户端签发的令牌在线上做了一次对照（同一个令牌，只改配置）：
+
+| `MYBMO_OIDC_AUDIENCE` | 该令牌 POST `/mcp` |
+|---|---|
+| `60fda1d9bedd4615eb90` | **401** |
+| `60fda1d9bedd4615eb90,06fbc30987245dbe95e9` | **200** |
+| 改回单值 | **401** |
+
+白名单内的正常令牌始终 200。说明「加一个 client_id 才放行一个客户端」在真实部署里成立。
+
 ## 六、端到端验证结果（2026-11-08 12:10）
 
 线上 `https://baiduads.pandabase.top/mcp` 已切到 `MYBMO_AUTH_MODE=oidc`，实测：
