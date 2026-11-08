@@ -1,12 +1,12 @@
 # 运维手册
 
-目标形态：一台公网服务器，Caddy 负责 TLS 与访问控制，MCP 服务只在容器内网可达。
-下面是**当前阶段**（Casdoor 未接入）的完整流程。
+目标形态：一台公网服务器，Caddy 负责 TLS，MCP 服务只在容器内网可达。
+下面是**线上现状**（2026-11-08：mcp + Casdoor + PostgreSQL 17.11，`oidc` 模式）的完整流程。
 
 ```text
 公网 ──:443──▶ 宿主 Caddy（systemd 托管）──127.0.0.1:8000──▶ mcp 容器
                     │
-                    └ /healthz 不鉴权，其余路径要 basic auth
+                    └ /healthz 不鉴权；/mcp 走 OAuth Bearer，反代不做鉴权
 ```
 
 TLS 交给宿主上已有的 Caddy（`/etc/caddy/Caddyfile`），不额外跑容器：
@@ -185,6 +185,11 @@ docker compose -f deploy/docker-compose.yml up -d
 curl -fsS https://baiduads.pandabase.top/healthz
 ```
 
+**Casdoor 的库不在这两个卷里。** 账号、应用、注册的 scope、JWT 签名证书都在 PostgreSQL 的
+卷 `mybmo-casdoor_pgdata` 上，要单独备份一次（整卷 tar，或 `pg_dump -Fc`，产物形状见 7.1）。
+这个卷丢了，签名证书一起没——JWKS 换钥，**所有已签发令牌立即失效**，每个客户端都要重新注册。
+它比 mcp 的数据卷更值得备份。
+
 ## 七、升级与回滚
 
 ```bash
@@ -202,6 +207,72 @@ git log --oneline -5
 git checkout <上一个提交或 tag>
 docker compose -f deploy/docker-compose.yml up -d --build
 ```
+
+### 7.1 PostgreSQL 大版本升级（16 → 17）
+
+> **已完成**：2026-11-08 13:32 线上迁到 **PG 17.11**，行数核对一致（50 表 / 1 应用 / 1 用户 /
+> 1 组织），Casdoor 零错误日志，`/healthz` 200、`/mcp` 无令牌 401。本节保留作流程记录与回滚参考。
+
+`deploy/casdoor/docker-compose.yml` 已按 [ADR 0002](decisions/0002-tech-stack.md) D3 钉在
+`postgres:17-bookworm`（非 alpine，避开 musl 的中文 locale 缺陷）。线上实例是 P4 时起的
+`postgres:16-alpine`，**两者的数据目录不通用**：直接 `up -d` 会因卷里的 `PG_VERSION` 是 16
+而拒绝启动。数据不会丢，但 Casdoor 一直起不来，`/mcp` 全线 401。
+
+Casdoor 数据量极小（2026-11-08 实测：`application` 1 行、用户 1 个），走
+「`pg_dump -Fc` → 重建卷 → `pg_restore`」停机 1~3 分钟，不需要 `pg_upgrade` 那套就地升级。
+
+#### 执行
+
+```bash
+ssh root@49.232.229.71
+cd /opt/mybmo-mcp
+git pull                                    # 先让 compose 与脚本落地
+bash scripts/pg-upgrade-16-to-17.sh         # 要求输入 MIGRATE 确认；无人值守加 --yes
+```
+
+`git pull` 若被 GnuTLS 打断，改用 `git archive HEAD | ssh ... 'tar -x -C /opt/mybmo-mcp'`
+整包覆盖（见「踩过的坑」之前那节的经验）。
+
+脚本按顺序做 6 步，**任何一步的自检不过就停下**，不会带着坏备份往下走：
+
+| 步 | 动作 | 自检 |
+|---|---|---|
+| 0 | 读卷名、`PG_VERSION`、磁盘余量 | 不是 16 就退出；已是 17 则查 `application` 行数后退出 |
+| 1 | `pg_dump -Fc` 到 `/root/casdoor-pg-upgrade/<STAMP>/` | 文件非空 + `pg_restore -l` 里有 `TABLE DATA` |
+| 2 | `compose stop` 后整卷 `tar czf` | 归档里有 `PG_VERSION` |
+| 3 | `compose down` → `docker volume rm` → `up -d postgres` | `pg_isready` 90 秒内就绪；新卷 `PG_VERSION=17` |
+| 4 | `pg_restore --no-owner --no-privileges` | 退出码与 stderr 落到 `restore.err` |
+| 5 | 对比迁移前后行数 | `tables` / `application` / `user` / `organization` 四项必须一致 |
+| 6 | `up -d` 起全套 + 拉 discovery | `/well-known/openid-configuration` 可达 |
+
+第 3 步只删 **postgres** 的数据卷；`casdoor_data`（Casdoor 自己的文件卷）不动。
+
+#### 为什么用 `pg_dump -Fc` 而不是 `pg_dumpall`
+
+新集群由镜像按 `POSTGRES_USER` / `POSTGRES_DB` 已经建好 `casdoor` 角色与同名库，
+`pg_dumpall` 产物里的 `CREATE ROLE` / `CREATE DATABASE` 必然撞车；`-Fc` + `-d casdoor` 绕开。
+
+#### 回滚
+
+备份目录里有两份东西（`casdoor.dump` 逻辑备份、`pgdata-16.tgz` 整卷物理备份），任意一份都能救。
+**镜像要同时改回 16**——16 的数据目录 17 读不了，只回滚数据没有意义：
+
+```bash
+COMPOSE_DIR=/opt/mybmo-mcp/deploy/casdoor
+BK=/root/casdoor-pg-upgrade/<STAMP>
+VOL=mybmo-casdoor_pgdata
+
+cd $COMPOSE_DIR
+git checkout <升级前的提交> -- docker-compose.yml     # 镜像回 16
+docker compose down
+docker volume rm $VOL && docker volume create $VOL
+docker run --rm -v $VOL:/to -v $BK:/backup alpine \
+  sh -c 'cd /to && tar xzf /backup/pgdata-16.tgz'
+docker compose up -d
+```
+
+验证通过后可以删 tar 包；`casdoor.dump` 建议长期留着——Casdoor 的账号、应用、自定义
+scope 都在里面，比在管理台里重建省事。
 
 ## 八、Casdoor 与新增客户端
 
@@ -256,7 +327,7 @@ sudo systemctl reload caddy
 | 现象 | 原因 | 处理 |
 |---|---|---|
 | Caddy 日志报 ACME 失败 | 子域没有 A 记录 / 80 端口未放通 | `dig +short baiduads.pandabase.top`，再查安全组 |
-| `401 Unauthorized` | 没带 basic auth，或哈希写错 | 重新 `caddy hash-password` 并 reload |
+| `/mcp` 一律 `401` | 没带 Bearer 令牌 / 令牌过期 / `aud` 不在白名单 | 先看 `WWW-Authenticate` 里的 `error`：`invalid_token` 查 `MYBMO_OIDC_AUDIENCE` 与 `MYBMO_JWKS_URL`；`insufficient_scope` 查 Casdoor 应用里的 scope 登记（casdoor-notes 第四节） |
 | 容器 `unhealthy` | `/healthz` 打不通 | `logs mcp` 看是否启动即崩 |
 | 502 Bad Gateway | Caddy 连不到 `127.0.0.1:8000` | `docker compose ps` 看 mcp 是否在跑、端口映射是否被占 |
 | 工具调用挂住不返回 | 反向代理缓冲了 SSE | 本配置默认不缓冲；若改过 Caddyfile 检查 `flush_interval` |
@@ -273,7 +344,8 @@ sudo systemctl reload caddy
 | 身份模式 | **`oidc`**（2026-11-08 12:10 切换），Casdoor `auth.pandabase.top` |
 | 鉴权 | 只走 OAuth bearer；**Caddy 的 basic_auth 已移除**（原因见下） |
 | 镜像 | `mybmo-mcp:0.1.0`，258 MB |
-| 内存占用 | 容器 56 MiB，宿主 Caddy 约 30 MiB，整机 1967 MiB 中可用 1342 MiB |
+| 数据库 | **PostgreSQL 17.11**（`17-bookworm`，2026-11-08 13:32 由 16 迁上，见 7.1） |
+| 内存占用 | mcp 61 MiB / PG 63 MiB / Casdoor 22 MiB，宿主 Caddy 约 30 MiB，整机 1967 MiB 可用 1236 MiB |
 | 构建耗时 | 首次 13.5 分钟（已配腾讯云镜像加速；未配时 ghcr 单层就要 745 秒） |
 
 已验证：`/healthz` 200、无凭据 `/mcp` 401、带凭据 400（握手拒绝空 body）、
@@ -296,5 +368,7 @@ MCP 客户端列出 5 个工具、`search_capabilities("报表")` 命中 3 条�
 - **Docker vs systemd**：本文按 Docker 写。若目标机不允许装 Docker，
   需另写 systemd unit，`MYBMO_DATA_DIR` 指向 `/var/lib/mybmo`，其余不变
 - **备份恢复演练**：当前无已绑定账户，恢复验证无意义，等首个账户绑定后补
-- **Claude Desktop 直连**：它的远程连接要 OAuth，在 Casdoor 接入前接不了 basic auth
-- **Casdoor + PostgreSQL 的实机内存**：当前余量够，但没装过，不能只凭估算
+- **Claude Desktop 直连**：OAuth 链路已通（8.1 可注册），但它的授权码 + PKCE 全流程
+  还没用真实客户端跑过（tasks 5.9）
+- **PG 17 的中文排序**：新集群 locale 是 `C.UTF-8`（码点序，不是拼音序）。当前没有中文
+  `user_name`，`ILIKE` 与排序的实际表现要等真账户进来才能验

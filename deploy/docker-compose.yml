@@ -70,7 +70,7 @@ services:
   #   networks: [internal]
   #
   # postgres:
-  #   image: postgres:16-alpine
+  #   image: postgres:17-bookworm        # 与 deploy/casdoor 及 ADR 0002 D3 保持一致
   #   restart: unless-stopped
   #   environment:
   #     POSTGRES_USER: ${POSTGRES_USER}

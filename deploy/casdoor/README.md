@@ -1,5 +1,9 @@
 # Casdoor 首次部署与配置
 
+> **这份是首次接入时的顺序稿。** 线上已于 2026-11-08 完成切换（`MYBMO_AUTH_MODE=oidc`、
+> Caddy 的 `basic_auth` 已移除），第一、二、七节只在对新机器重建时才有意义；当前状态见
+> [`docs/operations.md`](../../docs/operations.md) 第十节，新增客户端看 8.1。
+
 这台机器上 mcp 已经在跑（`MYBMO_AUTH_MODE=local`，basic auth 挡着）。加 Casdoor 是
 **第二步**，做完才能把 Claude Desktop 这类只认 OAuth 的客户端接进来。
 

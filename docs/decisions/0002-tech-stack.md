@@ -92,6 +92,11 @@ SDK 会自动发布 RFC 9728 的 `/.well-known/oauth-protected-resource/mcp`，
 选稳的。镜像用 `postgres:17-bookworm`（非 alpine），因为 alpine 的 musl 中文 locale 支持不完整，
 `user_name` 排序与 `ILIKE` 会与 Debian 版产生差异。
 
+**实施记录（2026-11-08）**：`deploy/casdoor/docker-compose.yml` 在 P4 落地时抄了 Casdoor
+官方 compose 的 `postgres:16-alpine`，与本决策不符——恰好踩中要避开的 musl locale 那一点。
+现已改为 `postgres:17-bookworm`，线上在当天迁到 **17.11**（脚本
+`scripts/pg-upgrade-16-to-17.sh`，流程见 [`docs/operations.md`](../operations.md) 7.1）。
+
 两个库共用同一实例：`mybmo`（业务）与 `casdoor`（Casdoor 自用）。
 备份是三条命令：`pg_dumpall --globals-only` + 两个库各一次 `pg_dump -Fc`。
 

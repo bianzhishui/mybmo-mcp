@@ -1,7 +1,11 @@
 # Casdoor 实测记录
 
-2026-11-08，实例 `https://auth.pandabase.top`（`casbin/casdoor:latest`，Docker，同机 PostgreSQL 16）。
+2026-11-08，实例 `https://auth.pandabase.top`（`casbin/casdoor:latest`，Docker，同机 PostgreSQL）。
 以下全部是 `curl` / `psql` 实测值，不是文档抄写——Casdoor 版本迭代快，凭印象写会误导后来人。
+
+> 下文实测值取自迁移前的 **`postgres:16-alpine`**；当日 13:32 线上已迁到 `17-bookworm`
+> （PG 17.11）。迁移没有改变 Casdoor 行为，但第七节的内存数字属迁移前。迁移与回滚见
+> [`operations.md`](operations.md) 7.1。
 
 ## 一、discovery 字段（tasks 5.3）
 
@@ -208,6 +212,9 @@ Casdoor 也不给改写的机会：传 `resource=`（RFC 8707）和 `audience=`
 
 整机 1967 MiB，可用 1256 MiB。**三个容器合计约 130 MiB**，远低于 ADR 0002 里
 "四容器在 1.9G 上偏紧"的估计——那个估计是保守的，实测很宽裕。
+
+迁到 PG 17.11 后（同日 13:35）：PG 62.7 MiB、Casdoor 21.67 MiB、mcp 60.67 MiB，
+整机可用 1236 MiB。PG 涨了约 17 MiB，仍在预算内。
 
 ## 八、上线前必须处理的两件事
 

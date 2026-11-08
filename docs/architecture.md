@@ -126,6 +126,10 @@ MCP 只忠实执行 `execute_capability`，是否要求人工确认由调用方�
 
 详见 [ADR 0004](decisions/0004-multi-tenant-accounts.md)。
 
+> **现状**：这些表还没建。P4 只落地了 JWT → `Principal` 的校验，账户授权仍是文件式
+> `data/tenancy.json`，`psycopg` 还是 `optional-dependencies.p4` 里未启用的依赖。
+> 本节是目标模型，不是当前库结构。
+
 ```sql
 tenants          (id, name, plan, status, created_at)
 users            (id, tenant_id, idp_subject, email, display_name,

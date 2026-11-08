@@ -12,14 +12,22 @@ name: mybmo-casdoor
 
 services:
   postgres:
-    image: postgres:16-alpine
+    # 与 ADR 0002 D3 一致：17 + bookworm（非 alpine）。alpine 用 musl，中文 locale 支持不完整，
+    # user_name 的排序与 ILIKE 会与 Debian 版不同。
+    #
+    # 注意：16 → 17 是大版本迁移，旧卷里的 PG_VERSION 会让 17 直接拒绝启动（数据不会丢，
+    # 但 Casdoor 会一直起不来）。线上已于 2026-11-08 迁到 17.11；若哪天要把旧卷挂回来，
+    # 先跑 scripts/pg-upgrade-16-to-17.sh（说明见 docs/operations.md 7.1）。
+    image: postgres:17-bookworm
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: casdoor
-      # Casdoor 要求 UTF-8；默认 locale 在 alpine 上不一定是，显式指定避免中文乱码
+      # Casdoor 要求 UTF-8；locale 显式钉住，不依赖镜像默认值
       LANG: C.UTF-8
+      # 只在**新卷首次 initdb** 生效；已有数据卷不看这两个参数
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C.UTF-8"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
