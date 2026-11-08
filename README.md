@@ -84,14 +84,10 @@ curl -fsS https://baiduads.pandabase.top/healthz
 
 ## 当前状态
 
-P0–P3 已完成，P7 已上线，`oidc` 模式已用真实令牌验证（授权码 + PKCE 全流程）。
-205 个测试离线全绿。
+线上以 `oidc` 模式运行，授权码 + PKCE 全流程已用真实令牌验证；205 个测试离线全绿。
 
-**唯一未验证的是真实百度接口**——没有可用账号，所以 `execute_capability` 从未真正
-打到 `api.baidu.com`。拿到 AppID 后跑一次绑定就能确认。
-
-逐项清单在 [`tasks.md`](openspec/changes/bootstrap-mcp-server/tasks.md)，
-技术取舍在 [`design.md`](openspec/changes/bootstrap-mcp-server/design.md)。
+**尚未验证的是真实百度接口**——没有可用账号，所以 `execute_capability` 从未真正
+打到 `api.baidu.com`。拿到 AppID 后跑一次绑定即可确认。
 
 ## 文档
 
@@ -99,8 +95,8 @@ P0–P3 已完成，P7 已上线，`oidc` 模式已用真实令牌验证（授�
 |---|---|
 | [`docs/architecture.md`](docs/architecture.md) | 三层信任边界、关键时序、数据模型、凭据生命周期 |
 | [`docs/auth-contract.md`](docs/auth-contract.md) | **与 infra 的唯一契约**：鉴权不变量、环境变量、端点、卷布局 |
-| [`ADR 0002`](docs/decisions/0002-tech-stack.md) | Python 侧技术栈与理由（基础设施部分已迁出） |
-| [`ADR 0003`](docs/decisions/0003-capability-only.md) | 从"业务工具"转向能力网关，以及为什么不拦写操作 |
+| [`ADR 0002`](docs/decisions/0002-tech-stack.md) | 技术栈与理由 |
+| [`ADR 0003`](docs/decisions/0003-capability-only.md) | 只做能力层，不做业务编排与写审批 |
 | [`ADR 0004`](docs/decisions/0004-multi-tenant-accounts.md) | 多租户账户模型、MCC 子账户、`wait` 语义 |
 | [`ADR 0005`](docs/decisions/0005-sdk-poc.md) | `baiduads-sdk` 可行性验证：为什么只做元数据源 |
 | [`.env.example`](.env.example) | 全部环境变量与取值说明 |

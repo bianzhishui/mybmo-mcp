@@ -3,15 +3,11 @@
 - 状态：已接受
 - 日期：2026-11-07
 - 决策者：项目负责人
-- 取代：[design.md](../../openspec/changes/bootstrap-mcp-server/design.md) 的 D1（不用 SDK）、D2（业务闭环粒度）、D3（审批）
-- 不影响：[ADR 0002](0002-tech-stack.md) 的框架选型（`mcp` / `httpx2` / PG / Caddy 仍然有效）
+- 关联：[ADR 0004](0004-multi-tenant-accounts.md)（多租户）、[ADR 0005](0005-sdk-poc.md)（SDK 验证）
 
 ## 背景
 
-项目最初按「业务闭环」设计：10 个左右的工具，`keyword_plan`、`account_snapshot`、
-`query_report`，写操作走 `change_preview → 确认 → change_execute`。
-
-重新对齐目标后，需求是两件事：
+需求是两件事：
 
 1. 把 `baiduads-sdk` 支持的**全部接口**包一层，供 agent 调用
 2. 加鉴权与多账户：多用户使用，每个用户可关联多个百度账户

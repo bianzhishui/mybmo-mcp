@@ -45,15 +45,13 @@ JWKS 拉取失败时拒绝而非放行——故障期间"先信旧密钥"等于�
 | 百度 `accessToken` | 内存 | ~24 小时 |
 | 账户中文名 `userName` | 凭据文件明文（非敏感） | 随账户 |
 
-### 第三层：写操作（已移出本项目）
+### 第三层：写操作
 
-原设计是 `change_preview → 用户确认 → change_execute` 的审批闭环。按
-[ADR 0003](decisions/0003-capability-only.md) 调整后，**审批不再由本服务承担**：
-MCP 只忠实执行 `execute_capability`，是否要求人工确认由调用方的工作流决定。
-能力元数据里标 `mutating` / `destructive`，把判断所需的事实给足，但不替调用方做决定。
+**审批不由本服务承担**（[ADR 0003](decisions/0003-capability-only.md)）：MCP 只忠实执行
+`execute_capability`，是否要求人工确认由调用方的工作流决定。能力元数据里标
+`mutating` / `destructive`，把判断所需的事实给足，但不替调用方做决定。
 
-仍保留的约束：**写请求不自动重试**。网络超时属于"结果未知"，必须先查后台状态，
-禁止直接重发——这是可靠性要求，与审批无关。
+写请求**不自动重试**：网络超时属于"结果未知"，必须先查后台状态，禁止直接重发。
 
 ## 三、关键时序
 
@@ -104,9 +102,8 @@ MCP 只忠实执行 `execute_capability`，是否要求人工确认由调用方�
 
 详见 [ADR 0004](decisions/0004-multi-tenant-accounts.md)。
 
-> **现状**：这些表还没建。P4 只落地了 JWT → `Principal` 的校验，账户授权仍是文件式
-> `data/tenancy.json`，`psycopg` 还是 `optional-dependencies.p4` 里未启用的依赖。
-> 本节是目标模型，不是当前库结构。
+> **当前实现**：账户授权是文件式 `data/tenancy.json`；`psycopg` 仍是
+> `optional-dependencies.p4` 里未启用的依赖。下面的表是目标模型，尚未建库。
 
 ```sql
 tenants          (id, name, plan, status, created_at)
