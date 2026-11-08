@@ -29,6 +29,7 @@ uv run mybmo-mcp --help
 
 公网接入：`uv run mybmo-mcp -t streamable-http --host 127.0.0.1 -p 8000`。
 默认只监听回环，**不要**在没有鉴权的情况下直接暴露到公网，原因见下文"三条硬规则"。
+服务端部署（Caddy + 容器 + 备份回滚）见 [`docs/operations.md`](docs/operations.md)。
 
 没有百度账号也能用：`search_capabilities` / `get_capability_schema` 只读随包的接口元数据，
 不碰凭据、不联网。
@@ -71,6 +72,7 @@ P0–P3 已完成，172 个测试离线全绿：能力网关、账户与凭据�
 | 文档 | 内容 |
 |---|---|
 | [`docs/architecture.md`](docs/architecture.md) | 三层信任边界、关键时序、数据模型、部署拓扑、安全清单 |
+| [`docs/operations.md`](docs/operations.md) | 部署、TLS、备份恢复、升级回滚、Casdoor 切换清单、故障排查 |
 | [`ADR 0001`](docs/decisions/0001-auth-architecture.md) | 为什么自部署 Casdoor 作授权服务器 |
 | [`ADR 0002`](docs/decisions/0002-tech-stack.md) | 技术栈选型与理由（含被否决的方案） |
 | [`ADR 0003`](docs/decisions/0003-capability-only.md) | 从"业务工具"转向能力网关，以及为什么不拦写操作 |

@@ -1,0 +1,28 @@
+# 构建上下文是仓库根，这里排除掉一切镜像里用不到的东西。
+# 少了这个文件，.venv（几十兆到上百兆）会被打进 build context。
+
+.venv/
+.git/
+.gitignore
+
+# 运行时数据与密钥：绝不能进镜像
+data/
+deploy/.env
+.env
+*.jsonl
+*.pem
+
+# 测试与文档
+tests/
+docs/
+openspec/
+scripts/
+deploy/
+*.md
+!README.md
+
+# 缓存
+.pytest_cache/
+.ruff_cache/
+__pycache__/
+*.pyc

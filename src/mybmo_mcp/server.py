@@ -13,8 +13,11 @@ from typing import Annotated, Literal
 
 import typer
 from mcp.server import MCPServer
+from starlette.requests import Request
+from starlette.responses import JSONResponse
 
 from mybmo_mcp import __version__
+from mybmo_mcp.health import health_payload
 from mybmo_mcp.tools import register_all
 
 Transport = Literal["stdio", "streamable-http"]
@@ -39,17 +42,27 @@ app = typer.Typer(
     help=(
         "百度营销开放平台的 MCP 服务。\n\n"
         "stdio：本地接入，由 MCP 宿主作为子进程拉起（默认）。\n\n"
-        "streamable-http：公网接入，需 OAuth 2.1 鉴权，默认监听 127.0.0.1:8000/mcp。"
+        "streamable-http：公网接入，默认 127.0.0.1:8000/mcp。"
+        "对外暴露前必须先把鉴权加上，见 docs/operations.md。"
     ),
     add_completion=False,
     rich_markup_mode=None,
 )
 
 
+def _register_health(server: MCPServer) -> None:
+    """``/healthz`` 走 SDK 的自定义路由，不参与 MCP 协议、不需要鉴权。"""
+
+    @server.custom_route("/healthz", methods=["GET"], include_in_schema=False)
+    async def healthz(_: Request) -> JSONResponse:
+        return JSONResponse(health_payload())
+
+
 def build_server() -> MCPServer:
     """构造 MCP 服务实例并挂载工具。"""
     server = MCPServer(name="mybmo-mcp", version=__version__, instructions=_INSTRUCTIONS)
     register_all(server)
+    _register_health(server)
     return server
 
 

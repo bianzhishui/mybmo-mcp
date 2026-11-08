@@ -1,0 +1,177 @@
+# 运维手册
+
+目标形态：一台公网服务器，Caddy 负责 TLS 与访问控制，MCP 服务只在容器内网可达。
+下面是**当前阶段**（Casdoor 未接入）的完整流程。
+
+```text
+公网 ──:443──▶ caddy ──internal──▶ mcp:8000
+                │
+                └ /healthz 不鉴权，其余路径要 basic auth
+```
+
+## 一、前置条件
+
+| 项 | 要求 | 检查方式 |
+|---|---|---|
+| DNS | `baiduads.pandabase.top` A 记录指向服务器公网 IP | `dig +short baiduads.pandabase.top` |
+| 端口 | 安全组 / 防火墙放通 80、443（Caddy 申请证书要用 80） | 控制台确认 |
+| Docker | 20.10+，含 compose v2 | `docker compose version` |
+| 内存 | MCP + Caddy 约 200 MB，1.9 GiB 机器足够 | `free -m` |
+
+DNS 没生效就启动，Caddy 会反复重试签证书并失败——先 `dig` 确认再往下走。
+
+## 二、首次部署
+
+```bash
+git clone <repo> /opt/mybmo-mcp
+cd /opt/mybmo-mcp
+
+cp deploy/.env.example deploy/.env
+# 至少要填三项：MCP_HOST、ACME_EMAIL、MCP_PASSWORD_HASH
+# 主密钥用：python3 -c "import base64,os;print(base64.b64encode(os.urandom(32)).decode())"
+vim deploy/.env
+
+docker compose -f deploy/docker-compose.yml up -d --build
+docker compose -f deploy/docker-compose.yml ps
+```
+
+生成口令哈希（不要在别处复用这个密码）：
+
+```bash
+docker run --rm caddy:2-alpine caddy hash-password --plaintext '你的密码'
+```
+
+验证：
+
+```bash
+curl -fsS https://baiduads.pandabase.top/healthz
+# {"status":"ok","version":"0.1.0","auth_mode":"local","capabilities":389,
+#  "described":50,"credentials":"unconfigured"}
+```
+
+`credentials=unconfigured` 说明 `MYBMO_MASTER_KEY` 没填对——此时服务能检索接口目录，
+但调不动百度。这是刻意的：没有密钥不该让容器起不来，只该让它干不了活。
+
+## 三、接客户端
+
+MCP 端点是 `https://baiduads.pandabase.top/mcp`，走 Streamable HTTP。
+因为现在是 basic auth 而不是 OAuth，客户端要能自定义请求头：
+
+```bash
+npx mcp-remote https://baiduads.pandabase.top/mcp \
+  --header "Authorization: Basic $(printf 'mybmo:你的密码' | base64)"
+```
+
+直接支持 `headers` 的客户端（如 Cursor）可以把这一行写进配置。
+**Claude Desktop 的远程连接要求 OAuth，接不了 basic auth**——它要等 Casdoor。
+
+## 四、健康检查与监控
+
+`/healthz` 不需要鉴权，也不返回任何账户或令牌信息：
+
+| 字段 | 含义 | 告警建议 |
+|---|---|---|
+| `status` | 恒为 `ok`，进程能应答就是活着 | 连续 3 次超时 → 重启容器 |
+| `credentials` | `configured` / `unconfigured` | 变 `unconfigured` → 主密钥丢了或没配 |
+| `capabilities` | 能力条数，正常是 389 | 变 `null` 或变少 → 镜像打包有问题 |
+
+Docker 自带的 HEALTHCHECK 已指向它，`docker ps` 里能看到 `healthy`。
+
+## 五、日志
+
+```bash
+docker compose -f deploy/docker-compose.yml logs -f mcp     # 应用日志（stderr）
+docker compose -f deploy/docker-compose.yml logs -f caddy   # 证书与访问日志
+```
+
+**审计日志不在 stdout**，在数据卷里，按天分文件：
+
+```bash
+docker compose -f deploy/docker-compose.yml exec mcp \
+  sh -c 'ls -l /data/audit && tail -n 5 /data/audit/$(date +%F).jsonl'
+```
+
+每行一条 JSON，含 `sub` / `account` / `capability` / `state` / `payload_digest`，不含报文与令牌。
+
+## 六、备份
+
+**两样东西必须分开备份**：数据卷（加密凭据 + 审计）和 `deploy/.env`（主密钥）。
+
+```bash
+# 数据卷
+docker run --rm -v mybmo_data:/data -v "$PWD":/backup alpine \
+  tar czf /backup/mybmo-data-$(date +%F).tgz -C /data .
+
+# 配置与主密钥（含密钥，存到密码管理器或加密盘，别和备份放一起）
+cp deploy/.env ~/mybmo-deploy.env.bak
+```
+
+**主密钥丢了 = 所有已绑定账户作废**，只能用旧备份恢复，或让每个账户重新走一次百度授权。
+这一条没有补救办法，加密是 AES-GCM，没有后门。
+
+恢复：
+
+```bash
+docker compose -f deploy/docker-compose.yml down
+docker run --rm -v mybmo_data:/data -v "$PWD":/backup alpine \
+  sh -c 'cd /data && tar xzf /backup/mybmo-data-YYYY-MM-DD.tgz'
+docker compose -f deploy/docker-compose.yml up -d
+curl -fsS https://baiduads.pandabase.top/healthz
+```
+
+## 七、升级与回滚
+
+```bash
+git pull
+docker compose -f deploy/docker-compose.yml up -d --build
+```
+
+数据卷不动，升级不影响已绑定的账户。能力表（`capabilities.json`）是**构建期产物**，
+镜像里带的是仓库里的版本；百度接口有变动时在开发机重新生成再提交，不在服务器上跑生成器。
+
+回滚：
+
+```bash
+git log --oneline -5
+git checkout <上一个提交或 tag>
+docker compose -f deploy/docker-compose.yml up -d --build
+```
+
+## 八、什么时候加 Casdoor
+
+现在不接，原因是它还不需要：`MYBMO_AUTH_MODE=local` 下没有"用户"这个概念，
+basic auth 挡住外人就够了。等下面任意一条成立再上：
+
+- 要给别人用，且不想共享一个口令
+- 需要按账户授权（A 只能看 `axd`，B 能改 `bcd`）
+- 需要审计到人（现在审计里的 `sub` 恒为 `local`）
+
+接入时必须一次做对的事：**issuer 定死就是 https://auth.pandabase.top，之后不能改**，
+它写进每个 JWT 的 `iss`（理由见 ADR 0001）。步骤：
+
+1. DNS 加 `auth.pandabase.top` 的 A 记录
+2. 解除 `docker-compose.yml` 里 casdoor / postgres 的注释
+3. 解除 `Caddyfile` 里 auth 站点块的注释
+4. `deploy/.env` 设 `CASDOOR_ISSUER`、`MYBMO_RESOURCE_URL`、`MYBMO_DATABASE_URL`
+5. 起容器，在 Casdoor 后台建应用，回调地址填 MCP 客户端用的那个
+6. 建用户与 `data/tenancy.json`（格式见 `tenancy.example.json`）
+7. `MYBMO_AUTH_MODE=oidc` 重启，**此时缺授权表会直接报错**，这是有意的
+8. 客户端从 basic auth 换成 OAuth
+
+## 九、常见故障
+
+| 现象 | 原因 | 处理 |
+|---|---|---|
+| Caddy 反复重启、日志报 ACME 失败 | 80 端口未放通 / DNS 没生效 | 先 `dig`，再查安全组 |
+| `401 Unauthorized` | 没带 basic auth，或 hash 写错 | 重新 `caddy hash-password` |
+| 容器 `unhealthy` | `/healthz` 打不通 | `logs mcp` 看是否启动即崩 |
+| 工具调用挂住不返回 | 反向代理缓冲了 SSE | 本配置默认不缓冲；若改过 Caddyfile 检查 `flush_interval` |
+| `credentials: unconfigured` | `MYBMO_MASTER_KEY` 缺失或格式错 | 32 字节 base64，重启生效 |
+| 所有账户报 `reauth_required` | 换了主密钥 | 用原密钥，或重新绑定 |
+
+## 十、还没验证的
+
+- **内存实测**：1.9 GiB 上跑 mcp + caddy 没问题；加上 Casdoor + PostgreSQL 后是否够，要实测
+- **Docker vs systemd**：本文按 Docker 写。若目标机不允许装 Docker，
+  需另写 systemd unit，`MYBMO_DATA_DIR` 指向 `/var/lib/mybmo`，其余不变
+- **真实客户端联调**：basic auth 只有 curl 和 `mcp-remote` 验证过，桌面客户端未测

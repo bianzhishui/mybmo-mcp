@@ -135,12 +135,25 @@
 
 ## 8. P7 上线
 
-- [ ] 8.1 `deploy/docker-compose.yml`：casdoor + mybmo-mcp + postgres，仅 Caddy 暴露 80/443
-- [ ] 8.2 `deploy/Caddyfile`：`auth.example.com` → Casdoor，`mcp.example.com` → server
-- [ ] 8.3 `docs/operations.md`：启动、备份（每日 `pg_dump`）、升级、回滚、日志位置
+> 域名已定：`baiduads.pandabase.top`。Casdoor 的 issuer 预留 `auth.pandabase.top`。
+
+- [x] 8.1 `deploy/docker-compose.yml`：**先只上 mcp + caddy 两个服务**。
+      casdoor / postgres 的段落注释预留，理由见 8.7——`MYBMO_AUTH_MODE=local`
+      不需要它们，1.9 GiB 的机器上也更稳
+- [x] 8.2 `deploy/Caddyfile`：`baiduads.pandabase.top` → mcp:8000。
+      `/healthz` 免鉴权（监控与容器探活用），其余路径走 `basic_auth`；
+      `auth.pandabase.top` → Casdoor 的站点块注释预留
+- [x] 8.3 `docs/operations.md`：前置条件、首次部署、客户端接入、健康检查、日志、
+      备份恢复（数据卷 tar + `deploy/.env` 分开存）、升级回滚、Casdoor 切换清单、故障表。
+      备份方式由原计划的每日 `pg_dump` 改为数据卷快照——PG 尚未引入
 - [ ] 8.4 上线前逐项过 `docs/architecture.md` 第八节安全清单
-- [ ] 8.5 监控最低要求：健康检查端点、鉴权失败率、百度错误码分布
-- [ ] 8.6 备份演练：从 `pg_dump` 恢复到空实例，确认账户还能用
+- [ ] 8.5 监控：`/healthz` 已实现（`health.py`，含 `credentials` 字段），
+      鉴权失败率与百度错误码分布未做——需要先把审计日志接出去
+- [ ] 8.6 备份演练：从数据卷恢复到空实例，确认已绑定账户还能用
+- [ ] 8.7 内存实测：确认 1.9 GiB 上 mcp + caddy 的实际占用，
+      再决定是否同机塞 Casdoor + PostgreSQL（ADR 0002 未决问题）
+- [ ] 8.8 `[live]` 在真实服务器上跑通：Caddy 签出证书 → `/healthz` 返回 200 →
+      客户端通过 `mcp-remote` 连上并列出 5 个工具
 
 **出口**：新机器按 `docs/operations.md` 可在 30 分钟内重建整套服务。
 

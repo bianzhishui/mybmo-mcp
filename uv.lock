@@ -406,6 +406,7 @@ dependencies = [
     { name = "psycopg", extra = ["binary", "pool"] },
     { name = "pydantic-settings" },
     { name = "pyjwt", extra = ["crypto"] },
+    { name = "starlette" },
     { name = "typer" },
 ]
 
@@ -425,6 +426,7 @@ requires-dist = [
     { name = "psycopg", extras = ["binary", "pool"], specifier = ">=3.3,<4" },
     { name = "pydantic-settings", specifier = ">=2.16,<3" },
     { name = "pyjwt", extras = ["crypto"], specifier = ">=2.15,<3" },
+    { name = "starlette", specifier = ">=0.40" },
     { name = "typer", specifier = ">=0.28,<1" },
 ]
 

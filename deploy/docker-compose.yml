@@ -1,0 +1,81 @@
+# 部署编排。
+#
+# 现在只有两个服务：mcp + caddy。Casdoor 和 PostgreSQL 的段落是**注释掉的**，
+# 不是漏了——见 docs/operations.md 的「什么时候加 Casdoor」。
+#
+# 端口暴露原则：mcp 只走内部网络，公网入口只有 caddy 的 80/443。
+
+name: mybmo
+
+services:
+  mcp:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    image: mybmo-mcp:0.1.0
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      # 覆盖 .env 里的相对路径，指到卷上
+      MYBMO_DATA_DIR: /data
+    volumes:
+      - data:/data
+    expose:
+      - "8000"
+    networks:
+      - internal
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - mcp
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      MCP_HOST: ${MCP_HOST}
+      ACME_EMAIL: ${ACME_EMAIL}
+      MCP_USER: ${MCP_USER}
+      MCP_PASSWORD_HASH: ${MCP_PASSWORD_HASH}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - internal
+
+  # ---------------------------------------------------------------------------
+  # P4 之后再启用。启用前必须先确定 issuer（见 ADR 0001：写进 token，改一次全废）。
+  #
+  # casdoor:
+  #   image: casbin/casdoor:latest
+  #   restart: unless-stopped
+  #   env_file: [.env]
+  #   environment:
+  #     driverName: postgres
+  #     dataSourceName: "user=${POSTGRES_USER} password=${POSTGRES_PASSWORD} host=postgres port=5432 dbname=casdoor sslmode=disable"
+  #   depends_on: [postgres]
+  #   networks: [internal]
+  #
+  # postgres:
+  #   image: postgres:16-alpine
+  #   restart: unless-stopped
+  #   environment:
+  #     POSTGRES_USER: ${POSTGRES_USER}
+  #     POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+  #     POSTGRES_DB: casdoor
+  #   volumes: [pgdata:/var/lib/postgresql/data]
+  #   networks: [internal]
+  # ---------------------------------------------------------------------------
+
+volumes:
+  data:
+  caddy_data:
+  caddy_config:
+  # pgdata:
+
+networks:
+  internal:
