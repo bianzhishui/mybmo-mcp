@@ -244,6 +244,8 @@ docker compose -f deploy/docker-compose.yml up -d --force-recreate
 | 域名 | `baiduads.pandabase.top` → 49.232.229.71（DNSPod，`auth` 子域也已解析） |
 | TLS | Let's Encrypt，CN=baiduads.pandabase.top，有效期至 2027-02-06，自动续期 |
 | 部署形态 | 共享宿主机：宿主 Caddy（systemd）+ mcp 容器（`127.0.0.1:8000`） |
+| 身份模式 | **`oidc`**（2026-11-08 12:10 切换），Casdoor `auth.pandabase.top` |
+| 鉴权 | 只走 OAuth bearer；**Caddy 的 basic_auth 已移除**（原因见下） |
 | 镜像 | `mybmo-mcp:0.1.0`，258 MB |
 | 内存占用 | 容器 56 MiB，宿主 Caddy 约 30 MiB，整机 1967 MiB 中可用 1342 MiB |
 | 构建耗时 | 首次 13.5 分钟（已配腾讯云镜像加速；未配时 ghcr 单层就要 745 秒） |
@@ -252,6 +254,10 @@ docker compose -f deploy/docker-compose.yml up -d --force-recreate
 MCP 客户端列出 5 个工具、`search_capabilities("报表")` 命中 3 条。
 
 **踩过的坑**（都已在代码里修掉，留档避免复发）：
+
+0. **切到 oidc 后必须同时去掉 Caddy 的 `basic_auth`。** 两者叠加的结果是：
+   OAuth 令牌根本到不了容器，客户端永远收到 `401 Basic realm="restricted"`，
+   看起来像"OAuth 不生效"，实际是代理层先拦了。实测踩到过。
 
 1. `MCP_PASSWORD_HASH` 含 `$`，写进 compose 的 `environment: ${VAR}` 会被当变量插值 →
    改为 `env_file` 或宿主 Caddyfile。共享宿主机形态下根本不该写进 `.env`。

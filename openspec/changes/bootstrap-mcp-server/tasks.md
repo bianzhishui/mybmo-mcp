@@ -104,6 +104,7 @@
       `client_id_metadata_document_supported` = **false**（CIMD 不可用）；
       `jwks_uri` = `/.well-known/jwks`（**不是直觉的 `/api/v1/jwks`**）
 - [ ] 5.4 开启组织级 DCR 与回调白名单（**需要人操作界面**，notes 第六节写了 scope 登记方式）
+      ——注：`app-built-in` 的 scope 已登记，但 DCR 策略未开
 - [x] 5.5 `auth/resource.py`：`JwtVerifier` 实现 SDK 的 `TokenVerifier` 协议。
       验签（JWKS 缓存 + kid 查找）、`iss` / `aud` / `exp` / `nbf`，60 秒时钟容忍。
       **JWKS 取不到时拒绝而非放行**；令牌畸形在取 kid 阶段抛 `DecodeError` 也接住了。
@@ -120,7 +121,10 @@
 - [x] 5.8 `tests/test_resource.py`：伪造签名、错 audience、过期、issuer 不符四条；
       另加 issuer 尾斜杠、缺 scope、JWKS 失败、令牌畸形四个边界
 - [ ] 5.9 `[live]` 用 Claude Desktop / Cursor 贴 URL 完成自助注册 → 登录 → 调用一个能力
-      （**需要 5.3/5.4 先做**）
+      ——**后端已验证**：真实 Casdoor 令牌可完成 MCP 握手并调用工具
+      （`list_accounts` 返回 `identity.source=oidc`、`unrestricted=false`）；
+      无令牌 401、无 `baidu:read` 的令牌 403、有则 200。
+      缺的是桌面客户端的浏览器授权流程与 DCR（依赖 5.4）
 - [ ] 5.10 `tenants` / `users` / `account_grants` 三表与仓储层：`sub → tenant` 映射。
       **当前用文件式 `data/tenancy.json` 替代**，`TenancyStore.resolve_principal`
       已实现 `sub → Principal`；落库是下一步（`optional-dependencies.p4` 里备了 psycopg）

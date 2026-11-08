@@ -81,9 +81,42 @@ key 数量: 1
 整机 1967 MiB，可用 1256 MiB。**三个容器合计约 130 MiB**，远低于 ADR 0002 里
 "四容器在 1.9G 上偏紧"的估计——那个估计是保守的，实测很宽裕。
 
-## 九、尚未验证
+## 九、端到端验证结果（2026-11-08 12:10）
 
-- DCR 实际注册一个客户端（需要 POST `/api/oauth/register`，会写入数据库）
+线上 `https://baiduads.pandabase.top/mcp` 已切到 `MYBMO_AUTH_MODE=oidc`，实测：
+
+| 场景 | 结果 |
+|---|---|
+| 无令牌 POST `/mcp` | **401**，`WWW-Authenticate: Bearer ... resource_metadata=".../.well-known/oauth-protected-resource"` |
+| 伪造令牌 | **401** |
+| 只有 `openid` 的令牌 | **403**（scope 不足） |
+| 含 `baidu:read` 的令牌 | **200**（MCP 握手成功） |
+| MCP 客户端列工具 | 5 个，与 local 模式一致 |
+| `list_accounts` | `ok: true`，`identity.sub` = Casdoor 用户 UUID，`source: oidc`，`unrestricted: false` |
+
+最后一条是本次最关键证据：**身份确实来自 JWT，不再是 `local_admin`**。
+`unrestricted: false` 说明没有回退成本机全权身份，`grants: {}` 说明这个用户还没有账户授权
+（`count: 0`，符合预期——还没绑定任何百度账户）。
+
+## 十、上线时必须改的一件事
+
+为了让命令行能验证 JWT 链路，**临时**给 `app-built-in` 开了 `password` grant
+（Casdoor 默认只允许 `authorization_code` + `refresh_token`）。
+
+这意味着：任何持有 Casdoor 账号密码的人，都能不经浏览器直接换到令牌。
+当前只有 `admin` 一个用户，风险可控；**但对外前必须关掉**：
+
+```sql
+UPDATE application
+SET grant_types = '["authorization_code","refresh_token"]'
+WHERE name = 'app-built-in';
+```
+
+关掉后要重新验证，得走浏览器授权码流程。命令行调试可以临时再开。
+
+## 十一、尚未验证
+
+- DCR 实际注册一个客户端（`POST /api/oauth/register`，会写入数据库）
 - 完整授权码 + PKCE 流程（需要浏览器与人眼确认）
 - refresh token 是否轮换（影响 `CredentialService` 的并发刷新假设）
 - Claude Desktop / Cursor 的真实接入（tasks 5.9）
