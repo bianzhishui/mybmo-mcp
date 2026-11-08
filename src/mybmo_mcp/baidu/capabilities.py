@@ -69,6 +69,44 @@ CAPABILITY_ALIASES: dict[str, tuple[str, ...]] = {
 
 
 @dataclass(frozen=True, slots=True)
+class AsyncTask:
+    """异步任务的轮询协议，来自能力元数据的 ``async_task``。
+
+    字段名（``task_id_field``、``done_when`` 的键）由元数据给出，不写死在代码里——
+    百度的任务字段叫什么，要等实测确认（见 docs/baidu-behavior.md）。
+    """
+
+    status_capability: str
+    result_capability: str = ""
+    task_id_field: str = "taskId"
+    #: ((字段, 终态取值), ...)，全部命中才算完成；为空表示调用后即完成
+    done_when: tuple[tuple[str, tuple[Any, ...]], ...] = ()
+    poll_interval: float = 2.0
+    timeout: float = 60.0
+
+    @classmethod
+    def from_dict(cls, raw: dict[str, Any]) -> AsyncTask | None:
+        """解析元数据。形状不对就返回 ``None``（按"非异步"处理，不猜）。"""
+        status = str(raw.get("status_capability") or "").strip()
+        if "." not in status:
+            return None
+        rules: list[tuple[str, tuple[Any, ...]]] = []
+        for field, values in (raw.get("done_when") or {}).items():
+            if isinstance(values, (list, tuple)):
+                rules.append((str(field), tuple(values)))
+            else:
+                rules.append((str(field), (values,)))
+        return cls(
+            status_capability=status,
+            result_capability=str(raw.get("result_capability") or ""),
+            task_id_field=str(raw.get("task_id_field") or "taskId"),
+            done_when=tuple(rules),
+            poll_interval=float(raw.get("poll_interval") or 2.0),
+            timeout=float(raw.get("timeout") or 60.0),
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class Capability:
     key: str
     service: str
@@ -84,6 +122,8 @@ class Capability:
     description: str = ""
     #: 手写要点：单位、层级、前置条件、容易踩的坑
     notes: tuple[str, ...] = ()
+    #: 异步任务的轮询协议；为 ``None`` 时 ``wait=True`` 会被忽略
+    async_task: AsyncTask | None = None
 
     @property
     def is_mutating(self) -> bool | None:
@@ -160,6 +200,11 @@ class CapabilityRegistry:
                 group=entry.get("group", ""),
                 body=entry.get("body"),
                 input_schema=entry.get("input_schema") or {"type": "object", "properties": {}},
+                async_task=(
+                    AsyncTask.from_dict(entry["async_task"])
+                    if isinstance(entry.get("async_task"), dict)
+                    else None
+                ),
             )
             for key, entry in (data.get("capabilities") or {}).items()
         }

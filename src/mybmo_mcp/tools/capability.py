@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import difflib
 import time
 from typing import Any
@@ -28,7 +29,7 @@ from mybmo_mcp.audit.log import (
     new_call_id,
 )
 from mybmo_mcp.auth.tenancy import AccessDenied, required_permission
-from mybmo_mcp.baidu.capabilities import Capability, CapabilityRegistry
+from mybmo_mcp.baidu.capabilities import AsyncTask, Capability, CapabilityRegistry
 from mybmo_mcp.baidu.errors import BaiduApiError, BaiduError
 from mybmo_mcp.tools._result import fail, fail_from, guarded, ok
 from mybmo_mcp.tools.runtime import get_runtime
@@ -178,8 +179,92 @@ async def execute_capability(
     if notes:
         meta["normalized"] = notes
     if wait:
-        meta["wait"] = "ignored：该能力未声明 async_task 元数据"
+        if cap.async_task is None:
+            meta["wait"] = "ignored：该能力未声明 async_task 元数据"
+        else:
+            try:
+                data, wait_meta = await _await_async_task(
+                    cap.async_task,
+                    data,
+                    transport,
+                    product_line=cap.product_line,
+                )
+            except (BaiduApiError, BaiduError, ValueError) as exc:
+                # 建任务已经成功、轮询失败：不算 denied，按 failed 补一条
+                _audit(STATE_FAILED, alias=entry.alias, error=str(exc))
+                return fail_from(exc)
+            meta["wait"] = wait_meta
     return ok(data, meta)
+
+
+# ---------- 异步任务轮询 ----------
+
+
+def _lookup(data: Any, path: str) -> Any:
+    """按 ``a.b.c`` 取嵌套字段；取不到返回 ``None``。"""
+    current: Any = data
+    for part in path.split("."):
+        if not isinstance(current, dict):
+            return None
+        current = current.get(part)
+        if current is None:
+            return None
+    return current
+
+
+def _is_done(data: Any, rules: tuple[tuple[str, tuple[Any, ...]], ...]) -> bool:
+    if not rules:
+        return True
+    return all(_lookup(data, field) in values for field, values in rules)
+
+
+async def _await_async_task(
+    task: AsyncTask,
+    created: Any,
+    transport: Any,
+    *,
+    product_line: str,
+) -> tuple[Any, dict[str, Any]]:
+    """按元数据轮询到终态，必要时再取结果。
+
+    三条约束（ADR 0004 D5）：超时**不抛错**、间隔递增、总时长有上限。
+    """
+    task_id = _lookup(created, task.task_id_field)
+    if task_id is None:
+        return created, {"ignored": f"响应里没有 {task.task_id_field}，无法轮询"}
+
+    service, _, method = task.status_capability.partition(".")
+    body = {task.task_id_field: task_id}
+    deadline = time.monotonic() + task.timeout
+    interval = max(0.01, task.poll_interval)
+    polls = 0
+    last: Any = None
+
+    while True:
+        last = await transport.call(service, method, dict(body), product_line=product_line)
+        polls += 1
+        if _is_done(last, task.done_when):
+            break
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return (
+                {"task_id": task_id, "status": last, "timed_out": True},
+                {"task_id": task_id, "polls": polls, "timed_out": True},
+            )
+        await asyncio.sleep(min(interval, remaining))
+        interval = min(interval * 2, 10.0)
+
+    meta: dict[str, Any] = {"task_id": task_id, "polls": polls, "timed_out": False}
+    if not task.result_capability:
+        return last, meta
+
+    result_service, _, result_method = task.result_capability.partition(".")
+    result = await transport.call(
+        result_service, result_method, dict(body), product_line=product_line
+    )
+    meta["result_capability"] = task.result_capability
+    meta["status"] = last
+    return result, meta
 
 
 # ---------- 参数对齐 ----------

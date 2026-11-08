@@ -7,7 +7,8 @@
 
 - [ ] 1.1 `[live]` 在 <https://dev2.baidu.com> 建应用，拿到 AppID / SecretKey，填进 `deploy/.env`
 - [ ] 1.2 `[live]` 确认回调地址已在应用里登记，且与 `MYBMO_RESOURCE_URL` 同域
-- [ ] 1.3 建 `docs/baidu-behavior.md` 骨架：六项未知行为各一行，结论列留空
+- [x] 1.3 建 `docs/baidu-behavior.md` 骨架：身份与令牌、分页与上限、字段与写接口、错误码
+      四组，结论列留空等实测
 
 **出口**：`uv run mybmo-mcp auth status` 能读到应用凭据（不报 `unconfigured`）。
 
@@ -43,11 +44,14 @@
 
 ## 5. `wait=True` 轮询
 
-- [ ] 5.1 `execute_capability` 增加 `wait` 参数，按 `async_task` 元数据选择查询能力
-- [ ] 5.2 轮询间隔递增（1s→2s→4s，上限 10s），总时长默认 120s 且可配
-- [ ] 5.3 超时返回 `{ok: true, data: {timed_out: true, ...}}`，不抛错
-- [ ] 5.4 单测覆盖三条分支：立即完成、轮询后完成、超时
+- [x] 5.1 `execute_capability` 的 `wait` 参数已存在；实现按 `async_task` 元数据轮询
+      （`status_capability` / `result_capability` / `task_id_field` / `done_when`）
+- [x] 5.2 轮询间隔递增（1s→2s→4s，上限 10s），总时长取元数据 `timeout`
+- [x] 5.3 超时返回 `{ok: true, data: {timed_out: true, ...}}`，不抛错
+- [x] 5.4 单测覆盖：立即完成、轮询后完成并取结果、超时、缺 task_id、API 异常（10 例）
 - [ ] 5.5 `[live]` 对一个真实异步任务跑一次 `wait=True`，确认拿到终态
+- [ ] 5.6 `[live]` 确认哪些能力是异步、任务字段名，把 `async_task` 补进 `capabilities.json`
+      （**当前元数据不存在，5.5/5.6 是 `wait` 真正可用的前提**）
 
 **出口**：三条分支有测试；真实异步任务能等到终态。
 

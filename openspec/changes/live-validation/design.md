@@ -30,14 +30,15 @@
 
 ## `wait=True` 的实现
 
-`async_task` 元数据已经随能力表下发（是否异步、轮询用的查询能力、终态判定字段）。
-轮询放在 `execute_capability` 内部，不改传输层：
+轮询协议定义在 ADR 0004 D5，但**能力表里目前没有 `async_task`**——哪些能力是异步、
+任务字段叫什么，要等实测确认后补进 `capabilities.json`（见 9.x）。因此执行器按
+「元数据存在就轮询、缺失就忽略并说明」实现，机制本身可以离线测。
 
 ```text
 execute(cap, input, wait=False)      → 原样返回提交结果
-execute(cap, input, wait=True)       → 提取任务标识
-                                     → 按 async_task 的查询能力轮询
-                                     → 命中终态：返回该结果
+execute(cap, input, wait=True)       → 取 task_id（按元数据的 task_id_field）
+                                     → 轮询 status_capability 到 done_when 命中
+                                     → 若有 result_capability，再取一次结果
                                      → 超时：返回 {ok: true, data: {timed_out: true, ...}}
 ```
 
@@ -45,7 +46,7 @@ execute(cap, input, wait=True)       → 提取任务标识
 
 - **超时不报错**：异步任务的语义是"已提交"，超时只说明还没跑完，不是失败
 - **轮询间隔递增**（1s → 2s → 4s，上限 10s），避免对百度接口造成浪费
-- **总时长上限可配**，默认 120 秒；不做无限等待
+- **总时长由元数据的 `timeout` 决定**（ADR 示例 60s；报表类可能要调到 300s）
 
 ## 风险
 
