@@ -92,11 +92,28 @@ curl -s -o /dev/null -w '%{http_code}\n' -X POST \
 ## 三、接客户端
 
 MCP 端点是 `https://baiduads.pandabase.top/mcp`，走 Streamable HTTP。
-因为现在是 basic auth 而不是 OAuth，客户端要能自定义请求头：
+因为现在是 basic auth 而不是 OAuth，客户端要能自定义请求头。
+
+**已经实测通过的方式**（Python MCP SDK）：
+
+```python
+import base64, httpx2
+from mcp import ClientSession
+from mcp.client.streamable_http import streamable_http_client
+
+auth = "Basic " + base64.b64encode(b"mybmo:密码").decode()
+async with httpx2.AsyncClient(headers={"Authorization": auth}, timeout=20.0) as http:
+    async with streamable_http_client("https://baiduads.pandabase.top/mcp", http_client=http) as s:
+        async with ClientSession(s[0], s[1]) as session:
+            await session.initialize()
+            (await session.list_tools()).tools   # 5 个
+```
+
+命令行方式（需要 Node）：
 
 ```bash
-npx mcp-remote https://baiduads.pandabase.top/mcp \
-  --header "Authorization: Basic $(printf 'mybmo:你的密码' | base64)"
+npx -y mcp-remote@latest https://baiduads.pandabase.top/mcp \
+  --header "Authorization: Basic $(printf 'mybmo:密码' | base64)"
 ```
 
 直接支持 `headers` 的客户端（如 Cursor）可以把这一行写进配置。
@@ -207,9 +224,32 @@ basic auth 挡住外人就够了。等下面任意一条成立再上：
 | `credentials: unconfigured` | `MYBMO_MASTER_KEY` 缺失或格式错 | 32 字节 base64，重启生效 |
 | 所有账户报 `reauth_required` | 换了主密钥 | 用原密钥，或重新绑定 |
 
-## 十、还没验证的
+## 十、现状（2026-11-08 上线记录）
 
-- **内存实测**：1.9 GiB 上跑 mcp + caddy 没问题；加上 Casdoor + PostgreSQL 后是否够，要实测
+| 项 | 实测值 |
+|---|---|
+| 域名 | `baiduads.pandabase.top` → 49.232.229.71（DNSPod，`auth` 子域也已解析） |
+| TLS | Let's Encrypt，CN=baiduads.pandabase.top，有效期至 2027-02-06，自动续期 |
+| 部署形态 | 共享宿主机：宿主 Caddy（systemd）+ mcp 容器（`127.0.0.1:8000`） |
+| 镜像 | `mybmo-mcp:0.1.0`，258 MB |
+| 内存占用 | 容器 56 MiB，宿主 Caddy 约 30 MiB，整机 1967 MiB 中可用 1342 MiB |
+| 构建耗时 | 首次 13.5 分钟（已配腾讯云镜像加速；未配时 ghcr 单层就要 745 秒） |
+
+已验证：`/healthz` 200、无凭据 `/mcp` 401、带凭据 400（握手拒绝空 body）、
+MCP 客户端列出 5 个工具、`search_capabilities("报表")` 命中 3 条。
+
+**踩过的坑**（都已在代码里修掉，留档避免复发）：
+
+1. `MCP_PASSWORD_HASH` 含 `$`，写进 compose 的 `environment: ${VAR}` 会被当变量插值 →
+   改为 `env_file` 或宿主 Caddyfile。共享宿主机形态下根本不该写进 `.env`。
+2. `ghcr.io/astral-sh/uv` 基础镜像在境内拉取极慢 → Dockerfile 改用 `python:3.12-slim` + pip 装 uv。
+3. `psycopg` / `pyjwt` 当前零引用却每次构建都要下载 → 移到 `optional-dependencies.p4`。
+4. **通配符不等于有记录**：DNSPod 上 apex 有 A 记录，`baiduads` / `auth` 必须显式添加。
+
+## 十一、还没验证的
+
 - **Docker vs systemd**：本文按 Docker 写。若目标机不允许装 Docker，
   需另写 systemd unit，`MYBMO_DATA_DIR` 指向 `/var/lib/mybmo`，其余不变
-- **真实客户端联调**：basic auth 只有 curl 和 `mcp-remote` 验证过，桌面客户端未测
+- **备份恢复演练**：当前无已绑定账户，恢复验证无意义，等首个账户绑定后补
+- **Claude Desktop 直连**：它的远程连接要 OAuth，在 Casdoor 接入前接不了 basic auth
+- **Casdoor + PostgreSQL 的实机内存**：当前余量够，但没装过，不能只凭估算

@@ -146,14 +146,21 @@
 - [x] 8.3 `docs/operations.md`：前置条件、首次部署、客户端接入、健康检查、日志、
       备份恢复（数据卷 tar + `deploy/.env` 分开存）、升级回滚、Casdoor 切换清单、故障表。
       备份方式由原计划的每日 `pg_dump` 改为数据卷快照——PG 尚未引入
-- [ ] 8.4 上线前逐项过 `docs/architecture.md` 第八节安全清单
-- [ ] 8.5 监控：`/healthz` 已实现（`health.py`，含 `credentials` 字段），
+- [x] 8.4 上线前逐项过 `docs/architecture.md` 第八节安全清单
+      ——**部分**：已过的有「反代不做鉴权注入」「mcp 不直接对公网」「凭据不入日志」；
+      未过的有「OAuth scope 校验」（P4 才存在）、「多租户隔离」（单租户部署）
+- [x] 8.5 监控：`/healthz` 已实现并在容器 HEALTHCHECK 中生效（`healthy`）。
       鉴权失败率与百度错误码分布未做——需要先把审计日志接出去
 - [ ] 8.6 备份演练：从数据卷恢复到空实例，确认已绑定账户还能用
-- [ ] 8.7 内存实测：确认 1.9 GiB 上 mcp + caddy 的实际占用，
-      再决定是否同机塞 Casdoor + PostgreSQL（ADR 0002 未决问题）
-- [ ] 8.8 `[live]` 在真实服务器上跑通：Caddy 签出证书 → `/healthz` 返回 200 →
-      客户端通过 `mcp-remote` 连上并列出 5 个工具
+      （**当前无已绑定账户，演练无意义，等首个账户绑定后补**）
+- [x] 8.7 内存实测（2026-11-08，真机 49.232.229.71，1967 MiB）：
+      mcp 容器 **56.31 MiB**，宿主机 Caddy 约 30 MiB，合计不到 100 MiB。
+      余量充足，Casdoor + PostgreSQL 可上，但要实测后才算数
+- [x] 8.8 `[live]` 真实服务器跑通（2026-11-08）：
+      `https://baiduads.pandabase.top/healthz` → 200，Let's Encrypt 证书已签发
+      （CN=baiduads.pandabase.top，有效期至 2027-02-06）；
+      无凭据 /mcp → 401，带凭据 → 400（MCP 握手拒绝空 body）；
+      Python MCP 客户端连上后列出 5 个工具，`search_capabilities("报表")` 命中 3 条
 
 **出口**：新机器按 `docs/operations.md` 可在 30 分钟内重建整套服务。
 

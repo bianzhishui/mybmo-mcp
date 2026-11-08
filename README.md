@@ -29,7 +29,9 @@ uv run mybmo-mcp --help
 
 公网接入：`uv run mybmo-mcp -t streamable-http --host 127.0.0.1 -p 8000`。
 默认只监听回环，**不要**在没有鉴权的情况下直接暴露到公网，原因见下文"三条硬规则"。
-服务端部署（Caddy + 容器 + 备份回滚）见 [`docs/operations.md`](docs/operations.md)。
+
+已上线实例：**`https://baiduads.pandabase.top/mcp`**（basic auth，当前 `MYBMO_AUTH_MODE=local`）。
+部署、备份、回滚、Casdoor 切换见 [`docs/operations.md`](docs/operations.md)。
 
 没有百度账号也能用：`search_capabilities` / `get_capability_schema` 只读随包的接口元数据，
 不碰凭据、不联网。
@@ -61,8 +63,11 @@ uv run mybmo-mcp --help
 
 ## 当前状态
 
-P0–P3 已完成，172 个测试离线全绿：能力网关、账户与凭据、归属校验、调用审计都可验，
-**没有可用百度账号，所以真实接口尚未联调**。P4（Casdoor 接入）、P7（上线）未开工。
+P0–P3 已完成，176 个测试离线全绿：能力网关、账户与凭据、归属校验、调用审计都可验。
+P7 已上线（`/healthz` 200、TLS 已签发、客户端能列出 5 个工具），P4（Casdoor）未开工。
+
+**唯一未验证的是真实百度接口**——没有可用账号，所以 `execute_capability` 从未真正
+打到 `api.baidu.com`。拿到 AppID 后跑一次绑定就能确认。
 
 逐项清单在 [`tasks.md`](openspec/changes/bootstrap-mcp-server/tasks.md)，
 技术取舍在 [`design.md`](openspec/changes/bootstrap-mcp-server/design.md)。
