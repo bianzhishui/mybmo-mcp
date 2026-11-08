@@ -44,11 +44,11 @@ services:
       - "80:80"
       - "443:443"
       - "443:443/udp"
-    environment:
-      MCP_HOST: ${MCP_HOST}
-      ACME_EMAIL: ${ACME_EMAIL}
-      MCP_USER: ${MCP_USER}
-      MCP_PASSWORD_HASH: ${MCP_PASSWORD_HASH}
+    # 用 env_file 而不是 environment: ${...}
+    # bcrypt 哈希含 `$`，compose 的 `${VAR}` 插值会把它当作变量引用拆坏。
+    # env_file 的值原样注入容器，不经插值。
+    env_file:
+      - .env.caddy
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data

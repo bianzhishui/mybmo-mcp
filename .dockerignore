@@ -8,7 +8,9 @@
 # 运行时数据与密钥：绝不能进镜像
 data/
 deploy/.env
+deploy/.env.caddy
 .env
+.env.*
 *.jsonl
 *.pem
 
