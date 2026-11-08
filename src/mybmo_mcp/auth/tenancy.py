@@ -130,13 +130,6 @@ class Principal:
         }
 
 
-@dataclass(frozen=True, slots=True)
-class Grant:
-    sub: str
-    alias: str
-    permission: str
-
-
 class TenancyStore:
     """授权表。进程内首次使用时加载，测试可 ``reload()``。
 

@@ -6,9 +6,9 @@
 主密钥只在**真正需要凭据**时才要求存在：``search_capabilities`` 这类纯检索
 不需要密钥，没有配置也应当能用。
 
-身份有三级来源，优先级从高到低：
+身份有三个来源，优先级从高到低：
 
-1. 请求级上下文（``set_current_principal``）——HTTP 模式下由 ASGI 中间件按 JWT 写入
+1. SDK 的鉴权上下文（``get_access_token``）——HTTP 模式下由 SDK 中间件写入
 2. ``Runtime.principal``——测试或单进程脚本显式注入
 3. 本地隐式身份——**仅当** ``MYBMO_AUTH_MODE=local``
 
@@ -18,7 +18,6 @@
 
 from __future__ import annotations
 
-from contextvars import ContextVar, Token
 from dataclasses import dataclass
 from functools import cached_property
 
@@ -45,18 +44,6 @@ from mybmo_mcp.baidu.transport import BaiduTransport, RequestCredentials
 from mybmo_mcp.config import Settings, get_settings
 
 _runtime: Runtime | None = None
-
-#: 请求级身份。HTTP 模式下每个请求各写各的，不会互相污染。
-_current_principal: ContextVar[Principal | None] = ContextVar("mybmo_principal", default=None)
-
-
-def set_current_principal(principal: Principal | None) -> Token[Principal | None]:
-    """为当前上下文绑定身份（测试用；生产由 JWT 派生）。用完应 ``reset``。"""
-    return _current_principal.set(principal)
-
-
-def reset_current_principal(token: Token[Principal | None]) -> None:
-    _current_principal.reset(token)
 
 
 def _principal_from_bearer_token() -> str | None:
@@ -163,14 +150,11 @@ class Runtime:
     # ---------- 身份 ----------
 
     def current_principal(self) -> Principal:
-        """定出这次调用的身份。四级来源，优先级递减。
+        """定出这次调用的身份。三级来源，优先级递减。
 
-        第 4 级只在 ``MYBMO_AUTH_MODE=local`` 才允许——多用户下回退成"本机就是管理员"
+        最后一级只在 ``MYBMO_AUTH_MODE=local`` 才允许——多用户下回退成"本机就是管理员"
         等于全量越权，所以那条路径是显式报错而不是默认放行。
         """
-        scoped = _current_principal.get()
-        if scoped is not None:
-            return scoped
         if self.principal is not None:
             return self.principal
 

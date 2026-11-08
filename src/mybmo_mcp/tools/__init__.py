@@ -1,10 +1,10 @@
 """MCP 工具层。
 
-按定位划分：
+五个常驻工具，分两类：
 
-- ``accounts``：本项目自身能力（账户清单、令牌状态），不联网
-- 后续：能力网关三件套 ``search_capabilities`` / ``get_capability_schema`` /
-  ``execute_capability``
+- ``accounts``：``list_accounts`` / ``auth_status``，本项目自身能力，不联网
+- ``capability``：``search_capabilities`` / ``get_capability_schema`` /
+  ``execute_capability``，能力网关三件套
 
 每个模块暴露 ``register(mcp)``，由 ``server.build_server()`` 统一挂载——
 工具不导入 server，避免循环依赖。

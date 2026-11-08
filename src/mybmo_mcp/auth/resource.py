@@ -30,7 +30,6 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
-import httpx2
 import jwt
 from jwt import PyJWKClient
 
@@ -242,19 +241,9 @@ class JwtVerifier:
             client_id=verified.client_id,
             scopes=list(verified.scopes),
             expires_at=verified.expires_at,
-            # Casdoor 没有 RFC 8707 的资源标识，aud 就是 client_id，
+            # IdP 没有 RFC 8707 的资源标识，aud 就是 client_id，
             # 这里如实回填命中的那一个，不用资源地址冒充
             resource=verified.audience,
             subject=verified.subject,
             claims=verified.claims,
         )
-
-
-def fetch_jwks(url: str, *, timeout: float = 10.0) -> dict[str, Any]:
-    """取 JWKS。测试与诊断用；运行时由 :class:`JwksCache` 经 PyJWKClient 拉取。"""
-    response = httpx2.get(url, timeout=timeout)
-    response.raise_for_status()
-    data = response.json()
-    if not isinstance(data, dict) or "keys" not in data:
-        raise TokenError(f"{url} 返回的不是 JWKS（缺少 keys 字段）")
-    return data

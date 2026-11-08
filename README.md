@@ -84,7 +84,7 @@ curl -fsS https://baiduads.pandabase.top/healthz
 
 ## 当前状态
 
-线上以 `oidc` 模式运行，授权码 + PKCE 全流程已用真实令牌验证；205 个测试离线全绿。
+线上以 `oidc` 模式运行，授权码 + PKCE 全流程已用真实令牌验证；测试全绿（离线）。
 
 **尚未验证的是真实百度接口**——没有可用账号，所以 `execute_capability` 从未真正
 打到 `api.baidu.com`。拿到 AppID 后跑一次绑定即可确认。

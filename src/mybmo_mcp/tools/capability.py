@@ -165,6 +165,23 @@ async def execute_capability(
         _audit(STATE_FAILED, alias=entry.alias, error=str(exc))
         return fail_from(exc)
 
+    # 先等异步任务再有"成功"这回事：轮询失败时不该先记一条 succeeded 再记 failed。
+    wait_meta: Any = None
+    if wait:
+        if cap.async_task is None:
+            wait_meta = "ignored：该能力未声明 async_task 元数据"
+        else:
+            try:
+                data, wait_meta = await _await_async_task(
+                    cap.async_task,
+                    data,
+                    transport,
+                    product_line=cap.product_line,
+                )
+            except (BaiduApiError, BaiduError, ValueError) as exc:
+                _audit(STATE_FAILED, alias=entry.alias, error=str(exc))
+                return fail_from(exc)
+
     _audit(STATE_SUCCEEDED, alias=entry.alias)
 
     meta: dict[str, Any] = {
@@ -178,22 +195,8 @@ async def execute_capability(
     }
     if notes:
         meta["normalized"] = notes
-    if wait:
-        if cap.async_task is None:
-            meta["wait"] = "ignored：该能力未声明 async_task 元数据"
-        else:
-            try:
-                data, wait_meta = await _await_async_task(
-                    cap.async_task,
-                    data,
-                    transport,
-                    product_line=cap.product_line,
-                )
-            except (BaiduApiError, BaiduError, ValueError) as exc:
-                # 建任务已经成功、轮询失败：不算 denied，按 failed 补一条
-                _audit(STATE_FAILED, alias=entry.alias, error=str(exc))
-                return fail_from(exc)
-            meta["wait"] = wait_meta
+    if wait_meta is not None:
+        meta["wait"] = wait_meta
     return ok(data, meta)
 
 
