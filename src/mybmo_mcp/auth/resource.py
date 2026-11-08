@@ -110,7 +110,9 @@ class JwtVerifier:
         self._issuer = issuer.rstrip("/")
         self._audience = audience.rstrip("/")
         self._clock_skew = clock_skew
-        self._jwks = JwksCache(jwks_url or f"{self._issuer}/api/v1/jwks")
+        # 默认值只是兜底：Casdoor 实测给的是 /.well-known/jwks，不是这里推导的路径。
+        # 部署时必须显式设 MYBMO_JWKS_URL，见 docs/casdoor-notes.md。
+        self._jwks = JwksCache(jwks_url or f"{self._issuer}/.well-known/jwks")
 
     @property
     def issuer(self) -> str:

@@ -188,12 +188,22 @@ class Runtime:
 
     @cached_property
     def verifier(self) -> JwtVerifier | None:
-        """多用户模式才有校验器。local 模式返回 ``None``，SDK 也就不装鉴权中间件。"""
+        """多用户模式才有校验器。local 模式返回 ``None``，SDK 也就不装鉴权中间件。
+
+        ``audience`` 取 ``MYBMO_OIDC_AUDIENCE`` 而不是资源地址——Casdoor 把 ``aud``
+        填成 client_id，见 ADR 0006。两个都不配就拒绝启动。
+        """
         if self.settings.mybmo_auth_mode == MODE_LOCAL:
             return None
+        if not self.settings.mybmo_oidc_audience:
+            raise TenancyError(
+                "多用户模式缺少 MYBMO_OIDC_AUDIENCE。它是 Casdoor 里 mybmo-mcp 应用的 "
+                "clientId，不是服务地址——aud 校验对象是「允许调用本服务的客户端」，"
+                "理由见 docs/decisions/0006-casdoor-audience.md"
+            )
         return JwtVerifier(
             issuer=self.settings.casdoor_issuer,
-            audience=self.settings.mybmo_resource_url,
+            audience=self.settings.mybmo_oidc_audience,
             jwks_url=self.settings.mybmo_jwks_url or None,
         )
 
@@ -202,14 +212,21 @@ class Runtime:
 
         SDK 会据此挂载 ``/.well-known/oauth-protected-resource`` 与 401 + ``WWW-Authenticate``，
         不需要我们再写一遍中间件。
+
+        ``validate_token_resource=False`` 是必须的：SDK 这个开关要求令牌带
+        RFC 8707 的 ``resource`` 字段等于 ``resource_server_url``，
+        而 Casdoor 不签发 ``resource``（它只填 ``aud``）。设成 ``True`` 会拒掉所有令牌。
+        audience 已由 verifier 自己校验。
         """
         if self.verifier is None:
             return None
+        if not self.settings.mybmo_resource_url:
+            raise TenancyError("多用户模式缺少 MYBMO_RESOURCE_URL（元数据里的 resource 字段）")
         return AuthSettings(
             issuer_url=AnyHttpUrl(self.verifier.issuer),
             resource_server_url=AnyHttpUrl(self.settings.mybmo_resource_url),
             required_scopes=[SCOPE_READ],
-            validate_token_resource=False,  # verifier 自己校验 aud
+            validate_token_resource=False,
         )
 
     # ---------- 取用 ----------

@@ -99,18 +99,24 @@
       与主 compose **分离**，避免 Casdoor 升级把 mcp 一起重启
 - [x] 5.2 `deploy/casdoor/README.md`：起容器 → Caddy 接管 auth 子域 → 改默认口令 → 建应用 →
       discovery 验证 → 开 DCR → 切 oidc → 回滚，九节
-- [ ] 5.3 验证 discovery：`registration_endpoint` 与 `client_id_metadata_document_supported`
-      的实际取值记录到 `docs/casdoor-notes.md`（**需要实例**，README 第四节写了怎么取）
-- [ ] 5.4 开启组织级 DCR 与回调白名单（**需要实例**）
+- [x] 5.3 验证 discovery：`docs/casdoor-notes.md` 记录了实测值。
+      `registration_endpoint` = `/api/oauth/register`（**存在**，DCR 可用）；
+      `client_id_metadata_document_supported` = **false**（CIMD 不可用）；
+      `jwks_uri` = `/.well-known/jwks`（**不是直觉的 `/api/v1/jwks`**）
+- [ ] 5.4 开启组织级 DCR 与回调白名单（**需要人操作界面**，notes 第六节写了 scope 登记方式）
 - [x] 5.5 `auth/resource.py`：`JwtVerifier` 实现 SDK 的 `TokenVerifier` 协议。
       验签（JWKS 缓存 + kid 查找）、`iss` / `aud` / `exp` / `nbf`，60 秒时钟容忍。
-      **JWKS 取不到时拒绝而非放行**；令牌畸形在取 kid 阶段抛 `DecodeError` 也接住了
+      **JWKS 取不到时拒绝而非放行**；令牌畸形在取 kid 阶段抛 `DecodeError` 也接住了。
+      **已用 Casdoor 真实签发的令牌验证通过**（签名 / iss / aud / exp 四项）
 - [x] 5.6 `/.well-known/oauth-protected-resource` 由 SDK 自动挂载（`AuthSettings.resource_server_url`），
       实测返回 `{"resource":"https://baiduads.pandabase.top/","authorization_servers":
       ["https://auth.pandabase.top/"],"scopes_supported":["baidu:read"]}`；
       无令牌访问 `/mcp` 实测 401 + `WWW-Authenticate: Bearer resource_metadata="..."`
 - [x] 5.7 scope 设计：`baidu:read` / `baidu:write` / `baidu:admin`（`SCOPES_SUPPORTED`）。
-      **缺 scope 不当作令牌无效**——校验层不管权限，那是工具层按 `mutating` 判档位
+      **缺 scope 不当作令牌无效**——校验层不管权限，那是工具层按 `mutating` 判档位。
+      实测：这三个 scope 必须在 Casdoor 应用里登记（`scopes` 是**对象数组**，
+      写成字符串数组会报 `cannot unmarshal string into object.ScopeItem`），
+      登记后令牌里出现 `scope: "openid profile baidu:read baidu:write"`
 - [x] 5.8 `tests/test_resource.py`：伪造签名、错 audience、过期、issuer 不符四条；
       另加 issuer 尾斜杠、缺 scope、JWKS 失败、令牌畸形四个边界
 - [ ] 5.9 `[live]` 用 Claude Desktop / Cursor 贴 URL 完成自助注册 → 登录 → 调用一个能力

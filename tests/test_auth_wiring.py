@@ -27,6 +27,7 @@ from mybmo_mcp.tools.runtime import Runtime, set_runtime
 KEY_B64 = base64.b64encode(b"k" * 32).decode()
 ISSUER = "https://auth.pandabase.top"
 RESOURCE = "https://baiduads.pandabase.top"
+CLIENT_ID = "60fda1d9bedd4615eb90"
 
 
 @pytest.fixture(autouse=True)
@@ -42,6 +43,8 @@ def make_settings(tmp_path: Path, *, mode: str = MODE_OIDC, **overrides) -> Sett
         "mybmo_auth_mode": mode,
         "casdoor_issuer": ISSUER,
         "mybmo_resource_url": RESOURCE,
+        # aud 是 client_id 而非资源地址，见 ADR 0006
+        "mybmo_oidc_audience": CLIENT_ID,
     }
     values.update(overrides)
     return Settings(_env_file=None, **values)
@@ -81,10 +84,19 @@ def test_oidc_mode_without_issuer_fails_loudly(tmp_path: Path) -> None:
         build_server(with_auth=True)
 
 
+def test_oidc_mode_without_audience_fails_loudly(tmp_path: Path) -> None:
+    """audience 必须显式配 client_id。猜一个默认值比报错更危险。"""
+    set_runtime(Runtime(settings=make_settings(tmp_path, mybmo_oidc_audience="")))
+
+    with pytest.raises(TenancyError, match="缺少 MYBMO_OIDC_AUDIENCE"):
+        build_server(with_auth=True)
+
+
 def test_oidc_mode_without_resource_url_fails_loudly(tmp_path: Path) -> None:
+    """resource 地址不参与验签，但元数据要用它。"""
     set_runtime(Runtime(settings=make_settings(tmp_path, mybmo_resource_url="")))
 
-    with pytest.raises(ValueError, match="audience 不能为空"):
+    with pytest.raises(TenancyError, match="缺少 MYBMO_RESOURCE_URL"):
         build_server(with_auth=True)
 
 
