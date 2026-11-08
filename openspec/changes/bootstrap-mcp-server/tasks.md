@@ -2,6 +2,11 @@
 
 > 勾选标准：任务描述的行为可被命令或测试验证，不靠"看起来写完了"。
 > 真实账户相关的任务统一标 `[live]`，无可用账号时可跳过，但不得伪造通过。
+>
+> **历史记录说明（2026-11-08）**：本文件记录 bootstrap 阶段的状态。此后 `deploy/` 全目录、
+> `docs/operations.md`、`docs/casdoor-notes.md` 与 ADR 0001/0006/0007 已迁至
+> [`pandabase-infra`](https://github.com/bianzhishui/pandabase-infra)，文中出现的这些路径在当前仓库
+> 已不存在，仅作当时的事实留存。
 
 ## 1. P0 骨架与契约
 
@@ -103,7 +108,7 @@
       `registration_endpoint` = `/api/oauth/register`（存在，但组织级 DCR 已关，见 5.4）；
       `client_id_metadata_document_supported` = **false**（CIMD 不可用）；
       `jwks_uri` = `/.well-known/jwks`（**不是直觉的 `/api/v1/jwks`**）
-- [x] 5.4 DCR 评估完成，**结论是不启用**（[ADR 0007](../../../docs/decisions/0007-no-dcr.md)）。
+- [x] 5.4 DCR 评估完成，**结论是不启用**（见 infra 仓库 `docs/decisions/0003-identity-provider.md`）。
       实测：`dcr_policy` 只有 `open`/`disabled` 两个值，**没有回调白名单、没有频率限制**；
       `open` 后 `POST /api/oauth/register` 接受任意 `redirect_uris`（含
       `https://evil.example.com/cb`，实测 201），每次都新建应用；

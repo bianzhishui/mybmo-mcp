@@ -1,2 +1,0 @@
-# 占位文件，用于让 git 跟踪空的 deploy 目录。
-# 实际内容见 P7：docker-compose.yml、Caddyfile、casdoor 配置。

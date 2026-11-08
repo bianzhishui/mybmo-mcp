@@ -190,17 +190,17 @@ class Runtime:
     def verifier(self) -> JwtVerifier | None:
         """多用户模式才有校验器。local 模式返回 ``None``，SDK 也就不装鉴权中间件。
 
-        ``audience`` 取 ``MYBMO_OIDC_AUDIENCE`` 而不是资源地址——Casdoor 把 ``aud``
-        填成 client_id，见 ADR 0006。可以填多个（逗号分隔），每个显式注册的客户端一个；
+        ``audience`` 取 ``MYBMO_OIDC_AUDIENCE`` 而不是资源地址——IdP 把 ``aud``
+        填成 client_id，见 docs/auth-contract.md。可以填多个（逗号分隔），每个显式注册的客户端一个；
         不配就拒绝启动。
         """
         if self.settings.mybmo_auth_mode == MODE_LOCAL:
             return None
         if not self.settings.mybmo_oidc_audience:
             raise TenancyError(
-                "多用户模式缺少 MYBMO_OIDC_AUDIENCE。它是 Casdoor 里 mybmo-mcp 应用的 "
+                "多用户模式缺少 MYBMO_OIDC_AUDIENCE。它是 IdP 里本服务应用的 "
                 "clientId，不是服务地址——aud 校验对象是「允许调用本服务的客户端」，"
-                "理由见 docs/decisions/0006-casdoor-audience.md"
+                "理由见 docs/auth-contract.md"
             )
         return JwtVerifier(
             issuer=self.settings.casdoor_issuer,

@@ -1,15 +1,10 @@
-# 部署编排。两种形态共用这一个文件：
+# 业务容器。只跑 mcp 一个服务；网络、Casdoor、PostgreSQL、Caddy 都在 pandabase-infra。
 #
-#   共享宿主机（当前生产）——宿主已有 Caddy 在跑别的站点：
-#     docker compose -f deploy/docker-compose.yml up -d
-#     只起 mcp，端口绑在 127.0.0.1，由宿主 Caddy 反代。
-#     站点配置见 deploy/caddy-site.caddyfile，追加进 /etc/caddy/Caddyfile。
+# 前置：共享网络已存在（infra 仓库的 scripts/bootstrap-network.sh），否则 up 会报 network not found。
 #
-#   专用宿主机——整台机器只服务这一个站点：
-#     docker compose -f deploy/docker-compose.yml --profile dedicated up -d
-#     多起一个 Caddy 容器，独占 80/443，用 deploy/Caddyfile。
-#
-# 端口暴露原则不变：mcp 永远不直接对公网开放。
+#   cd deploy && cp .env.example .env && vim .env
+#   docker compose up -d --build
+#   docker compose logs -f mcp
 
 name: mybmo
 
@@ -31,60 +26,13 @@ services:
       # 只绑回环：宿主 Caddy 能打到，公网打不到
       - "127.0.0.1:8000:8000"
     networks:
-      - internal
-
-  caddy:
-    image: caddy:2-alpine
-    profiles:
-      - dedicated
-    restart: unless-stopped
-    depends_on:
-      - mcp
-    ports:
-      - "80:80"
-      - "443:443"
-      - "443:443/udp"
-    # 用 env_file 而不是 environment: ${...}
-    # bcrypt 哈希含 `$`，compose 的 `${VAR}` 插值会把它当作变量引用拆坏。
-    # env_file 的值原样注入容器，不经插值。
-    env_file:
-      - .env.caddy
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
-      - caddy_config:/config
-    networks:
-      - internal
-
-  # ---------------------------------------------------------------------------
-  # P4 之后再启用。启用前必须先确定 issuer（见 ADR 0001：写进 token，改一次全废）。
-  #
-  # casdoor:
-  #   image: casbin/casdoor:latest
-  #   restart: unless-stopped
-  #   env_file: [.env]
-  #   environment:
-  #     driverName: postgres
-  #     dataSourceName: "user=${POSTGRES_USER} password=${POSTGRES_PASSWORD} host=postgres port=5432 dbname=casdoor sslmode=disable"
-  #   depends_on: [postgres]
-  #   networks: [internal]
-  #
-  # postgres:
-  #   image: postgres:17-bookworm        # 与 deploy/casdoor 及 ADR 0002 D3 保持一致
-  #   restart: unless-stopped
-  #   environment:
-  #     POSTGRES_USER: ${POSTGRES_USER}
-  #     POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-  #     POSTGRES_DB: casdoor
-  #   volumes: [pgdata:/var/lib/postgresql/data]
-  #   networks: [internal]
-  # ---------------------------------------------------------------------------
+      - pandabase
 
 volumes:
   data:
-  caddy_data:
-  caddy_config:
-  # pgdata:
+    # 显式钉死卷名：改 project 名时不会静默换成一个空卷
+    name: mybmo_data
 
 networks:
-  internal:
+  pandabase:
+    external: true

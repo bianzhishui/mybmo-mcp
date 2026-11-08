@@ -5,6 +5,9 @@
 
 > 非官方项目，与百度无隶属关系。需自行在 <https://dev2.baidu.com> 创建应用并完成授权。
 
+部署、身份与数据库在 [`pandabase-infra`](https://github.com/bianzhishui/pandabase-infra)，本仓库只管业务。
+线上实例：`https://baiduads.pandabase.top/mcp`（OAuth Bearer，令牌由 `auth.pandabase.top` 签发）。
+
 ## 快速开始
 
 ```bash
@@ -27,14 +30,23 @@ uv run mybmo-mcp --help
 }
 ```
 
-公网接入：`uv run mybmo-mcp -t streamable-http --host 127.0.0.1 -p 8000`。
-默认只监听回环，**不要**在没有鉴权的情况下直接暴露到公网，原因见下文"三条硬规则"。
-
-已上线实例：**`https://baiduads.pandabase.top/mcp`**（OAuth Bearer，Casdoor 作授权服务器）。
-部署、备份、回滚、新增客户端见 [`docs/operations.md`](docs/operations.md)。
-
 没有百度账号也能用：`search_capabilities` / `get_capability_schema` 只读随包的接口元数据，
 不碰凭据、不联网。
+
+## 部署（公网）
+
+本仓库自带 `deploy/docker-compose.yml`，只跑 mcp 一个服务，加入 infra 的 `pandabase` 网络：
+
+```bash
+cd deploy
+cp .env.example .env      # 填百度凭据、主密钥；oidc 的五个值见 docs/auth-contract.md
+docker compose up -d --build
+curl -fsS https://baiduads.pandabase.top/healthz
+```
+
+镜像仍由本仓库构建（Dockerfile 打的是 Python 产物）；网络、Casdoor、PostgreSQL、Caddy、
+证书与备份由 [`pandabase-infra`](https://github.com/bianzhishui/pandabase-infra) 提供。
+**反代不做鉴权**，`/mcp` 的令牌校验必须在本进程内完成。
 
 ## 五个工具
 
@@ -51,8 +63,6 @@ uv run mybmo-mcp --help
 
 ## 三条硬规则
 
-部署前必须知道，这些都是刻意的默认拒绝，别改回去：
-
 1. **多用户模式下授权表缺失 → 直接报错。** 回退成"人人可用"的代价远大于停机。
 2. **不传 `account` → 只在当前身份唯一可用账户时生效。** 多个候选就报错，
    绝不落到进程级默认账户上——多用户下它极可能属于别人。
@@ -61,14 +71,21 @@ uv run mybmo-mcp --help
 授权表格式见 [`tenancy.example.json`](tenancy.example.json)，档位与账户模型见
 [ADR 0004](docs/decisions/0004-multi-tenant-accounts.md)。
 
+## 两种运行模式
+
+| 模式 | 场景 | 身份 |
+|---|---|---|
+| `local`（默认） | 本机 stdio，单用户 | 进程即身份，不校验令牌 |
+| `oidc` | 公网 HTTP，多客户端 | 校验 Bearer JWT（签名 / iss / aud / exp / scope），身份来自 `sub` |
+
+`oidc` 模式需要 infra 提供的 5 个值（issuer、JWKS、audience 等），
+见 [`docs/auth-contract.md`](docs/auth-contract.md)。**配错的表现是全量 401**，
+所以那份契约里的变量表要对着抄。
+
 ## 当前状态
 
-P0–P3 已完成，P7 已上线（`/healthz` 200、TLS 已签发、客户端能列出 5 个工具），
-P4 已切到 `oidc`（Casdoor 真实令牌可握手并调用工具）。205 个测试离线全绿。
-
-**两处已知的"计划与实测不符"**：Casdoor 的 `aud` 是 client_id 而非资源地址
-（[ADR 0006](docs/decisions/0006-casdoor-audience.md)）；DCR 无白名单无限流且签出的令牌
-调不动本服务，因此不启用（[ADR 0007](docs/decisions/0007-no-dcr.md)）。
+P0–P3 已完成，P7 已上线，`oidc` 模式已用真实令牌验证（授权码 + PKCE 全流程）。
+205 个测试离线全绿。
 
 **唯一未验证的是真实百度接口**——没有可用账号，所以 `execute_capability` 从未真正
 打到 `api.baidu.com`。拿到 AppID 后跑一次绑定就能确认。
@@ -80,15 +97,12 @@ P4 已切到 `oidc`（Casdoor 真实令牌可握手并调用工具）。205 个�
 
 | 文档 | 内容 |
 |---|---|
-| [`docs/architecture.md`](docs/architecture.md) | 三层信任边界、关键时序、数据模型、部署拓扑、安全清单 |
-| [`docs/operations.md`](docs/operations.md) | 部署、TLS、备份恢复、升级回滚、Casdoor 切换清单、故障排查 |
-| [`ADR 0001`](docs/decisions/0001-auth-architecture.md) | 为什么自部署 Casdoor 作授权服务器 |
-| [`ADR 0002`](docs/decisions/0002-tech-stack.md) | 技术栈选型与理由（含被否决的方案） |
+| [`docs/architecture.md`](docs/architecture.md) | 三层信任边界、关键时序、数据模型、凭据生命周期 |
+| [`docs/auth-contract.md`](docs/auth-contract.md) | **与 infra 的唯一契约**：鉴权不变量、环境变量、端点、卷布局 |
+| [`ADR 0002`](docs/decisions/0002-tech-stack.md) | Python 侧技术栈与理由（基础设施部分已迁出） |
 | [`ADR 0003`](docs/decisions/0003-capability-only.md) | 从"业务工具"转向能力网关，以及为什么不拦写操作 |
 | [`ADR 0004`](docs/decisions/0004-multi-tenant-accounts.md) | 多租户账户模型、MCC 子账户、`wait` 语义 |
 | [`ADR 0005`](docs/decisions/0005-sdk-poc.md) | `baiduads-sdk` 可行性验证：为什么只做元数据源 |
-| [`ADR 0006`](docs/decisions/0006-casdoor-audience.md) | Casdoor 的 `aud` 是 client_id，不是资源地址 |
-| [`ADR 0007`](docs/decisions/0007-no-dcr.md) | 为什么不启用 DCR，客户端改为显式注册 |
 | [`.env.example`](.env.example) | 全部环境变量与取值说明 |
 
 接口元数据分两层，不要混：`baidu/capabilities.json` 由
@@ -98,4 +112,4 @@ P4 已切到 `oidc`（Casdoor 真实令牌可握手并调用工具）。205 个�
 
 ## 许可
 
-待定（Apache-2.0 或 MIT）。依赖的 Casdoor 为 Apache-2.0，MCP Python SDK 为 MIT。
+待定（Apache-2.0 或 MIT）。依赖的 MCP Python SDK 为 MIT；基础设施仓库依赖的 Casdoor 为 Apache-2.0。

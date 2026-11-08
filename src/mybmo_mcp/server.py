@@ -44,7 +44,7 @@ app = typer.Typer(
         "百度营销开放平台的 MCP 服务。\n\n"
         "stdio：本地接入，由 MCP 宿主作为子进程拉起（默认）。\n\n"
         "streamable-http：公网接入，默认 127.0.0.1:8000/mcp。"
-        "对外暴露前必须先把鉴权加上，见 docs/operations.md。"
+        "对外暴露前必须先把鉴权加上，见 docs/auth-contract.md。"
     ),
     add_completion=False,
     rich_markup_mode=None,

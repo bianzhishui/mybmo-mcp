@@ -3,7 +3,8 @@
 - 状态：已接受
 - 日期：2026-11-07
 - 决策者：项目负责人
-- 关联：[ADR 0001](0001-auth-architecture.md)（Casdoor）、[ADR 0003](0003-capability-only.md)（能力层）
+- 关联：infra 仓库 `docs/decisions/0003-identity-provider.md`（Casdoor）、
+  [ADR 0003](0003-capability-only.md)（能力层）、[`docs/auth-contract.md`](../auth-contract.md)（鉴权契约）
 
 ## 背景
 

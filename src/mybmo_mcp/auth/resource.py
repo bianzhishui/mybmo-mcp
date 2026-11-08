@@ -18,9 +18,9 @@ JWKS 拉取失败时**拒绝而非放行**。缓存过期 + 网络故障的瞬�
 那就等于在故障期间接受任何人的令牌。
 
 关于 ``aud``：Casdoor 把 ``aud`` 填成**客户端的 client_id**，不是 RFC 8707 的资源标识
-（实测见 ADR 0006）。所以这里的 audience 是一个**白名单**——每个在 Casdoor 里显式注册、
-允许调用本服务的客户端，把它的 client_id 加进来。DCR 动态注册的客户端拿到的 aud 是新
-client_id，不在白名单里，因此**无法调用本服务**（ADR 0007）。
+（实测记录见 docs/auth-contract.md）。所以这里的 audience 是一个**白名单**——每个在
+Casdoor 里显式注册、允许调用本服务的客户端，把它的 client_id 加进来。DCR 动态注册的
+客户端拿到的 aud 是新 client_id，不在白名单里，因此**无法调用本服务**。
 """
 
 from __future__ import annotations
@@ -147,8 +147,8 @@ class JwtVerifier:
         self._issuer = issuer.rstrip("/")
         self._audiences = audiences
         self._clock_skew = clock_skew
-        # 默认值只是兜底：Casdoor 实测给的是 /.well-known/jwks，不是这里推导的路径。
-        # 部署时必须显式设 MYBMO_JWKS_URL，见 docs/casdoor-notes.md。
+        # 默认值只是兜底：实测 issuer 给的是 /.well-known/jwks，不是这里推导的路径。
+        # 部署时必须显式设 MYBMO_JWKS_URL，见 docs/auth-contract.md。
         self._jwks = JwksCache(jwks_url or f"{self._issuer}/.well-known/jwks")
 
     @property
@@ -203,7 +203,7 @@ class JwtVerifier:
             raise TokenError(
                 f"令牌的 audience 不在允许的客户端列表里（允许 {allowed}）。"
                 "Casdoor 把 aud 填成 client_id，所以每个要调用本服务的客户端都得"
-                "显式注册并加入 MYBMO_OIDC_AUDIENCE，见 ADR 0007"
+                "显式注册并加入 MYBMO_OIDC_AUDIENCE，见 docs/auth-contract.md"
             ) from exc
         except jwt.InvalidIssuerError as exc:
             raise TokenError(f"令牌的 issuer 不受信任（期望 {self._issuer}）") from exc

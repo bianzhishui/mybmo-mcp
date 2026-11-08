@@ -1,8 +1,12 @@
 ## Context
 
 全新项目。目标是把百度营销开放平台封装成 MCP 服务，并在公网安全地服务多账户、多用户。
-鉴权的整体选型已由 [ADR 0001](../../../docs/decisions/0001-auth-architecture.md) 确定：
-**自部署 Casdoor 作授权服务器，本服务作 Resource Server**。
+鉴权的整体选型由 infra 仓库的 ADR 0003 确定：**自部署 Casdoor 作授权服务器，
+本服务作 Resource Server**；本仓库只保留代码侧的契约（[`docs/auth-contract.md`](../../../docs/auth-contract.md)）。
+
+> **历史记录说明（2026-11-08）**：本文中提到的 `deploy/`、`docs/operations.md`、
+> `docs/decisions/0001-auth-architecture.md` 等路径已迁至
+> [`pandabase-infra`](https://github.com/bianzhishui/pandabase-infra)，不再存在于当前仓库。
 
 本文只记录该变更内部的技术取舍。
 
