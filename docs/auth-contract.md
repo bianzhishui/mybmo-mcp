@@ -26,6 +26,7 @@ Caddy）的部署与运维在 infra 仓库，这里只记录**本仓库代码依
 | `MYBMO_OIDC_AUDIENCE` | 允许的 client_id 白名单，逗号分隔 | oidc 模式拒绝启动 |
 | `MYBMO_JWKS_URL` | JWKS 地址 | 回落到 `{issuer}/.well-known/jwks`（不推荐） |
 | `MYBMO_RESOURCE_URL` | 元数据里的 `resource` 字段 | oidc 模式拒绝启动 |
+| `MYBMO_BAIDU_CALLBACK_URL` | 百度 OAuth 授权回调（`auth bind` 用） | 只影响绑定；缺失时报错，不影响检索与执行 |
 | `MYBMO_DATA_DIR` | 凭据、审计、锁、`tenancy.json` 的根 | 默认 `./data` |
 | `MYBMO_MASTER_KEY` | base64 的 32 字节 AES-GCM 主密钥 | 能否启动不报错，但调不动百度 |
 | `MYBMO_DATABASE_URL` | 平台 PG 的 DSN（当前未启用） | 忽略 |
@@ -36,6 +37,7 @@ Caddy）的部署与运维在 infra 仓库，这里只记录**本仓库代码依
 |---|---|
 | `GET /healthz` | 不需要鉴权；**即使 `credentials=unconfigured` 也返回 200**，用字段表达降级，不靠状态码。编排与监控依赖这一点 |
 | `POST /mcp` | 需要 Bearer 令牌；未认证返回 401 且带 `WWW-Authenticate` 与 `resource_metadata` |
+| `GET /oauth/baidu/callback` | **百度授权回调，不需要本服务令牌**——跳转过来的是浏览器，带不了 Bearer。安全性靠一次性 state + 15 分钟 TTL + "授权码只能换一次"。反代必须把这个路径也转到容器 |
 | `/.well-known/oauth-protected-resource` | 由 MCP SDK 发布，不需要自己实现 |
 
 反代（Caddy）**不做鉴权**：它注入的身份头可被直连回环伪造，令牌校验必须在本进程内完成。
@@ -58,6 +60,10 @@ issuer   https://auth.pandabase.top
 jwks     https://auth.pandabase.top/.well-known/jwks
 client   mybmo-mcp / 709a8e16656a223a1ab7
 resource https://baiduads.pandabase.top
+callback https://baiduads.pandabase.top/oauth/baidu/callback
 ```
+
+`callback` 是**百度** OAuth 的回调，与上面 IdP 的凭据无关：它只是本服务对百度暴露的一个
+路径。百度侧按**根域**比对（不一致报 `redirect_uri_mismatch`），所以换路径可以、换域名不行。
 
 应用在 Casdoor 里只开 `authorization_code` + `refresh_token`；`redirect_uris` 按客户端逐个登记。

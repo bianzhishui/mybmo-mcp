@@ -27,6 +27,7 @@ from pydantic import AnyHttpUrl
 
 from mybmo_mcp.audit.log import AuditLog
 from mybmo_mcp.auth.access import AccountAccess
+from mybmo_mcp.auth.binding import BindingManager, StateStore
 from mybmo_mcp.auth.oauth import BaiduOAuth
 from mybmo_mcp.auth.registry import AccountRegistry
 from mybmo_mcp.auth.resource import SCOPE_READ, JwtVerifier
@@ -40,6 +41,7 @@ from mybmo_mcp.auth.tenancy import (
 )
 from mybmo_mcp.auth.vault import FileVault
 from mybmo_mcp.baidu.capabilities import CapabilityRegistry
+from mybmo_mcp.baidu.errors import CredentialError
 from mybmo_mcp.baidu.transport import BaiduTransport, RequestCredentials
 from mybmo_mcp.config import Settings, get_settings
 
@@ -131,6 +133,30 @@ class Runtime:
     def credentials(self) -> CredentialService:
         return CredentialService(
             self.registry, self.oauth, lock_dir=self.settings.mybmo_data_dir / "locks"
+        )
+
+    @cached_property
+    def binding(self) -> BindingManager:
+        """百度账户绑定：签发授权链接 + 处理回调。
+
+        只有 ``auth bind`` 与 ``/oauth/baidu/callback`` 用它，所以缺配置时**不在这里失败**，
+        而是在被用到时才报错——检索能力不需要回调地址。
+        """
+        callback = self.settings.mybmo_baidu_callback_url.strip()
+        if not callback:
+            raise CredentialError(
+                "缺少 MYBMO_BAIDU_CALLBACK_URL（在 dev2 应用「安全设置」里登记的授权回调地址），"
+                "没有它生成不了授权链接。取值见 docs/auth-contract.md"
+            )
+        if not self.settings.baidu_app_id or not self.settings.baidu_secret_key:
+            raise CredentialError("缺少 BAIDU_APP_ID / BAIDU_SECRET_KEY，无法绑定百度账户")
+        return BindingManager(
+            self.oauth,
+            self.vault,
+            StateStore(self.settings.mybmo_data_dir),
+            app_id=self.settings.baidu_app_id,
+            secret_key=self.settings.baidu_secret_key,
+            redirect_uri=callback,
         )
 
     @cached_property

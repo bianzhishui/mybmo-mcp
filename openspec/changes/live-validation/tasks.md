@@ -7,6 +7,9 @@
 
 - [ ] 1.1 `[live]` 在 <https://dev2.baidu.com> 建应用，拿到 AppID / SecretKey，填进 `deploy/.env`
 - [ ] 1.2 `[live]` 确认回调地址已在应用里登记，且与 `MYBMO_RESOURCE_URL` 同域
+      （地址已定：`https://baiduads.pandabase.top/oauth/baidu/callback`，代码侧
+      `auth bind` + `GET /oauth/baidu/callback` 已就绪；**待在 dev2「安全设置」里登记**，
+      并确认 infra 的 Caddy 把该路径也反代到容器）
 - [x] 1.3 建 `docs/baidu-behavior.md` 骨架：身份与令牌、分页与上限、字段与写接口、错误码
       四组，结论列留空等实测
 
@@ -15,6 +18,7 @@
 ## 2. 绑定与账户
 
 - [ ] 2.1 `[live]` 走 `auth bind` 完成授权，确认凭据文件已加密落盘（权限 600）
+      （CLI 与回调端点已实现并本地验过失败路径；成功路径只差真实 AppID）
 - [ ] 2.2 `[live]` `list_accounts` 返回该账户，且 `user_name` 是**中文名**而非登录名
 - [ ] 2.3 `[live]` 用错误 `userName` 调一次账户查询，确认错误码是 81020 并记录文案
 - [ ] 2.4 把 2.2 / 2.3 的结论写进 `docs/baidu-behavior.md`

@@ -37,6 +37,10 @@ class Settings(BaseSettings):
     mybmo_auth_mode: str = "local"
     casdoor_issuer: str = ""
     mybmo_resource_url: str = ""
+    #: 百度 OAuth 的授权回调地址，必须与在 dev2 应用「安全设置」里登记的**根域**一致，
+    #: 且不能带 ``?`` 或 ``%``（百度侧不允许把参数塞进 callback，附加信息走 state）。
+    #: 只在 ``auth bind`` 与回调端点里用到；为空时这两个入口直接报错，不影响其他功能。
+    mybmo_baidu_callback_url: str = ""
     #: JWT 的 audience **白名单**。**不是资源地址，是 OAuth 客户端的 client_id**
     #: （IdP 把 aud 填成 client_id，与 RFC 8707 的资源标识语义不同，见 docs/auth-contract.md）。
     #: 多个客户端用逗号分隔；每个都必须先在 IdP 里显式注册（不开 DCR）。

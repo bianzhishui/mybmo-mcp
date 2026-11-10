@@ -35,6 +35,17 @@ uv run mybmo-mcp --help
 没有百度账号也能用：`search_capabilities` / `get_capability_schema` 只读随包的接口元数据，
 不碰凭据、不联网。
 
+### 绑定百度账户
+
+```bash
+uv run mybmo-mcp auth bind --alias main        # 打出授权链接，state 15 分钟一次性
+```
+
+浏览器打开链接授权后，百度跳回 `MYBMO_BAIDU_CALLBACK_URL`
+（默认实例：`https://baiduads.pandabase.top/oauth/baidu/callback`），由**运行中的服务**
+落库——所以 http 模式下先起服务再 bind。回调地址必须与 dev2 应用「安全设置」里登记的
+**根域**一致（百度按根域比对），且不能带 `?` 或 `%`。
+
 ## 部署（公网）
 
 本仓库自带 `deploy/docker-compose.yml`，只跑 mcp 一个服务，加入 infra 的 `pandabase` 网络：
