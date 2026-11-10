@@ -24,3 +24,6 @@ data/
 
 # 工具本地状态
 .workbuddy/
+
+# macOS
+.DS_Store
