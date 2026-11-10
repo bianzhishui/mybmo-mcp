@@ -1,3 +1,5 @@
+<p align="center"><img src="assets/logo.png" alt="mybmo-mcp" width="160"></p>
+
 # mybmo-mcp
 
 百度营销开放平台的 MCP 能力网关。**389 个接口收进 5 个工具**——用检索代替枚举，
