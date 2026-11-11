@@ -456,7 +456,8 @@
         "日期格式 YYYY-MM-DD",
         "reportType 必填；一站式多渠道账户报告实测取值 1783967（timeUnit: HOUR/DAY/WEEK/MONTH/SUMMARY，区间上限 824 天）",
         "实测 createReportTask 与 getTaskStatus 的响应都是**单元素数组**，taskId/taskStatus/fileUrl 在 [0] 里",
-        "支持 execute_capability(wait=True)：元数据已声明，轮询到 taskStatus=SUCCESS 后返回终态（含 fileUrl、tableHeader、dataStartRow）"
+        "支持 execute_capability(wait=True)：元数据已声明，轮询到 taskStatus=SUCCESS 后返回终态（含 fileUrl、tableHeader、dataStartRow）",
+        "reportType 全表与异步流程细节见 docs/reports.md"
       ],
       "params": {
         "startDate": "起始日期，格式 YYYY-MM-DD",
@@ -501,7 +502,8 @@
         "列名是英文标识，不确定时传 withColumnMeta=true 让接口把列元数据一起返回",
         "reportType 必填；一站式多渠道账户报告实测取值 1783967，timeUnit 用 HOUR/DAY/WEEK/MONTH/SUMMARY",
         "时间区间上限 824 天，超了报 901606「时间区间不能超过824天」",
-        "默认排序不稳定（实测相邻两页日期不连续），分页取全量前务必用 sorts 指定排序字段"
+        "默认排序不稳定（实测相邻两页日期不连续），分页取全量前务必用 sorts 指定排序字段",
+        "reportType 全表、列字典与通用参数（sorts/filters/timeUnit/824 天上限）见 docs/reports.md"
       ],
       "params": {
         "startRow": "起始行号，从 0 开始",

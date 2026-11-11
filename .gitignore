@@ -27,3 +27,6 @@ data/
 
 # macOS
 .DS_Store
+
+# 临时抓取的官方文档（提炼后的长期副本在 docs/reports.md）
+tmp/

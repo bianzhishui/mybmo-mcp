@@ -114,6 +114,7 @@ curl -fsS https://baiduads.pandabase.top/healthz
 | [`docs/architecture.md`](docs/architecture.md) | 三层信任边界、关键时序、数据模型、凭据生命周期 |
 | [`docs/auth-contract.md`](docs/auth-contract.md) | **与 infra 的唯一契约**：鉴权不变量、环境变量、端点、卷布局 |
 | [`docs/baidu-behavior.md`](docs/baidu-behavior.md) | 百度接口行为实测结论；未验证项不得写进能力说明 |
+| [`docs/reports.md`](docs/reports.md) | 推广报告速查：三个方法、通用参数、reportType 全表、列字典、实测对照 |
 | [`ADR 0002`](docs/decisions/0002-tech-stack.md) | 技术栈与理由 |
 | [`ADR 0003`](docs/decisions/0003-capability-only.md) | 只做能力层，不做业务编排与写审批 |
 | [`ADR 0004`](docs/decisions/0004-multi-tenant-accounts.md) | 多租户账户模型、MCC 子账户、`wait` 语义 |
