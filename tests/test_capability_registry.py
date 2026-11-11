@@ -7,7 +7,7 @@ def test_registry_stats() -> None:
     registry = CapabilityRegistry.load()
 
     assert registry.stats["capabilities"] == 394
-    assert registry.stats["schemas"] == 592
+    assert registry.stats["schemas"] == 593
     assert registry.stats["services"] == 131
 
 

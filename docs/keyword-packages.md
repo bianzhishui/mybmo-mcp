@@ -9,8 +9,8 @@
 | 能力 | 路径 | 状态 |
 |---|---|---|
 | `KeyWordShoppingService.getKeywordPackages` | `/json/sms/service/KeyWordShoppingService/getKeywordPackages` | ✅ **读实测通过** |
-| `KeyWordShoppingService.addKeywordPackages` | `…/addKeywordPackages` | ◐ 接口存在，**参数结构未确认** |
-| `KeyWordShoppingService.updateKeywordPackages` | `…/updateKeywordPackages` | ◐ 同上 |
+| `KeyWordShoppingService.addKeywordPackages` | `…/addKeywordPackages` | ✅ **写实测通过** |
+| `KeyWordShoppingService.updateKeywordPackages` | `…/updateKeywordPackages` | ✅ **写实测通过** |
 | `KeyWordShoppingService.delKeywordPackages` | `…/delKeywordPackages` | ◐ 同上（注意是 **del**，不是 delete） |
 
 ## 二、怎么确认一个"SDK 里没有的接口"到底存不存在
@@ -62,27 +62,50 @@ status=0  succ=39  oprs=39  → 39 个关键词包
 | `planCount` | 绑定的计划数量 |
 | `bindPlanIdList` | 绑定的计划 ID 列表 |
 
-请求参数（实测可用但不完整）：`packageIds`（按包 ID 过滤，未单独验证）、
-`keywordPackageFields`（指定返回字段，不传也返回上面这些）。
+⚠️ **没有任何可用的过滤参数**：`packageIds` / `keywordPackageIds` / `keywordPackageTypes` /
+`keywordPackageFields` 实测全部被**忽略**，永远返回全部包（恒为汇总视图）。
+想看包内具体词，目前没有对应接口（`getKeywordPackageDetail` 报 87091）。
 
-## 四、写接口的参数结构（**未确认**）
+## 四、写接口：字段名从后台抓包得到（已实测）
 
-试过的形状都被判 `9015 参数异常`，且**没有 `position` 提示**：
+后台控制台的请求体里，业务参数是这一段（URL 解码后）：
 
-```jsonc
-{"keywordPackages": [{}]}                              // 9015
-{"keywordPackages": [{"packageName": "probe"}]}        // 9015
-{"keywordPackages": [{"packageName": "", "keywordList": []}]}  // 9015
+```json
+{"keywordPackageTypes": [
+  {"packageName": "测试用",
+   "keywordTypes": [{"keyword": "麻将检测", "id": 0}]}
+]}
 ```
 
-说明字段名不是 `keywordPackages`（或还需要别的顶层字段）。**要继续推进，需要以下任一条件：**
+于是三个结论立刻确定：**顶层字段是 `keywordPackageTypes`**（不是 `keywordPackages`）、
+**包内词是 `keywordTypes: [{keyword, id}]`**、**新建时 `id` 填 0**。
 
-1. 官方文档（最理想，字段+枚举一次到位）
-2. 后台"关键词包"页面的抓包（浏览器 F12 → Network → 看真实请求体）
-3. 逐个顶层字段名试探（成本高、且写接口试探有误建风险，不建议）
+### `addKeywordPackages` ✅
 
-在此之前，`addKeywordPackages` / `updateKeywordPackages` / `delKeywordPackages` 在能力表里
-**没有 `verified` 标记**，`get_capability_schema` 会提示"未实测，首次调用请小范围试"。
+```jsonc
+{"keywordPackageTypes": [
+  {"packageName": "mcp-probe-1111",
+   "keywordTypes": [{"keyword": "测试词一", "id": 0}, {"keyword": "测试词二", "id": 0}]}]}
+```
+
+实测：`status=0 succ=1`，返回 `packageId=1615561300505`；`getKeywordPackages` 回读包数 **39 → 40**。
+
+### `updateKeywordPackages` ✅
+
+同结构 + 必须带 `packageId`：
+
+```jsonc
+{"keywordPackageTypes": [
+  {"packageId": 1615561300505, "packageName": "mcp-probe-1111-renamed",
+   "keywordTypes": [{"keyword": "测试词三", "id": 0}]}]}
+```
+
+实测 `succ=1`，响应回显新包名；⚠️ `keywordTypes` 是**整组替换**，不是追加。
+
+### `delKeywordPackages` ◐ 仍然缺参数
+
+试过的形状全部 `9015 参数异常`：`keywordPackageTypes[{packageId}]`、`keywordPackageIds[]`、
+`packageIds[]`、`ids[]`、`packageId` 传字符串。**需要后台"删除词包"的一次抓包**。
 
 ## 五、与其他"包"的区别（容易混）
 

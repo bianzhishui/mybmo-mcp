@@ -914,7 +914,7 @@
       }
     },
     "KeyWordShoppingService.getKeywordPackages": {
-      "description": "查电商推广的关键词包（词包名称、包内词数、绑定计划）",
+      "description": "查电商推广的关键词包（汇总视图：包名、词数、绑定计划）",
       "aliases": [
         "关键词包列表",
         "查词包",
@@ -922,63 +922,79 @@
         "关键词包"
       ],
       "notes": [
-        "返回字段：packageName / packageId / keywordCount / planCount / bindPlanIdList（实测 39 个包）",
-        "不传参数返回该账户全部关键词包；packageIds 可按包 ID 过滤（未单独验证）",
-        "这是**电商推广线的关键词包**，与搜索推广的 OCPC 定向包（OcpcService.*TargetPackage）不是一回事"
+        "返回的是**汇总视图**：packageId / packageName / keywordCount / planCount / bindPlanIdList",
+        "**没有可用的过滤参数**：packageIds / keywordPackageIds / keywordPackageTypes / keywordPackageFields 实测全部被忽略，总是返回全部包",
+        "想看包内关键词明细目前没有对应接口（getKeywordPackageDetail 报 87091 不存在）",
+        "这是电商推广线的关键词包，与搜索推广的 OCPC 定向包（OcpcService.*TargetPackage）无关"
       ],
-      "params": {
-        "packageIds": "关键词包 ID 列表；不传返回全部",
-        "keywordPackageFields": "要返回的字段名列表；不传也能拿到默认字段"
-      },
+      "params": {},
       "verified": {
         "at": "2026-11-11",
         "level": "read",
         "account": "baidu-YF电商-玛卡快消01",
-        "basis": "不传参数调用成功：status=0 succ=39，返回 39 个包（含 packageName/keywordCount/planCount/bindPlanIdList）"
+        "basis": "不传参数返回 status=0 succ=40（测试建包后从 39 变 40）；四种过滤参数逐一生效性验证均为忽略"
       }
     },
     "KeyWordShoppingService.addKeywordPackages": {
-      "description": "新建电商推广的关键词包（⚠ 参数结构未经官方文档确认）",
+      "description": "新建电商推广的关键词包（包名 + 关键词列表）",
       "aliases": [
         "新建关键词包",
         "创建词包"
       ],
       "notes": [
-        "**接口确实存在**：实测返回 9015「参数异常」而非 87091「请求 URL 无效」，说明路径有效",
-        "但请求体结构未确认：以 keywordPackages 数组试过 packageName / keywordList / bindPlanIdList 都被判参数异常，没有 position 提示",
-        "建包前先 getKeywordPackages 看清现有包结构；字段确认后请回填本条与 handwritten_capabilities.json"
+        "请求体字段是 **keywordPackageTypes**（不是 keywordPackages/keywordList）：[{packageName, keywordTypes:[{keyword, id}]}]，新建时 id 填 0",
+        "返回里直接带 packageId，可直接拿去 update/绑计划",
+        "实测：新建 2 个词的包成功，status=0 succ=1，回读包数 39→40"
       ],
       "params": {
-        "keywordPackages": "词包对象数组（字段待确认：packageName / keywordList / bindPlanIdList？）"
+        "keywordPackageTypes": "词包数组",
+        "keywordPackageTypes[].packageName": "包名",
+        "keywordPackageTypes[].keywordTypes": "[{keyword, id}]，新建时 id 填 0"
+      },
+      "verified": {
+        "at": "2026-11-11",
+        "level": "write",
+        "account": "baidu-YF电商-玛卡快消01",
+        "basis": "按抓包形状新建 mcp-probe-1111（2 个词）成功：succ=1，返回 packageId 1615561300505，getKeywordPackages 回读包数 39→40"
       }
     },
     "KeyWordShoppingService.updateKeywordPackages": {
-      "description": "修改电商推广的关键词包（⚠ 参数结构未经官方文档确认）",
+      "description": "修改电商推广的关键词包（改名 / 改包内关键词）",
       "aliases": [
         "改词包",
         "更新关键词包"
       ],
       "notes": [
-        "接口存在（9015 而非 87091），请求体结构未确认",
-        "改包前先用 getKeywordPackages 取到 packageId"
+        "请求体与新建相同，用 **keywordPackageTypes**，并必须带 packageId",
+        "实测传 packageId + packageName + keywordTypes 后：包名改成功、keywordTypes 变为新传入的那一组（**整组替换，不是追加**）",
+        "改完务必 getKeywordPackages 回读确认（汇总视图只给 keywordCount，看不到具体词）"
       ],
       "params": {
-        "keywordPackages": "词包对象数组（字段待确认，至少需要 packageId）"
+        "keywordPackageTypes": "词包数组（至少含 packageId）",
+        "keywordPackageTypes[].packageId": "要修改的包 ID",
+        "keywordPackageTypes[].packageName": "新包名",
+        "keywordPackageTypes[].keywordTypes": "新的关键词集合（整组替换）"
+      },
+      "verified": {
+        "at": "2026-11-11",
+        "level": "write",
+        "account": "baidu-YF电商-玛卡快消01",
+        "basis": "对 1615561300505 改名并只保留 1 个词：succ=1，响应回显新包名与新的 keywordTypes"
       }
     },
     "KeyWordShoppingService.delKeywordPackages": {
-      "description": "删除电商推广的关键词包（⚠ 注意方法是 del 不是 delete；参数结构未确认）",
+      "description": "删除电商推广的关键词包（⚠ 参数结构仍未确认）",
       "aliases": [
         "删词包",
         "删除关键词包"
       ],
       "notes": [
-        "方法名是 **delKeywordPackages**；deleteKeywordPackages 报 87091 不存在",
-        "接口存在（9015 而非 87091），请求体结构未确认",
-        "写操作不可回滚，删前先用 getKeywordPackages 确认 packageId 与 keywordCount"
+        "方法名是 **delKeywordPackages**（deleteKeywordPackages 报 87091 不存在）",
+        "接口存在，但**参数结构未确认**：keywordPackageTypes[{packageId}] / keywordPackageIds / packageIds / ids 全部 9015 参数异常",
+        "写操作不可回滚，删前先 getKeywordPackages 确认 packageId 与词数；删除前建议先在后台试一次并抓包"
       ],
       "params": {
-        "keywordPackages": "词包对象数组（字段待确认，至少需要 packageId）"
+        "keywordPackageTypes": "⚠ 结构未知；已知尝试过的形状都不对"
       }
     }
   }

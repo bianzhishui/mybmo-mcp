@@ -149,22 +149,8 @@
     },
     "KWShopPackageQuery": {
       "type": "object",
-      "properties": {
-        "packageIds": {
-          "type": "array",
-          "items": {
-            "type": "integer"
-          },
-          "description": "关键词包 ID 列表；不传返回全部"
-        },
-        "keywordPackageFields": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "description": "要返回的字段名；实测不传也能拿到默认字段"
-        }
-      }
+      "properties": {},
+      "description": "实测无过滤参数：不传即返回该账户全部关键词包（汇总视图）"
     },
     "KWShopPackageItem": {
       "type": "object",
@@ -177,57 +163,67 @@
           "type": "string",
           "description": "关键词包名称"
         },
-        "keywordList": {
+        "keywordTypes": {
           "type": "array",
           "items": {
-            "type": "string"
+            "$ref": "#/schemas/KWShopPackageKeyword"
           },
-          "description": "包内关键词"
-        },
-        "bindPlanIdList": {
-          "type": "array",
-          "items": {
-            "type": "integer"
-          },
-          "description": "绑定的计划 ID 列表"
+          "description": "包内关键词；新建时每项 {keyword, id:0}"
         }
       }
     },
     "KWShopPackageAddRequest": {
       "type": "object",
       "properties": {
-        "keywordPackages": {
+        "keywordPackageTypes": {
           "type": "array",
           "items": {
             "$ref": "#/schemas/KWShopPackageItem"
-          }
+          },
+          "description": "关键词包数组（实测字段名就是 keywordPackageTypes）"
         }
-      },
-      "description": "⚠ 参数结构未经官方文档确认：实测传空对象/只带 packageName 都返回 9015 参数异常，具体必填字段待查"
+      }
     },
     "KWShopPackageUpdateRequest": {
       "type": "object",
       "properties": {
-        "keywordPackages": {
+        "keywordPackageTypes": {
           "type": "array",
           "items": {
             "$ref": "#/schemas/KWShopPackageItem"
-          }
+          },
+          "description": "关键词包数组（实测字段名就是 keywordPackageTypes）"
         }
-      },
-      "description": "⚠ 参数结构未经官方文档确认"
+      }
     },
     "KWShopPackageDelRequest": {
       "type": "object",
       "properties": {
-        "keywordPackages": {
+        "keywordPackageTypes": {
           "type": "array",
           "items": {
             "$ref": "#/schemas/KWShopPackageItem"
-          }
+          },
+          "description": "关键词包数组（实测字段名就是 keywordPackageTypes）"
         }
       },
-      "description": "⚠ 参数结构未经官方文档确认"
+      "description": "⚠ 删除的参数结构仍未确认：keywordPackageTypes[{packageId}] / keywordPackageIds / packageIds / ids 都返回 9015"
+    },
+    "KWShopPackageKeyword": {
+      "type": "object",
+      "properties": {
+        "keyword": {
+          "type": "string",
+          "description": "关键词字面"
+        },
+        "id": {
+          "type": "integer",
+          "description": "关键词 ID，新建时填 0"
+        }
+      },
+      "required": [
+        "keyword"
+      ]
     }
   }
 }
