@@ -945,26 +945,28 @@
       }
     },
     "KeyWordShoppingService.addKeywordPackages": {
-      "description": "新建电商推广的关键词包（包名 + 关键词列表）",
+      "description": "新建或复制电商推广的关键词包",
       "aliases": [
         "新建关键词包",
         "创建词包"
       ],
       "notes": [
-        "请求体字段是 **keywordPackageTypes**（不是 keywordPackages/keywordList）：[{packageName, keywordTypes:[{keyword, id}]}]，新建时 id 填 0",
-        "返回里直接带 packageId，可直接拿去 update/绑计划",
-        "实测：新建 2 个词的包成功，status=0 succ=1，回读包数 39→40"
+        "请求体字段是 **keywordPackageTypes**（不是 keywordPackages/keywordList）",
+        "**两种模式**：① 新建 → {packageName, keywordTypes:[{keyword, id:0}]}；② 复制 → {packageName, packageId:<源包ID>}（不带 keywordTypes，服务端整套复制源包关键词）",
+        "返回里直接带新包的 packageId，可直接拿去 update / 绑计划",
+        "实测新建：2 个词 → succ=1、返回 packageId、回读包数 +1；实测复制：源包 3 个词 → 副本 3 个词一致、packageId 不同"
       ],
       "params": {
         "keywordPackageTypes": "词包数组",
-        "keywordPackageTypes[].packageName": "包名",
-        "keywordPackageTypes[].keywordTypes": "[{keyword, id}]，新建时 id 填 0"
+        "keywordPackageTypes[].packageName": "包名（新建/复制都要）",
+        "keywordPackageTypes[].keywordTypes": "新建模式必填：[{keyword, id:0}]；复制模式可省略",
+        "keywordPackageTypes[].packageId": "复制模式填源包 ID（此时 keywordTypes 可省略）"
       },
       "verified": {
         "at": "2026-11-11",
         "level": "write",
         "account": "baidu-YF电商-玛卡快消01",
-        "basis": "按抓包形状新建 mcp-probe-1111（2 个词）成功：succ=1，返回 packageId 1615561300505，getKeywordPackages 回读包数 39→40"
+        "basis": "新建 2 词包 succ=1；复制模式：源包 3 词 → 副本 3 词一致（packageId 不同）；getKeywordPackages 回读包数 39→40"
       }
     },
     "KeyWordShoppingService.updateKeywordPackages": {

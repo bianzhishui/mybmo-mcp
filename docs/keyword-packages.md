@@ -134,7 +134,26 @@ status=0  succ=39  oprs=39  → 39 个关键词包
 于是三个结论立刻确定：**顶层字段是 `keywordPackageTypes`**（不是 `keywordPackages`）、
 **包内词是 `keywordTypes: [{keyword, id}]`**、**新建时 `id` 填 0**。
 
-### `addKeywordPackages` ✅
+### `addKeywordPackages` ✅ 两种模式
+
+**① 新建**：给包名 + 关键词
+
+```jsonc
+{"keywordPackageTypes": [
+  {"packageName": "mcp-probe-1111",
+   "keywordTypes": [{"keyword": "测试词一", "id": 0}, {"keyword": "测试词二", "id": 0}]}]}
+```
+
+**② 复制**（页面上的「复制」按钮就是这个）：只给 `packageName` + **源包 `packageId`**，不带 `keywordTypes`
+
+```jsonc
+{"keywordPackageTypes": [{"packageName": "测试用02_副本", "packageId": 1615571277581}]}
+```
+
+实测：源包 3 个词 → 副本 3 个词完全一致、`packageId` 不同、`succ=1`。
+**注意**：复制模式下 `keywordTypes` 会被忽略（不要以为传了就能"复制+改词"）。
+
+### 原 `addKeywordPackages` 实测记录
 
 ```jsonc
 {"keywordPackageTypes": [

@@ -237,7 +237,7 @@
       "properties": {
         "packageId": {
           "type": "integer",
-          "description": "关键词包 ID（更新/删除时必需）"
+          "description": "关键词包 ID：更新/删除时必填；**新建时若填了它 = 复制模式**（把该包的关键词整套复制到新包，此时 keywordTypes 可不传）"
         },
         "packageName": {
           "type": "string",
@@ -248,7 +248,7 @@
           "items": {
             "$ref": "#/schemas/KWShopPackageKeyword"
           },
-          "description": "包内关键词；新建时每项 {keyword, id:0}"
+          "description": "包内关键词；新建模式填 [{keyword, id:0}]；复制模式（传 packageId）可省略"
         }
       }
     },
