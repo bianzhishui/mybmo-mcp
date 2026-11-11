@@ -61,6 +61,18 @@
       "input_schema": {
         "$ref": "#/schemas/KWShopPackageDelRequest"
       }
+    },
+    "KeyWordShoppingService.getKeyword": {
+      "service": "KeyWordShoppingService",
+      "method": "getKeyword",
+      "endpoint": "/json/sms/service/KeyWordShoppingService/getKeyword",
+      "product_line": "sms",
+      "mutating": "false",
+      "group": "电商推广投放",
+      "body": "KWShopKeywordQuery",
+      "input_schema": {
+        "$ref": "#/schemas/KWShopKeywordQuery"
+      }
     }
   },
   "schemas": {
@@ -293,6 +305,28 @@
       },
       "required": [
         "keyword"
+      ]
+    },
+    "KWShopKeywordQuery": {
+      "type": "object",
+      "properties": {
+        "packageIds": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          },
+          "description": "关键词包 ID 列表，必填；可一次查多个包"
+        },
+        "statusList": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          },
+          "description": "按关键词状态过滤；实测 0=有效、2=审核中；不传返回该包全部词"
+        }
+      },
+      "required": [
+        "packageIds"
       ]
     }
   }

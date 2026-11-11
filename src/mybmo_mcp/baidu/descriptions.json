@@ -926,8 +926,8 @@
         "分页用 pageNo + pageSize（从 1 开始）；pageSize=5 时第 1/2 页各 5 条、第 8 页 3 条",
         "过滤写法是 **{field, op, values}**（注意是 op + values 数组，不是 operatorValue/value）：{\"field\":\"packageName\",\"op\":\"like\",\"values\":[\"特效药\"]} → 实测 39 个包里命中 2 个",
         "排序：sortField + sortOrder（asc/desc）；实测 sortField=keywordCount&sortOrder=desc 生效",
-        "⚠️ keywordPackageFields 传 [\"keywordDetail\"] 实测无效果，返回仍是汇总字段——包内具体词目前拿不到",
-        "这是电商推广线的关键词包，与搜索推广的 OCPC 定向包（OcpcService.*TargetPackage）无关"
+        "这是电商推广线的关键词包，与搜索推广的 OCPC 定向包（OcpcService.*TargetPackage）无关",
+        "要包内具体关键词用 KeyWordShoppingService.getKeyword（packageIds 必填）"
       ],
       "params": {
         "pageNo": "页码，从 1 开始",
@@ -1013,6 +1013,32 @@
         "level": "write",
         "account": "baidu-YF电商-玛卡快消01",
         "basis": "删除探测包 1615561300505：succ=1，响应回显 delKeywordPackageIds，回读包数 39→38 且该包消失"
+      }
+    },
+    "KeyWordShoppingService.getKeyword": {
+      "description": "查关键词包里的关键词明细（含每个词的状态与审核结果）",
+      "aliases": [
+        "查词包关键词",
+        "包内关键词",
+        "词包明细",
+        "关键词包明细"
+      ],
+      "notes": [
+        "**packageIds 必填**（可一次传多个包）；空 body 返回 9015 参数异常",
+        "返回：packageName / packageId / keywordTypes[{index, keyword, wordId, wordDataId, status, statusDesc}]",
+        "statusList 按词状态过滤：实测 **0=有效、2=审核中**；1/3 等未观测到，语义未知",
+        "一次查多个包时会按包返回，每包各自的 keywordTypes（实测 3 个包共 699 个词全部返回）",
+        "配合 getKeywordPackages（汇总）使用：先用汇总看 keywordCount，再用本接口取具体词"
+      ],
+      "params": {
+        "packageIds": "关键词包 ID 列表，必填，可多个",
+        "statusList": "按状态过滤：[0]=有效、[2]=审核中；不传返回全部"
+      },
+      "verified": {
+        "at": "2026-11-11",
+        "level": "read",
+        "account": "baidu-YF电商-玛卡快消01",
+        "basis": "packageIds 传 3 个包返回 699 个词（全部 status=0 有效）；新包 1615571277581 返回 status=2 审核中；statusList=[0]/[2] 各自过滤生效"
       }
     }
   }

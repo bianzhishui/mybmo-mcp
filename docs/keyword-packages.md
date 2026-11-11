@@ -8,7 +8,8 @@
 
 | 能力 | 路径 | 状态 |
 |---|---|---|
-| `KeyWordShoppingService.getKeywordPackages` | `/json/sms/service/KeyWordShoppingService/getKeywordPackages` | ✅ **读实测通过** |
+| `KeyWordShoppingService.getKeywordPackages` | `…/getKeywordPackages` | ✅ **读实测通过**（汇总视图） |
+| `KeyWordShoppingService.getKeyword` | `…/getKeyword` | ✅ **读实测通过**（包内关键词明细） |
 | `KeyWordShoppingService.addKeywordPackages` | `…/addKeywordPackages` | ✅ **写实测通过** |
 | `KeyWordShoppingService.updateKeywordPackages` | `…/updateKeywordPackages` | ✅ **写实测通过** |
 | `KeyWordShoppingService.delKeywordPackages` | `…/delKeywordPackages` | ✅ **写实测通过**（注意是 **del**，不是 delete） |
@@ -77,10 +78,46 @@ status=0  succ=39  oprs=39  → 39 个关键词包
 | `filters` | ✅ 生效，形状是 **`{field, op, values:[...]}`**（不是 `operatorValue`/`value`）。`op:"like"` + `values:["特效药"]` → 39 个包里命中 2 个 |
 | `sortField` / `sortOrder` | ✅ 生效（`keywordCount` + `desc` → 500 词那个包排第一） |
 | `expand.totalCount` | ✅ 返回总数（39），配合分页判断是否到底 |
-| `keywordPackageFields: ["keywordDetail"]` | ❌ **无效果**，返回仍是汇总字段 → **包内具体词拿不到** |
+| `keywordPackageFields: ["keywordDetail"]` | ❌ **无效果**，返回仍是汇总字段 → 包内具体词请用 `getKeyword` |
 
 > 之前我用 `{field, operatorValue, value}` 猜的形状全部返回 0 条，就是这个原因——
 > 后台传的是 `op` + `values` 数组。又一个"不能猜、要抓包"的例子。
+
+## 三点五、包内关键词明细 `getKeyword`
+
+后台抓包得到的参数形状：
+
+```jsonc
+{"packageIds": [1615571277581], "statusList": [0, 1, 2]}
+```
+
+| 参数 | 说明 |
+|---|---|
+| `packageIds` | **必填**，可一次传多个包（空 body → `9015 参数异常`） |
+| `statusList` | 按词状态过滤；不传返回该包全部词 |
+
+返回：
+
+```jsonc
+[{"packageName": "测试用02", "packageId": 1615571277581,
+  "keywordTypes": [
+    {"index": 1, "keyword": "黄金测试", "wordId": 247465450,
+     "wordDataId": 1615571277582, "status": 2, "statusDesc": "审核中"}]}]
+```
+
+| 字段 | 说明 |
+|---|---|
+| `index` | 序号 |
+| `keyword` | 关键词字面 |
+| `wordId` | 词 ID |
+| `wordDataId` | 包内词数据 ID |
+| `status` / `statusDesc` | 词状态：实测 **0=有效、2=审核中**；1/3 等未观测到 |
+
+实测：一次查 3 个包返回 **699 个词**（全部 `status=0 有效`）；新包只有 1 个词且 `status=2 审核中`；
+`statusList=[0]` 与 `[2]` 分别过滤生效。
+
+> 与 `getKeywordPackages` 的分工：**汇总用 getKeywordPackages**（包名/词数/绑定计划 + 分页过滤），
+> **看包里到底有哪些词用 getKeyword**。
 
 ## 四、写接口：字段名从后台抓包得到（已实测）
 

@@ -3,12 +3,12 @@
     "version": 1,
     "source": "baiduads-sdk 1.0.0",
     "note": "构建期从 SDK 内省生成；嵌套结构保持原样，input 可直接作为请求体",
-    "capabilities": 394,
-    "schemas": 593,
-    "handwritten": 5,
+    "capabilities": 395,
+    "schemas": 594,
+    "handwritten": 6,
     "mutating": {
       "true": 211,
-      "false": 182,
+      "false": 183,
       "unknown": 1
     }
   },
@@ -7441,6 +7441,28 @@
           }
         }
       }
+    },
+    "KWShopKeywordQuery": {
+      "type": "object",
+      "properties": {
+        "packageIds": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          },
+          "description": "关键词包 ID 列表，必填；可一次查多个包"
+        },
+        "statusList": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          },
+          "description": "按关键词状态过滤；实测 0=有效、2=审核中；不传返回该包全部词"
+        }
+      },
+      "required": [
+        "packageIds"
+      ]
     },
     "KWShopPackageAddRequest": {
       "type": "object",
@@ -18109,6 +18131,18 @@
       "body": "KWShopPackageDelRequest",
       "input_schema": {
         "$ref": "#/schemas/KWShopPackageDelRequest"
+      }
+    },
+    "KeyWordShoppingService.getKeyword": {
+      "service": "KeyWordShoppingService",
+      "method": "getKeyword",
+      "endpoint": "/json/sms/service/KeyWordShoppingService/getKeyword",
+      "product_line": "sms",
+      "mutating": "false",
+      "group": "电商推广投放",
+      "body": "KWShopKeywordQuery",
+      "input_schema": {
+        "$ref": "#/schemas/KWShopKeywordQuery"
       }
     },
     "KeyWordShoppingService.getKeywordPackages": {
