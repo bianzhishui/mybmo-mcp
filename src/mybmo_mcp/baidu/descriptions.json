@@ -804,7 +804,9 @@
         "幂等：对已暂停的计划再次 pause=true 返回 succ=1，状态不变",
         "成功判定 header.status==0 且 failures==[] 且 succ==oprs；失败时 status=2、succ=0",
         "缺 campaignShoppingTypes 统一报 8602（position=_sys），百度不指出具体字段",
-        "budget=0 表示不限预算，不要以为 0 就是停投"
+        "budget=0 表示不限预算，不要以为 0 就是停投",
+        "⚠️ 部分更新可行（只传 campaignShoppingId + pause 实测 OK），但**涉及 audience/material 的改动要先读全量**——而 getCampaignShopping **读不回 material**（material/materialInfo/campaignMaterial 均缺失）、audience 返回空对象，所以「解绑词包」这类改动无法安全做读-改-写，建议在后台操作",
+        "解绑关键词包没有独立接口：后台是走本接口改 audience（keywords / fcKeywordWtpids）实现的"
       ],
       "params": {
         "campaignShoppingTypes": "计划对象数组，每项含 campaignShoppingId 与要修改的字段（如 pause）"

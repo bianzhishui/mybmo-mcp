@@ -158,7 +158,23 @@ status=0  succ=39  oprs=39  → 39 个关键词包
 | 解绑 | **没找到接口**：`unbindPlanKeywordPackages` / `unBindPlanKeywordPackages` / `delPlanKeywordPackages` / `unbindPlanKeyword` / `removePlanKeywordPackages` 全部 `87091` |
 | 回读 | `getKeywordPackages` 的 `bindPlanIdList` / `planCount` 会反映绑定结果 |
 
-要绑多个计划就**一次全传**；解绑目前只能在后台操作（抓到解绑请求后我再补接口）。
+要绑多个计划就**一次全传**。
+
+### 解绑：没有独立接口，但当前也**做不了安全的自动化**
+
+后台的解绑动作走的是**计划更新接口** `CampaignShoppingService.updateCampaignShopping`——
+改计划 `audience` 里的关键词（`keywords` / `fcKeywordWtpids`）。听起来可行，但实测卡在读接口：
+
+| 尝试 | 结果 |
+|---|---|
+| `getCampaignShopping` 请求 `material` | **字段缺失**（`material` / `materialInfo` / `campaignMaterial` 都试过） |
+| `getCampaignShopping` 请求 `audience` | 返回**空对象** `{}` |
+
+也就是说**拿不到计划当前的完整配置**，做不到"读全量 → 改一个字段 → 整体回传"。
+如果直接传一个不完整的对象去 update，有把素材/定向清空的风险（素材是几十张图 + 视频，重建成本极高）。
+
+**当前结论：解绑在后台操作**。若将来要自动化，需要先解决"能完整读回计划配置"这件事
+（找能返回 material 的读接口，或确认 update 是字段级合并而非整体覆盖）。
 
 ## 四、写接口：字段名从后台抓包得到（已实测）
 
