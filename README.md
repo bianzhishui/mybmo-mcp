@@ -97,14 +97,31 @@ curl -fsS https://baiduads.pandabase.top/healthz
 
 ## 当前状态
 
-线上以 `oidc` 模式运行，授权码 + PKCE 全流程已用真实令牌验证；测试全绿（离线）。
+线上以 `oidc` 模式运行，授权码 + PKCE 全流程已用真实令牌验证；`249` 个测试全绿（离线）。
 
-**已有一个真实百度账户完成绑定并跑通只读能力**（2026-11-11）：`list_accounts` 返回中文名、
-`getCampaign` 返回 `[]`、`getKRByQuery` 单次上限实测 300 条、错误 `userName` 实测 81020。
-未验证的是**写操作与报表分页**（账户内暂无计划与消费数据），结论记在
-[`docs/baidu-behavior.md`](docs/baidu-behavior.md)。
+**已绑定一个真实电商推广账户，读写与报表都跑通了**（2026-11-11）：
 
-待办与验收标准在 [`openspec/`](openspec/)：`live-validation` 是 v1 的唯一阻塞项，
+| 已实测 | 结论 |
+|---|---|
+| 账户绑定 | `list_accounts` 返回中文名（`baidu-YF电商-玛卡快消01`），`state` 原样回传、回调带 `userId` |
+| 令牌 | `accessToken` **1 天**（文档称 30 天，实测不符），`refreshToken` 30 天 |
+| 计划 | 电商线 `getCampaignShopping` 35 条；搜索线 `getCampaign` 返回 `[]`（该账户无搜索计划） |
+| 暂停字段 | 计划级 `pause` 布尔，`status` 0=启用 / 2=暂停 |
+| 写操作 | 暂停/恢复**同步生效、可回滚**，重复提交**幂等**；成功判定 `header.status==0 && failures==[] && succ==oprs` |
+| 拓词 | `getKRByQuery` 单次上限实测 **300 条** |
+| 报表 | 一站式多渠道（`reportType=1783967`）+ **13 个电商报告**逐个跑通；`startRow`/`rowCount` 分页、区间上限 824 天 |
+| 异步 | `createReportTask → getTaskStatus`（`RUNNING`→`SUCCESS`+`fileUrl`），`execute_capability(wait=True)` 实测 `polls=2` |
+| 错误码 | 81020 / 8602 / 901400 / 901606 / 1519 / 30002 / 3 各有实测样本 |
+
+**尚未验证**（都是"没有对应账户或客户端"，不是已知缺陷）：
+
+- **搜索推广侧**：单元 / 关键词 / 创意的暂停字段、搜索与信息流的 `reportType`
+- **智投项目维度**的 5 个报表（`600028/600030/600032/600034/600038`）
+- **真实 MCP 客户端**（Claude Desktop / Cursor）的授权码登录与工具调用 —— 目前只用 Python SDK 验过
+
+细节：行为结论见 [`docs/baidu-behavior.md`](docs/baidu-behavior.md)，
+报表见 [`docs/reports.md`](docs/reports.md)。
+待办与验收标准在 [`openspec/`](openspec/)：`live-validation` 还剩账户侧与客户端侧几项，
 `multi-tenant-persistence` 要等出现第二个真实用户才启动。
 
 ## 文档
