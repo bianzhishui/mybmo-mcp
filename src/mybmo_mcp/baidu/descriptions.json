@@ -503,7 +503,8 @@
         "reportType 必填；一站式多渠道账户报告实测取值 1783967，timeUnit 用 HOUR/DAY/WEEK/MONTH/SUMMARY",
         "时间区间上限 824 天，超了报 901606「时间区间不能超过824天」",
         "默认排序不稳定（实测相邻两页日期不连续），分页取全量前务必用 sorts 指定排序字段",
-        "reportType 全表、列字典与通用参数（sorts/filters/timeUnit/824 天上限）见 docs/reports.md"
+        "reportType 全表、列字典与通用参数（sorts/filters/timeUnit/824 天上限）见 docs/reports.md",
+        "电商 600xxx 已实测 13 个（账户/计划/商品/视频/创意组合/创意元素，含计划维度）；智投与直播间在该账户无数据但枚举有效"
       ],
       "params": {
         "startRow": "起始行号，从 0 开始",
