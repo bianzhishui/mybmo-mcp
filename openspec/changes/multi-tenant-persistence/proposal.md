@@ -15,12 +15,18 @@
 
 ## 变更内容
 
-1. **建三表**：`tenants` / `users` / `account_grants`（结构见 `docs/architecture.md` 第四节）。
-   `baidu_accounts` 与 `audit_log` 暂不落库——账户凭据仍在加密文件里，审计仍是 JSONL。
+1. **建三表**：`tenants` / `users` / `account_grants`，另加 `baidu_accounts` 的**归属表**
+   （结构见 `docs/architecture.md` 第四节）。注意**账户模型已改为私有**：
+   - `baidu_accounts.owner_user_id` 记录绑定者，owner **隐式 admin**
+   - `account_grants` 只存 `read` / `write`（admin 不可转授）
+   - 未登记归属的 alias 一律不可见（fail closed）
+
+   账户**凭据**仍在加密文件里（`baidu_accounts` 只存归属与元数据，不存密文），审计仍是 JSONL。
 2. **迁移机制**：`migrations/NNN_*.sql` + `schema_version` 表 + 约 40 行 runner（ADR 0002 D4）。
 3. **仓储层**：新增 `PgTenancyStore`，与现有 `TenancyStore` 同接口；
    `resolve_principal(sub)` 与 `grants_for(principal)` 的语义不变，调用方零改动。
-4. **一次性数据迁移**：把 `tenancy.json` 的账户别名与档位导入 `account_grants`。
+4. **一次性数据迁移**：把 `tenancy.json` v2 的 `accounts`（alias + owner）导入 `baidu_accounts`，
+   `grants` 导入 `account_grants`；导入后必须核对 **owner 未丢**——丢了就等于账户无人可见。
 5. **隔离约束**：所有查询强制带 `tenant_id`，由仓储层封装，不散落在业务代码的 `if` 里。
 6. **MCC 子账户**：`kind=mcc_child` 沿 `parent_account_id` 取父账户令牌（ADR 0004 D2）。
 
@@ -46,5 +52,6 @@
 - [ ] `local` 模式仍可只用文件，不要求数据库
 - [ ] `oidc` 模式从库读授权：跨租户账户不可见，越权按 grant 拒绝
 - [ ] `tenancy.json` 的数据能一次性导入且不丢档位
+- [ ] 导入后 **owner 归属完整**：每个账户都有 owner，且 owner 对该账户是 admin
 - [ ] 子账户调用时 `userName` 取子账户名（不是父账户）
 - [ ] 既有测试全绿；新增仓储层测试覆盖默认拒绝与档位顺序

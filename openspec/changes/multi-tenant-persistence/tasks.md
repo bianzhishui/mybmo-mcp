@@ -23,6 +23,7 @@
 ## 3. 仓储层
 
 - [ ] 3.1 抽出 `TenancyStore` 协议：`resolve_principal(sub)` / `grants_for(principal)` / `grant(...)`
+      以及账户归属三件套 `owner_of(alias)` / `register_account(...)` / `share(...)`（账户私有模型）
 - [ ] 3.2 现有文件实现改名为 `FileTenancyStore`，只用于 `local`
 - [ ] 3.3 新增 `PgTenancyStore`：所有查询带 `tenant_id`，不暴露裸 SQL 给上层
 - [ ] 3.4 `Runtime.tenancy` 按 `MYBMO_AUTH_MODE` 选择实现

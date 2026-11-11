@@ -190,3 +190,18 @@ def test_share_cannot_grant_admin(tmp_path: Path) -> None:
 
     with pytest.raises(TenancyError, match="admin 是 owner"):
         store(path).share("main", sub=BOB, permission="admin")
+
+
+def test_stats_counts_without_leaking_identities(tmp_path: Path) -> None:
+    """探活只报计数，不报 sub / 别名。"""
+    path = write(
+        tmp_path / "t.json",
+        users=[{"sub": ALICE, "tenant_id": "t_default"}, {"sub": BOB, "tenant_id": "t_default"}],
+        accounts=[{"alias": "main", "owner": ALICE}],
+        grants=[{"sub": BOB, "alias": "main", "permission": "read"}],
+    )
+
+    stats = store(path).stats()
+
+    assert stats == {"tenants": 1, "users": 2, "accounts": 1, "grants": 1}
+    assert "alice-sub" not in str(stats)

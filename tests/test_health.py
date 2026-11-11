@@ -71,6 +71,10 @@ def test_health_does_not_leak_account_or_token_info(tmp_path: Path) -> None:
         "capabilities",
         "described",
         "verified",
+        "tenants",
+        "users",
+        "accounts",
+        "grants",
         "credentials",
     }
 

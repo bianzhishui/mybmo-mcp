@@ -11,6 +11,7 @@ from __future__ import annotations
 from typing import Any
 
 from mybmo_mcp import __version__
+from mybmo_mcp.auth.tenancy import TenancyError
 from mybmo_mcp.baidu.errors import CredentialError
 from mybmo_mcp.tools.runtime import get_runtime
 
@@ -37,6 +38,16 @@ def health_payload() -> dict[str, Any]:
     except (OSError, ValueError):
         # 能力表读不出来是打包问题，值得暴露在探活里，但不该让进程判死
         payload["capabilities"] = None
+
+    try:
+        identity = runtime.tenancy.stats()
+        payload["tenants"] = identity["tenants"]
+        payload["users"] = identity["users"]
+        payload["accounts"] = identity["accounts"]
+        payload["grants"] = identity["grants"]
+    except (TenancyError, OSError):
+        # 授权表读不出来不该让进程判死：这一项降级为 None，监控按字段告警
+        payload["tenants"] = None
 
     try:
         runtime.settings.master_key_bytes()

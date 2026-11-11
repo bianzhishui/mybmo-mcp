@@ -335,6 +335,20 @@ class TenancyStore:
             pass
         tmp.replace(self._path)
 
+    def stats(self) -> dict[str, int]:
+        """给探活用的人数统计。**只返回计数，不返回任何 sub / 别名**。
+
+        用来观察"什么时候真的出现了第二个用户"——那正是多租户落库的触发条件。
+        """
+        self._ensure_loaded()
+        tenants = {p.tenant_id for p in self._users.values() if p.tenant_id}
+        return {
+            "tenants": len(tenants),
+            "users": len(self._users),
+            "accounts": len(self._accounts),
+            "grants": len(self._grants),
+        }
+
     def owner_of(self, alias: str) -> str | None:
         """账户归属的 sub；未登记返回 ``None``（v1 老文件没有归属概念）。"""
         self._ensure_loaded()

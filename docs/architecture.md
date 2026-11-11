@@ -118,11 +118,11 @@ JWKS 拉取失败时拒绝而非放行——故障期间"先信旧密钥"等于�
 tenants          (id, name, plan, status, created_at)
 users            (id, tenant_id, idp_subject, email, display_name,
                   role, status, created_at)              -- owner | admin | member
-baidu_accounts   (id, tenant_id, alias, kind, baidu_user_id, user_name,
+baidu_accounts   (id, tenant_id, alias, owner_user_id, kind, baidu_user_id, user_name,
                   parent_account_id, app_id, secret_key_cipher,
                   refresh_token_cipher, access_token_expires_at,
                   status, created_at, updated_at)
-account_grants   (user_id, account_id, permission, created_at)  -- read | write | admin
+account_grants   (user_id, account_id, permission, created_at)  -- 只 read | write
 audit_log        (id, tenant_id, account_id, user_id, capability,
                   request_id, state, payload_digest, error, created_at)
 
@@ -138,6 +138,9 @@ UNIQUE (tenant_id, idp_subject)   -- 一个 IdP 身份在一个租户内只对�
 | `mcc_child` 管家子账户 | **复用** `parent_account_id` 的令牌 | **子账户**中文名（填错报 81020） |
 
 `mcc_child` 不存令牌，取凭据时沿 `parent_account_id` 上溯一层。
+
+**账户私有**：`owner_user_id` 是绑定者，owner 隐式拥有 admin；`account_grants` 只表达
+`read` / `write`（admin 不能转授）。没有 `owner_user_id` 的账户对任何人不可见（fail closed）。
 
 多租户隔离原则：所有查询带 `tenant_id`，不靠应用层 if 判断；执行前必须经授权表校验，
 不能直接信任入参 alias；`read` 只能调 `mutating=false` 的能力，`mutating=unknown` 按写处理。
