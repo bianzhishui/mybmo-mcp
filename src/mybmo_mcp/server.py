@@ -104,7 +104,8 @@ def _callback_page(
         f"<table>{rows}</table>"
         "<p class='hint'>这一页只用于人工确认；凭据已写入服务端加密存储，不会出现在浏览器里。</p>"
     )
-    status = outcome.status_code if outcome is not None else 500
+    # 没有 outcome 表示「绑定入口本身没配好」，是服务端缺配置，不是请求有问题：503
+    status = outcome.status_code if outcome is not None else 503
     return HTMLResponse(body, status_code=status)
 
 
