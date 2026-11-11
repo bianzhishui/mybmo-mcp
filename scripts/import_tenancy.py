@@ -26,10 +26,37 @@ def load(path: Path) -> dict:
     return data
 
 
+def validate(data: dict) -> None:
+    """导入前校验：别名唯一、档位合法、sub 不重复。任一不满足就拒绝导入。"""
+    users = [u for u in (data.get("users") or []) if isinstance(u, dict)]
+    accounts = [a for a in (data.get("accounts") or []) if isinstance(a, dict)]
+    grants = [g for g in (data.get("grants") or []) if isinstance(g, dict)]
+
+    subs = [str(u.get("sub") or "") for u in users if u.get("sub")]
+    dup_subs = {s for s in subs if subs.count(s) > 1}
+    if dup_subs:
+        raise SystemExit(f"users 里有重复 sub：{sorted(dup_subs)}")
+
+    aliases = [str(a.get("alias") or "").strip().lower() for a in accounts if a.get("alias")]
+    dup_alias = {a for a in aliases if aliases.count(a) > 1}
+    if dup_alias:
+        raise SystemExit(f"accounts 里有重复 alias：{sorted(dup_alias)}")
+
+    for grant in grants:
+        permission = str(grant.get("permission") or "").strip().lower()
+        if permission not in ("read", "write"):
+            raise SystemExit(f"grant 档位非法（只允许 read/write）：{grant}")
+        alias = str(grant.get("alias") or "").strip().lower()
+        if alias not in aliases:
+            raise SystemExit(f"grant 指向未登记的账户：{grant}")
+
+
 def import_data(dsn: str, data: dict, *, tenant_id: str, dry_run: bool = False) -> dict:
     users = [u for u in (data.get("users") or []) if isinstance(u, dict)]
     accounts = [a for a in (data.get("accounts") or []) if isinstance(a, dict)]
     grants = [g for g in (data.get("grants") or []) if isinstance(g, dict)]
+
+    validate(data)
 
     owners = {str(a.get("owner") or "") for a in accounts}
     missing_owner = [a.get("alias") for a in accounts if not a.get("owner")]
@@ -156,6 +183,26 @@ def import_data(dsn: str, data: dict, *, tenant_id: str, dry_run: bool = False) 
         )
         summary["grants_in_db"] = cur.fetchone()[0]
 
+        # 逐条比对档位：文件里每一条 grant，库里都必须是同一档
+        mismatched = []
+        for item in grants:
+            cur.execute(
+                "SELECT g.permission FROM account_grants g"
+                " JOIN users u ON u.id = g.user_id"
+                " JOIN baidu_accounts a ON a.id = g.account_id"
+                " WHERE a.tenant_id = %s AND a.alias = %s AND u.idp_subject = %s",
+                (tenant_id, str(item["alias"]).lower(), str(item["sub"])),
+            )
+            row = cur.fetchone()
+            if row is None or row[0] != str(item["permission"]).lower():
+                mismatched.append(item)
+        summary["mismatched_grants"] = len(mismatched)
+
+    summary["counts_match"] = (
+        summary.get("accounts_with_owner") == summary["accounts"]
+        and summary.get("grants_in_db") == summary["grants"]
+        and summary.get("mismatched_grants") == 0
+    )
     return summary
 
 
@@ -171,8 +218,8 @@ def main(argv: list[str] | None = None) -> int:
         args.dsn, load(args.file), tenant_id=args.tenant, dry_run=args.dry_run
     )
     print(json.dumps(summary, ensure_ascii=False, indent=2))
-    if not args.dry_run and summary.get("accounts_with_owner") != summary["accounts"]:
-        print("账户 owner 数量与账户数不一致，请检查！", file=sys.stderr)
+    if not args.dry_run and not summary.get("counts_match"):
+        print("导入后比对不一致（owner / 条数 / 档位），请检查！", file=sys.stderr)
         return 1
     return 0
 

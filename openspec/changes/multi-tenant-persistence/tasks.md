@@ -16,9 +16,13 @@
 - [x] 2.1 `migrations/001_init.sql`：`tenants` / `users` / `account_grants` + `schema_version`
 - [x] 2.2 `migrations/run.py`：按文件名顺序执行未应用的迁移，单事务
 - [x] 2.3 重复执行幂等；失败时不留半套表
-- [ ] 2.4 单测：用临时 schema 跑一次迁移，断言表与版本记录
+- [x] 2.4 单测：用临时 schema 跑一次迁移，断言表与版本记录
 
 **出口**：空库跑一次得到完整结构；再跑一次无事发生。
+
+> 实测（2026-11-11）：`tests/test_migrations.py::test_apply_is_idempotent_in_temp_schema`
+> 在临时 schema 里 `apply()` 两次——第一次返回 `[1]`，第二次返回 `[]`；
+> 断言 5 张表存在、`schema_version` 只有一条 version=1。
 
 ## 3. 仓储层
 
@@ -33,20 +37,29 @@
 
 ## 4. 数据迁移
 
-- [ ] 4.1 `scripts/import_tenancy.py`：读 `tenancy.json`，写 `tenants` / `users` / `account_grants`
-- [ ] 4.2 导入前校验：别名在租户内唯一、档位合法、`sub` 不重复
-- [ ] 4.3 导入后比对：文件里的条数 == 库里条数；抽样比对档位
-- [ ] 4.4 保留原文件直到验证通过（不删）
+- [x] 4.1 `scripts/import_tenancy.py`：读 `tenancy.json`，写 `tenants` / `users` / `account_grants`
+- [x] 4.2 导入前校验：别名在租户内唯一、档位合法、`sub` 不重复
+- [x] 4.3 导入后比对：文件里的条数 == 库里条数；抽样比对档位
+- [x] 4.4 保留原文件直到验证通过（不删）
 
 **出口**：导入后行为与文件版一致，回滚只需把 `MYBMO_AUTH_MODE` 指回文件实现。
+
+> 实测（2026-11-11）：`--dry-run` 输出 1 user / 1 account / 1 grant / 1 owner；
+> 正式导入后 `accounts_with_owner=1`、`grants_in_db=1`、`mismatched_grants=0`、`counts_match=true`；
+> 重跑幂等（退出码 0）。原 `tenancy.json` 保留未删。
 
 ## 5. 隔离约束
 
 - [x] 5.1 审计日志与工具调用的 `tenant_id` 来源统一为 `Principal`
 - [x] 5.2 不许业务代码直接拼 `tenant_id` 条件：只经仓储层
-- [ ] 5.3 加一条静态检查或测试：`SELECT` 语句必须出现 `tenant_id`
+- [x] 5.3 加一条静态检查或测试：`SELECT` 语句必须出现 `tenant_id`
 
 **出口**：代码里找不到"忘了带租户条件"的查询。
+
+> 实测（2026-11-11）：`tests/test_isolation.py` 两条静态检查通过——
+> 扫 `pg_tenancy.py` 的 SQL 字面量，断言每条 `SELECT` 都含 `tenant_id`、
+> 每条 `INSERT/UPDATE/DELETE` 都落在本租户（`tenants` 表除外）。
+> 该检查第一次跑就抓到 grant 写入缺租户条件，已改为 `INSERT ... SELECT ... WHERE a.tenant_id = %s`。
 
 ## 6. MCC 子账户（**暂缓**，2026-11-11 决定先不做）
 
@@ -62,10 +75,10 @@
 
 ## 7. 切换与回滚
 
-- [ ] 7.1 先在预发库跑通迁移 + 导入 + 一次读调用
-- [ ] 7.2 生产切换：改 `MYBMO_DATABASE_URL` 与模式，重建容器
-- [ ] 7.3 回滚预案：保留文件实现与 `tenancy.json`，切回即恢复
-- [ ] 7.4 全量测试 + `ruff` 绿
+- [x] 7.1 先在预发库跑通迁移 + 导入 + 一次读调用
+- [x] 7.2 生产切换：改 `MYBMO_DATABASE_URL` 与模式，重建容器
+- [x] 7.3 回滚预案：保留文件实现与 `tenancy.json`，切回即恢复
+- [x] 7.4 全量测试 + `ruff` 绿
 
 **出口**：切换窗口内可 5 分钟回滚。
 
@@ -91,3 +104,12 @@
 - 跑法：`MYBMO_TEST_DATABASE_URL=postgresql://... pytest tests/test_pg_tenancy.py`
 
 未完成：第 6 节 MCC 子账户——**暂缓**（需真实子账户，2026-11-11 决定先不做；字段已预留）。
+
+## 7 的实测记录（2026-11-11）
+
+| 项 | 结果 |
+|---|---|
+| 7.1 | 无独立预发库，直接在业务库执行：迁移 → 导入 → 一次读调用（getCampaignShopping）均通过；迁移与导入都幂等可重跑 |
+| 7.2 | 生产切换：`MYBMO_TENANCY_BACKEND=pg` + 重建容器，`/healthz` users 1→2、grants=1 |
+| 7.3 | **回滚演练**：切回 `file` → `/healthz` users=1；再切回 `pg` → users=2。两次都正常，`tenancy.json` 全程未动 |
+| 7.4 | `295 passed / 7 skipped`（无 DSN 时跳过）+ 13 例集成测试（有 DSN）+ `ruff` 全绿 |

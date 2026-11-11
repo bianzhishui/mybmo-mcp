@@ -37,8 +37,11 @@ def discover() -> list[tuple[int, Path]]:
     return sorted(found.items())
 
 
-def apply(dsn: str, *, dry_run: bool = False) -> list[int]:
-    """执行迁移，返回本次实际应用的版本号。"""
+def apply(dsn: str, *, dry_run: bool = False, schema: str | None = None) -> list[int]:
+    """执行迁移，返回本次实际应用的版本号。
+
+    ``schema`` 只给测试用：把整套表建在临时 schema 里，跑完即删，不碰正式数据。
+    """
     import psycopg
 
     pending_all = discover()
@@ -46,7 +49,8 @@ def apply(dsn: str, *, dry_run: bool = False) -> list[int]:
         return [version for version, _ in pending_all]
 
     applied: list[int] = []
-    with psycopg.connect(dsn, autocommit=True) as conn:
+    options = f"-c search_path={schema}" if schema else None
+    with psycopg.connect(dsn, autocommit=True, options=options) as conn:
         with conn.cursor() as cur:
             cur.execute(
                 "CREATE TABLE IF NOT EXISTS schema_version ("
