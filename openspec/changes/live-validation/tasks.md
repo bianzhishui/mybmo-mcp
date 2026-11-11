@@ -29,10 +29,14 @@
 ## 3. 只读能力
 
 - [ ] 3.1 `[live]` 计划列表：确认 `campaignTypes[]` 层级与字段驼峰，空列表时返回 `[]` 而非 `null`
-      （空列表 `[]` 已验证；该账户暂无计划，层级与驼峰仍未取样）
+      （搜索侧 `getCampaign` 返回 `[]`；该账户的计划都在**电商推广线**，走
+      `CampaignShoppingService.getCampaignShopping`，35 条已取样：`campaignType=1`、
+      字段驼峰已确认；搜索侧层级与驼峰仍未取样）
 - [x] 3.2 `[live]` 关键词查询 `getKRByQuery`：数一次宽泛查询的返回条数，确认上限
 - [ ] 3.3 `[live]` 报表：小时间范围拉一次，确认行数上限与分页字段
+      （卡在 `reportType` 枚举：实测 1–12 全部 `Unknow reportType`，需要官方文档定值）
 - [ ] 3.4 `[live]` 四个层级的暂停字段名（计划/单元/关键词/创意）各记录一次
+      （计划级已验：电商 `pause` 布尔、`status` 0=启用/2=暂停；单元/关键词/创意缺读接口与样本）
 - [ ] 3.5 把 3.1–3.4 回填 `descriptions.json` 的 `notes` / `params`
 - [ ] 3.6 用真实响应替换 `tests/fixtures/report.json` 的占位分页字段，测试仍绿
 
