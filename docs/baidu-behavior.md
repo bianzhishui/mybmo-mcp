@@ -21,8 +21,9 @@
 
 | 问题 | 结论 | 依据 |
 |---|---|---|
-| 报表单次返回行数上限 | 未验证（`reportType` 枚举未定，见错误码基线 901400） | — |
-| 报表是否支持分页（字段名） | 未验证；`getReportData` 有 `startRow`/`rowCount` 两个字段，未跑通 | — |
+| 报表时间区间上限 | **824 天**，超出报 `901606 时间区间不能超过824天!` | 2026-11-11 传 2024-01-01~2026-11-09 实测 |
+| 报表单次返回行数上限 | **未触顶**：`rowCount=10000` 请求 30 天数据只回 30 行（受 `totalRowCount` 约束），真实上限仍未测到 | 2026-11-11 一站式多渠道报告实测 |
+| 报表是否支持分页（字段名） | **已验证**：请求 `startRow` + `rowCount`，响应 `rowCount`（本次行数）/ `totalRowCount`（总行数）。**默认排序不稳定**（相邻两页日期不连续），取全量必须先传 `sorts` | 2026-11-11 30 天 DAY 实测：`rowCount=5` → 5 行/总数 30，`startRow=5` → 换了一页 |
 | `getKRByQuery` 单次返回上限 | **已验证：300 条**，`data` 是扁平词对象数组 | 2026-11-11 `query=跨境电商` 正好返回 300 条，字段含 `word/competition/recBid/pcPV/mobilePV/show/click/recommendPricePc/recommendPriceMobile/pv/groupName...` |
 | 计划列表是否分页 | **分两套，不一样**：搜索 `getCampaign` 无分页参数（`campaignFields/campaignIds/mobileExtend/adType`），空结果 `[]`；电商 `getCampaignShopping` 用 **`limit: [offset, size]`**，且**必传**（不传报 8602） | 2026-11-11 实测：`limit=[0,5]` 与 `[5,5]` 返回不重叠；电商计划共 35 条 |
 
@@ -42,7 +43,7 @@
 | 暂停/恢复是否可回滚 | **可以，且净效果为零**：`pause=false` → `status` 0；`pause=true` → `status` 2；两次往返后与原状态完全一致 | 2026-11-11 计划 2079251858：原 `pause=true/status=2` → 恢复 `false/0` → 复原 `true/2` |
 | `budget=0` 的语义 | **不限预算**（该账户 35 条计划全是 `0.0`） | 运营确认，非接口实测；写验证时不改动此字段 |
 | 计划的名称字段 | 电商计划是 **`campaignShoppingName`**；`campaignName` / `name` 不合法（静默忽略，不报错但也不返回） | 2026-11-11 三个候选字段各试一次 |
-| 异步任务如何查终态（能力名 + 判定字段） | 未验证（已知形态：`createReportTask → getTaskStatus(taskId) → 取文件`，卡在 `reportType` 枚举） | — |
+| 异步任务如何查终态（能力名 + 判定字段） | **已验证**：`OpenApiReportService.createReportTask` 返回 `taskId` + `taskStatus=RUNNING` → `getTaskStatus(taskId)` 轮询到 `taskStatus=SUCCESS`，终态响应**直接带** `fileUrl`（CSV）、`tableHeader`、`dataStartRow`。两个接口的响应都是单元素数组。实测 ~0.7 秒完成，`wait=True` 轮询 2 次命中 | 2026-11-11 实测 |
 
 ## 四、错误码基线
 

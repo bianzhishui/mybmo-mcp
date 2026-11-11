@@ -33,12 +33,13 @@
       `CampaignShoppingService.getCampaignShopping`，35 条已取样：`campaignType=1`、
       字段驼峰已确认；搜索侧层级与驼峰仍未取样）
 - [x] 3.2 `[live]` 关键词查询 `getKRByQuery`：数一次宽泛查询的返回条数，确认上限
-- [ ] 3.3 `[live]` 报表：小时间范围拉一次，确认行数上限与分页字段
+- [x] 3.3 `[live]` 报表：小时间范围拉一次，确认行数上限与分页字段
+      （reportType=1783967；startRow/rowCount + totalRowCount；区间上限 824 天；单次行数上限未触顶）
       （卡在 `reportType` 枚举：实测 1–12 全部 `Unknow reportType`，需要官方文档定值）
 - [ ] 3.4 `[live]` 四个层级的暂停字段名（计划/单元/关键词/创意）各记录一次
       （计划级已验：电商 `pause` 布尔、`status` 0=启用/2=暂停；单元/关键词/创意缺读接口与样本）
-- [ ] 3.5 把 3.1–3.4 回填 `descriptions.json` 的 `notes` / `params`
-- [ ] 3.6 用真实响应替换 `tests/fixtures/report.json` 的占位分页字段，测试仍绿
+- [x] 3.5 把 3.1–3.4 回填 `descriptions.json` 的 `notes` / `params`
+- [x] 3.6 用真实响应替换 `tests/fixtures/report.json` 的占位分页字段，测试仍绿
 
 **出口**：三类只读能力各有一次成功调用；能力说明里的上限/字段与实际一致。
 
@@ -61,8 +62,10 @@
 - [x] 5.2 轮询间隔递增（1s→2s→4s，上限 10s），总时长取元数据 `timeout`
 - [x] 5.3 超时返回 `{ok: true, data: {timed_out: true, ...}}`，不抛错
 - [x] 5.4 单测覆盖：立即完成、轮询后完成并取结果、超时、缺 task_id、API 异常（10 例）
-- [ ] 5.5 `[live]` 对一个真实异步任务跑一次 `wait=True`，确认拿到终态
-- [ ] 5.6 `[live]` 确认哪些能力是异步、任务字段名，把 `async_task` 补进 `capabilities.json`
+- [x] 5.5 `[live]` 对一个真实异步任务跑一次 `wait=True`，确认拿到终态
+- [x] 5.6 `[live]` 确认哪些能力是异步、任务字段名，把 `async_task` 补进 `capabilities.json`
+      （`async_task` 改由 descriptions.json 声明，加载时校验；已确认 createReportTask 一个；
+      另发现百度把 taskId/taskStatus 放在单元素数组里，`_lookup` 已支持）
       （**当前元数据不存在，5.5/5.6 是 `wait` 真正可用的前提**）
 
 **出口**：三条分支有测试；真实异步任务能等到终态。

@@ -1,0 +1,45 @@
+{
+  "_source": "2026-11-11 真实账户实测；createReportTask 与 getTaskStatus 的响应都是单元素数组，终态直接带 fileUrl",
+  "created": {
+    "header": {
+      "desc": "success", "failures": [], "oprs": 1, "succ": 1, "oprtime": 0,
+      "quota": 1, "rquota": 200000000, "status": 0,
+      "traceid": "4bb11b74dd7b11f1b635159707874618"
+    },
+    "body": {
+      "data": [
+        {
+          "taskId": "696d051d0993932d24828e11d9dcf613",
+          "taskStatus": "RUNNING",
+          "submitTime": "2026-11-11 10:55:04.719",
+          "startTime": "2026-11-11 10:55:04.720",
+          "optId": 75102364
+        }
+      ],
+      "expand": {}
+    }
+  },
+  "done": {
+    "header": {
+      "desc": "success", "failures": [], "oprs": 1, "succ": 1, "oprtime": 0,
+      "quota": 1, "rquota": 200000000, "status": 0,
+      "traceid": "9ad2e311dd7511f1b3a5c15de58c8ece"
+    },
+    "body": {
+      "data": [
+        {
+          "taskId": "696d051d0993932d24828e11d9dcf613",
+          "taskStatus": "SUCCESS",
+          "submitTime": "2026-11-11 10:55:04.719",
+          "startTime": "2026-11-11 10:55:04.720",
+          "finishTime": "2026-11-11 10:55:05.184",
+          "fileUrl": "https://bj.bcebos.com/v1/re-download-files/hour/10/app_report_20261107-20261109_75102364_60218952.csv?authorization=<签名已脱敏，原值有效期 5 分钟>",
+          "dataStartRow": 2,
+          "tableHeader": ["date", "userName", "impression", "cost", "ctr", "cpc"],
+          "optId": 75102364
+        }
+      ],
+      "expand": {}
+    }
+  }
+}

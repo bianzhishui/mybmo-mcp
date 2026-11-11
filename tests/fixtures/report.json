@@ -1,35 +1,49 @@
 {
+  "_source": "2026-11-11 真实账户实测（reportType=1783967，timeUnit=DAY），原始响应未改动，仅把数字字段保持原值",
   "header": {
-    "status": 0,
     "desc": "success",
-    "rquota": { "quota": 1000, "used": 39, "limit": 1000 },
-    "failures": []
+    "failures": [],
+    "oprs": 1,
+    "succ": 1,
+    "oprtime": 0,
+    "quota": 1,
+    "rquota": 200000000,
+    "status": 0,
+    "traceid": "4b608ab5dd7b11f1b310536ce3f55982"
   },
   "body": {
     "data": [
       {
-        "total": 2,
+        "rowCount": 3,
+        "totalRowCount": 3,
         "rows": [
           {
-            "date": "2026-11-01",
-            "impression": 12000,
-            "click": 320,
-            "cost": 486.5,
-            "ctr": 0.0267,
-            "cpc": 1.52,
-            "conversion": 8
+            "date": "2026-11-07",
+            "userName": "baidu-YF电商-玛卡快消01",
+            "impression": 2279,
+            "cost": 38.32,
+            "ctr": 0.07196138657305835,
+            "cpc": 0.23365853658536584
           },
           {
-            "date": "2026-11-02",
-            "impression": 9800,
-            "click": 268,
-            "cost": 401.2,
-            "ctr": 0.0273,
-            "cpc": 1.5,
-            "conversion": 5
+            "date": "2026-11-09",
+            "userName": "baidu-YF电商-玛卡快消01",
+            "impression": 2182,
+            "cost": 36.75,
+            "ctr": 0.06049495875343722,
+            "cpc": 0.27840909090909094
+          },
+          {
+            "date": "2026-11-08",
+            "userName": "baidu-YF电商-玛卡快消01",
+            "impression": 2461,
+            "cost": 41.88,
+            "ctr": 0.07110930516050386,
+            "cpc": 0.23931428571428573
           }
         ]
       }
-    ]
+    ],
+    "expand": {}
   }
 }

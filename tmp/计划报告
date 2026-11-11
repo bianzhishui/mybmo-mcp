@@ -1,0 +1,102 @@
+计划报告
+
+请求地址
+https://api.baidu.com/json/sms/service/OpenApiReportService/getReportData
+
+https://api.baidu.com/json/sms/service/OpenApiReportService/getReportData
+基础信息
+报告名称: 电商计划报告
+reportType: 600002
+支持的时间单位: HOUR DAY WEEK MONTH SUMMARY
+支持的最大时间区间: 824天
+请求样例:
+{
+"reportType" : 600002,
+"startDate" : "2021-01-01",
+"endDate" : "2021-01-07",
+"timeUnit" : "DAY",
+"columns" : [ "date", "userName", "campaignId", "campaignNameStatus", "impression", "click", "cost", "ctr", "cpc", "dsOcpcConversionsDetail80", "dsOcpcConversionsDetail82", "dsOcpcConversionsDetail83", "dsOcpcConversionsDetail84", "dsOcpcConversionsDetail85", "dsOcpcConversionsDetail80AmountROI", "dsOcpcConversionsDetail14", "dsOcpcConversionsDetail90", "dsOcpcConversionsDetail90AmountROI" ],
+"sorts" : [ ],
+"filters" : [ ],
+"startRow" : 0,
+"rowCount" : 200,
+"needSum" : false
+}
+Columns列表
+属性
+名称	类型	说明	备注
+date	Date	日期	不同时间单位对应的日期格式：
+DAY: 2021-03-31
+HOUR: 2021-03-31 23:00
+WEEK MONTH SUMMARY: 2021-03-01至2021-03-31，按照时间单位对应的周期汇总
+userId	LONG	账户ID	
+userName	STRING	账户	
+campaignId	LONG	推广计划ID	
+cmatchId	LONG	来源id	
+campaignNameStatus	STRING	推广计划	报告数据中包含了已删除物料(计划、单元等)，已删除的物料，会在名称后面标记上"[已删除]"，比如"推广计划[已删除]"。
+未删除物料正常显示名称，没有额外标记。
+campaignType	ENUM	计划类型	
+查询时使用key，数据返回value.
+枚举值：
+1:商品
+2:直播间
+storeType	ENUM	店铺类型	
+查询时使用key，数据返回value.
+枚举值：
+1:度小店
+4:百度健康商城
+效果指标
+名称	类型	说明	备注
+impression	LONG	展现	
+click	LONG	点击	
+cost	DOUBLE	消费	
+ctr	DOUBLE	点击率	
+cpc	DOUBLE	平均点击价格	
+cpm	DOUBLE	千次展现消费	
+直播间转化
+名称	类型	说明	备注
+dsOcpcConversionsDetail80	LONG	直播间成单	
+dsOcpcConversionsDetail80Cost	DOUBLE	直播间成单成本	
+dsOcpcConversionsDetail80CVR	DOUBLE	直播间成单转化率	
+dsOcpcConversionsDetail81	LONG	直播间关注	
+dsOcpcConversionsDetail81Cost	DOUBLE	直播间关注成本	
+dsOcpcConversionsDetail81CVR	DOUBLE	直播间关注转化率	
+dsOcpcConversionsDetail82	LONG	直播间观看	
+dsOcpcConversionsDetail82Cost	DOUBLE	直播间观看成本	
+dsOcpcConversionsDetail82CVR	DOUBLE	直播间观看转化率	
+dsOcpcConversionsDetail83	LONG	直播间商品按钮点击	
+dsOcpcConversionsDetail83Cost	DOUBLE	直播间商品按钮点击成本	
+dsOcpcConversionsDetail83CVR	DOUBLE	直播间商品按钮点击转化率	
+dsOcpcConversionsDetail84	LONG	直播间停留	
+dsOcpcConversionsDetail84Cost	DOUBLE	直播间停留成本	
+dsOcpcConversionsDetail84CVR	DOUBLE	直播间停留转化率	
+dsOcpcConversionsDetail85	LONG	直播间评论	
+dsOcpcConversionsDetail85Cost	DOUBLE	直播间评论成本	
+dsOcpcConversionsDetail85CVR	DOUBLE	直播间评论转化率	
+dsOcpcConversionsDetail86	LONG	直播间打赏	
+dsOcpcConversionsDetail86Cost	DOUBLE	直播间打赏成本	
+dsOcpcConversionsDetail86CVR	DOUBLE	直播间打赏转化率	
+dsOcpcConversionsDetail87	LONG	直播间购物袋点击	
+dsOcpcConversionsDetail87Cost	DOUBLE	直播间购物袋点击成本	
+dsOcpcConversionsDetail87CVR	DOUBLE	直播间购物袋点击转化率	
+dsOcpcConversionsDetail88	LONG	直播间加入购物车	
+dsOcpcConversionsDetail88Cost	DOUBLE	直播间加入购物车成本	
+dsOcpcConversionsDetail88CVR	DOUBLE	直播间加入购物车转化率	
+dsOcpcConversionsDetail82Uv	LONG	直播间观看人数	
+dsOcpcConversionsDetail82UvCost	DOUBLE	直播间观看人数成本	
+dsOcpcConversionsDetail82UvCVR	DOUBLE	直播间观看人数转化率	
+dsOcpcConversionsDetail80Amount	LONG	直播间成单金额	
+dsOcpcConversionsDetail80AmountROI	DOUBLE	直播间成单ROI	
+商品转化
+名称	类型	说明	备注
+dsOcpcConversionsDetail14	LONG	订单提交成功	
+dsOcpcConversionsDetail14Cost	DOUBLE	订单提交成功成本	
+dsOcpcConversionsDetail14CVR	DOUBLE	订单提交成功转化率	
+dsOcpcConversionsDetail14Amount	LONG	订单提交金额	
+dsOcpcConversionsDetail14AmountROI	DOUBLE	订单提交ROI	
+dsOcpcConversionsDetail90	LONG	商品支付成功	
+dsOcpcConversionsDetail90Cost	DOUBLE	商品支付成功成本	
+dsOcpcConversionsDetail90CVR	DOUBLE	商品支付成功转化率	
+dsOcpcConversionsDetail90Amount	LONG	商品支付成功金额	
+dsOcpcConversionsDetail90AmountROI	DOUBLE	商品支付成功ROI	
+更新日期：2022-12-19 19:44:42
