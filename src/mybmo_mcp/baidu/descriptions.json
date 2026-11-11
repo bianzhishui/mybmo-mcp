@@ -10,7 +10,7 @@
       ],
       "notes": [
         "返回的 userName 是账户中文名，也是所有接口鉴权头里必须带的那个名字，填错报 81020",
-        "accountFields 不传返回常用字段子集，传了只返回指定字段",
+        "accountFields 必填：不传直接报 9011519（position=_params.accountFields）；且 userName 不是该接口的合法字段（实测只有 userId 通过），合法字段白名单尚未穷举",
         "余额不在这里，用 BalanceService.getBalanceInfo"
       ],
       "params": {

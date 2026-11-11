@@ -99,8 +99,10 @@ curl -fsS https://baiduads.pandabase.top/healthz
 
 线上以 `oidc` 模式运行，授权码 + PKCE 全流程已用真实令牌验证；测试全绿（离线）。
 
-**尚未验证的是真实百度接口**——没有可用账号，所以 `execute_capability` 从未真正
-打到 `api.baidu.com`。拿到 AppID 后跑一次绑定即可确认。
+**已有一个真实百度账户完成绑定并跑通只读能力**（2026-11-11）：`list_accounts` 返回中文名、
+`getCampaign` 返回 `[]`、`getKRByQuery` 单次上限实测 300 条、错误 `userName` 实测 81020。
+未验证的是**写操作与报表分页**（账户内暂无计划与消费数据），结论记在
+[`docs/baidu-behavior.md`](docs/baidu-behavior.md)。
 
 待办与验收标准在 [`openspec/`](openspec/)：`live-validation` 是 v1 的唯一阻塞项，
 `multi-tenant-persistence` 要等出现第二个真实用户才启动。

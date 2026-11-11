@@ -5,8 +5,8 @@
 
 ## 1. 准备
 
-- [ ] 1.1 `[live]` 在 <https://dev2.baidu.com> 建应用，拿到 AppID / SecretKey，填进 `deploy/.env`
-- [ ] 1.2 `[live]` 确认回调地址已在应用里登记，且与 `MYBMO_RESOURCE_URL` 同域
+- [x] 1.1 `[live]` 在 <https://dev2.baidu.com> 建应用，拿到 AppID / SecretKey，填进 `deploy/.env`
+- [x] 1.2 `[live]` 确认回调地址已在应用里登记，且与 `MYBMO_RESOURCE_URL` 同域
       （地址已定：`https://baiduads.pandabase.top/oauth/baidu/callback`，代码侧
       `auth bind` + `GET /oauth/baidu/callback` 已就绪；**待在 dev2「安全设置」里登记**，
       并确认 infra 的 Caddy 把该路径也反代到容器）
@@ -17,18 +17,20 @@
 
 ## 2. 绑定与账户
 
-- [ ] 2.1 `[live]` 走 `auth bind` 完成授权，确认凭据文件已加密落盘（权限 600）
+- [x] 2.1 `[live]` 走 `auth bind` 完成授权，确认凭据文件已加密落盘（权限 600）
       （CLI 与回调端点已实现并本地验过失败路径；成功路径只差真实 AppID）
-- [ ] 2.2 `[live]` `list_accounts` 返回该账户，且 `user_name` 是**中文名**而非登录名
-- [ ] 2.3 `[live]` 用错误 `userName` 调一次账户查询，确认错误码是 81020 并记录文案
-- [ ] 2.4 把 2.2 / 2.3 的结论写进 `docs/baidu-behavior.md`
+- [x] 2.2 `[live]` `list_accounts` 返回该账户，且 `user_name` 是**中文名**而非登录名
+- [x] 2.3 `[live]` 用错误 `userName` 调一次账户查询，确认错误码是 81020 并记录文案
+- [x] 2.4 把 2.2 / 2.3 的结论写进 `docs/baidu-behavior.md`
+      （顺带补了 state 回传、回调参数、accessToken 有效期、9011519 四条实测）
 
 **出口**：账户可见、`userName` 正确、81020 的触发条件有据可查。
 
 ## 3. 只读能力
 
 - [ ] 3.1 `[live]` 计划列表：确认 `campaignTypes[]` 层级与字段驼峰，空列表时返回 `[]` 而非 `null`
-- [ ] 3.2 `[live]` 关键词查询 `getKRByQuery`：数一次宽泛查询的返回条数，确认上限
+      （空列表 `[]` 已验证；该账户暂无计划，层级与驼峰仍未取样）
+- [x] 3.2 `[live]` 关键词查询 `getKRByQuery`：数一次宽泛查询的返回条数，确认上限
 - [ ] 3.3 `[live]` 报表：小时间范围拉一次，确认行数上限与分页字段
 - [ ] 3.4 `[live]` 四个层级的暂停字段名（计划/单元/关键词/创意）各记录一次
 - [ ] 3.5 把 3.1–3.4 回填 `descriptions.json` 的 `notes` / `params`
