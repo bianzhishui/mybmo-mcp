@@ -1040,6 +1040,29 @@
         "account": "baidu-YF电商-玛卡快消01",
         "basis": "packageIds 传 3 个包返回 699 个词（全部 status=0 有效）；新包 1615571277581 返回 status=2 审核中；statusList=[0]/[2] 各自过滤生效"
       }
+    },
+    "KeyWordShoppingService.delKeyword": {
+      "description": "从关键词包里删除单个关键词（按 wordDataId）",
+      "aliases": [
+        "删包内词",
+        "删除词包里的关键词",
+        "词包删词"
+      ],
+      "notes": [
+        "参数是 **delKeyWordDataIdList**（KeyWord 的 W 大写，别写成 delKeywordDataIdList）",
+        "ID 来自 getKeyword 返回的 keywordTypes[].wordDataId，**不是** wordId、也不是关键词字面",
+        "实测：2 个词的包里删掉「词A」后只剩「词B」，succ=1",
+        "删包用 delKeywordPackages（delKeywordPackageIds）；本接口只删包内的词"
+      ],
+      "params": {
+        "delKeyWordDataIdList": "包内词 ID 列表（wordDataId）"
+      },
+      "verified": {
+        "at": "2026-11-11",
+        "level": "write",
+        "account": "baidu-YF电商-玛卡快消01",
+        "basis": "建 2 词探测包 → getKeyword 取 wordDataId → delKeyword 删其中一个 → 回读只剩 1 词；探测包随后已删除"
+      }
     }
   }
 }

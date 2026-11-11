@@ -73,6 +73,18 @@
       "input_schema": {
         "$ref": "#/schemas/KWShopKeywordQuery"
       }
+    },
+    "KeyWordShoppingService.delKeyword": {
+      "service": "KeyWordShoppingService",
+      "method": "delKeyword",
+      "endpoint": "/json/sms/service/KeyWordShoppingService/delKeyword",
+      "product_line": "sms",
+      "mutating": "true",
+      "group": "电商推广投放",
+      "body": "KWShopDelKeywordRequest",
+      "input_schema": {
+        "$ref": "#/schemas/KWShopDelKeywordRequest"
+      }
     }
   },
   "schemas": {
@@ -327,6 +339,21 @@
       },
       "required": [
         "packageIds"
+      ]
+    },
+    "KWShopDelKeywordRequest": {
+      "type": "object",
+      "properties": {
+        "delKeyWordDataIdList": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          },
+          "description": "要删除的包内词 ID 列表（wordDataId，来自 getKeyword 返回的 keywordTypes[].wordDataId）。注意字段名里 KeyWord 的 W 是大写"
+        }
+      },
+      "required": [
+        "delKeyWordDataIdList"
       ]
     }
   }

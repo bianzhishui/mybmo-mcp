@@ -13,6 +13,7 @@
 | `KeyWordShoppingService.addKeywordPackages` | `…/addKeywordPackages` | ✅ **写实测通过** |
 | `KeyWordShoppingService.updateKeywordPackages` | `…/updateKeywordPackages` | ✅ **写实测通过** |
 | `KeyWordShoppingService.delKeywordPackages` | `…/delKeywordPackages` | ✅ **写实测通过**（注意是 **del**，不是 delete） |
+| `KeyWordShoppingService.delKeyword` | `…/delKeyword` | ✅ **写实测通过**（删包内单个词） |
 
 ## 二、怎么确认一个"SDK 里没有的接口"到底存不存在
 
@@ -154,6 +155,18 @@ status=0  succ=39  oprs=39  → 39 个关键词包
 ```
 
 实测 `succ=1`，响应回显新包名；⚠️ `keywordTypes` 是**整组替换**，不是追加。
+
+### `delKeyword` ✅ 删包内单个词
+
+```jsonc
+{"delKeyWordDataIdList": [1615615630767]}
+```
+
+| 要点 | 说明 |
+|---|---|
+| 字段名 | **`delKeyWordDataIdList`**（`KeyWord` 的 W 大写） |
+| ID 来源 | `getKeyword` 返回的 `keywordTypes[].wordDataId`（不是 `wordId`、也不是词面） |
+| 实测 | 2 个词的探测包删掉「词A」→ 回读只剩「词B」，`succ=1` |
 
 ### `delKeywordPackages` ✅
 

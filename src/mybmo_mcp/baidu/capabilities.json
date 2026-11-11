@@ -3,11 +3,11 @@
     "version": 1,
     "source": "baiduads-sdk 1.0.0",
     "note": "构建期从 SDK 内省生成；嵌套结构保持原样，input 可直接作为请求体",
-    "capabilities": 395,
-    "schemas": 594,
-    "handwritten": 6,
+    "capabilities": 396,
+    "schemas": 595,
+    "handwritten": 7,
     "mutating": {
-      "true": 211,
+      "true": 212,
       "false": 183,
       "unknown": 1
     }
@@ -7441,6 +7441,21 @@
           }
         }
       }
+    },
+    "KWShopDelKeywordRequest": {
+      "type": "object",
+      "properties": {
+        "delKeyWordDataIdList": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          },
+          "description": "要删除的包内词 ID 列表（wordDataId，来自 getKeyword 返回的 keywordTypes[].wordDataId）。注意字段名里 KeyWord 的 W 是大写"
+        }
+      },
+      "required": [
+        "delKeyWordDataIdList"
+      ]
     },
     "KWShopKeywordQuery": {
       "type": "object",
@@ -18119,6 +18134,18 @@
       "body": "KWShopPackageAddRequest",
       "input_schema": {
         "$ref": "#/schemas/KWShopPackageAddRequest"
+      }
+    },
+    "KeyWordShoppingService.delKeyword": {
+      "service": "KeyWordShoppingService",
+      "method": "delKeyword",
+      "endpoint": "/json/sms/service/KeyWordShoppingService/delKeyword",
+      "product_line": "sms",
+      "mutating": "true",
+      "group": "电商推广投放",
+      "body": "KWShopDelKeywordRequest",
+      "input_schema": {
+        "$ref": "#/schemas/KWShopDelKeywordRequest"
       }
     },
     "KeyWordShoppingService.delKeywordPackages": {
