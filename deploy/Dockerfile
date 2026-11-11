@@ -31,6 +31,15 @@ WORKDIR /app
 
 # 先只拷依赖清单，让依赖层能命中缓存——改代码不会触发重新装包
 COPY pyproject.toml uv.lock README.md ./
+
+# uv.lock 里写的是 files.pythonhosted.org 的**绝对下载地址**，换索引源不会改它，
+# 所以只设 UV_INDEX_URL 时 uv 仍会直连（实测 68 KB/s，而镜像是 838 KB/s）。
+# 构建时把 URL 改写到镜像即可；哈希仍按 lock 校验，内容一致。
+# 不设该参数（默认空）时行为不变，仓库里的 uv.lock 保持可移植。
+ARG PYPI_FILES_MIRROR=
+RUN if [ -n "$PYPI_FILES_MIRROR" ]; then \
+      sed -i "s#https://files.pythonhosted.org#${PYPI_FILES_MIRROR}#g" uv.lock; \
+    fi
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev --extra db --no-install-project
 
