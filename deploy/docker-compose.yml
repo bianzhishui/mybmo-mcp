@@ -14,8 +14,8 @@ services:
       context: ..
       dockerfile: deploy/Dockerfile
       args:
-        # 国内服务器在 .env 里设 PYPI_INDEX 指向镜像；不设则用官方 PyPI
-        PYPI_INDEX: ${PYPI_INDEX:-https://pypi.org/simple}
+        # 国内服务器在 .env 里设 UV_INDEX 指向镜像；不设则用官方 PyPI
+        UV_INDEX: ${UV_INDEX:-https://pypi.org/simple}
     image: mybmo-mcp:0.1.0
     restart: unless-stopped
     env_file:
