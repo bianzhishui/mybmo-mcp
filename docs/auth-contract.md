@@ -83,6 +83,34 @@ callback https://baiduads.pandabase.top/oauth/baidu/callback
 mybmo-mcp / 709a8e16656a223a1ab7   本服务唯一入口（TTL 168h）
 ```
 
+**客户端接入（实测：不需要 client_secret）**：Casdoor 的 AS 元数据声明
+`token_endpoint_auth_methods_supported` 含 `"none"`，实测也确实如此——mcp-remote 只带
+`client_id` + PKCE 就能换到令牌（`scope=baidu:read offline_access`、`aud=[709a8e…]`、
+`owner=pandabase`）。所以客户端配置里**只写 client_id**：
+
+```yaml
+args:
+  - "-y"
+  - "mcp-remote@latest"
+  - "https://baiduads.pandabase.top/mcp"
+  - "--transport"
+  - "http-only"
+  - "--disable-resource-parameter"     # 否则 Casdoor 把 aud 填成资源地址 → 401 死循环
+  - "--static-oauth-client-info"
+  - '{"client_id":"709a8e16656a223a1ab7"}'
+```
+
+三点必须知道：
+
+1. **`--disable-resource-parameter` 不是可选项**：带 `resource` 时 `aud` 会变成资源地址，
+   进不了本服务的 client_id 白名单。
+2. **不带 secret 意味着应用是公共客户端**：安全边界变成 `client_id + PKCE + aud 白名单
+   + owner 白名单`。也就是说"单应用闸门"保证的是"令牌必须由本应用签出"，
+   **不是"只有某个特定软件能连"**——任何知道 client_id 的人都能发起登录，
+   但仍需自己的 pandabase 账号，且权限由 tenancy 按 `sub` 分配。
+3. **未验证**：Casdoor 是否**根本不校验** client_secret（用错 secret 也能换令牌）。
+   如果是，那配置里写 secret 毫无意义；要用一次真实授权码才能确认。
+
 **用户自助路径**：用户在 `https://auth.pandabase.top/signup/mybmo-mcp` 自己注册 →
 用 `mybmo-mcp` 应用登录 → 调 `bind_account` 拿百度授权链接 → 自己在浏览器授权 →
 回调落库并把 owner 记成自己。全程不需要运维介入。
