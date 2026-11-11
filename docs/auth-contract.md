@@ -16,6 +16,10 @@ Caddy）的部署与运维在 infra 仓库，这里只记录**本仓库代码依
 4. **scope 在 Casdoor 里是对象数组**（`[{"name":"baidu:read",...}]`），写成字符串数组会
    被拒。本服务只认 `baidu:read` / `baidu:write` / `baidu:admin`。
 5. **多用户模式下不得回退成本地身份。** 拿不到身份就报错，绝不把「本机」当管理员。
+6. **授权按组织隔离，不跨组织关联。** Casdoor 有两个组织：`built-in` 只服务
+   `dbx-mcp` / `casdoor-mcp`，`pandabase` 只服务 `mybmo-mcp`。授权表 v2 的
+   `grants[].org` 必须等于令牌的 `owner`（组织），跨组织的 grant 一律不可见；
+   同一组织内可用 `grants[].app`（client_id）再收窄到具体应用。
 
 ## 二、环境变量（值由 infra 提供，变量名由本仓库决定）
 
@@ -49,7 +53,7 @@ Caddy）的部署与运维在 infra 仓库，这里只记录**本仓库代码依
 挂载点是 `/data`，由 infra 提供卷；里面放什么都由本仓库决定：
 
 ```
-/data/tenancy.json     授权表（文件式，尚未落库）
+/data/tenancy.json     授权表 v2（按 org + sub 定位，可选 app；尚未落库）
 /data/audit/*.jsonl    按天分文件的审计
 /data/subscribe/*.jsonl 百度事件推送的原始样本（脱敏后），只供人工分析
 /data/locks/           凭据刷新的文件锁

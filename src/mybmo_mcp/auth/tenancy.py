@@ -15,7 +15,7 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
@@ -33,7 +33,11 @@ _RANK = {PERMISSION_READ: 1, PERMISSION_WRITE: 2, PERMISSION_ADMIN: 3}
 MODE_LOCAL = "local"
 MODE_OIDC = "oidc"
 
-TENANCY_VERSION = 1
+#: 授权表格式版本。v2 增加**组织维度**（`org`）与可选的**应用维度**（`app`）：
+#: built-in 组织只服务 dbx-mcp / casdoor-mcp，pandabase 组织只服务 mybmo-mcp，
+#: 授权不得跨组织关联。v1 仍被接受（视为"单租户、不校验组织"的历史文件）。
+TENANCY_VERSION = 2
+SUPPORTED_TENANCY_VERSIONS: tuple[int, ...] = (1, 2)
 
 
 class TenancyError(BaiduError):
@@ -102,6 +106,12 @@ class Principal:
     display_name: str = ""
     source: str = MODE_OIDC
 
+    #: 身份所属组织（Casdoor 令牌里的 ``owner``）。v2 授权表按组织隔离，
+    #: 跨组织的 grant 一律不可见——built-in 与 pandabase 是两个世界。
+    org: str = ""
+    #: 签发本次令牌的应用（``azp`` / ``client_id``）。grant 里写了 ``app`` 时按它再收窄一层。
+    app: str = ""
+
     #: 本地单用户模式下的隐式全权身份。只允许 :meth:`local_admin` 构造出来。
     unrestricted: bool = False
 
@@ -123,11 +133,37 @@ class Principal:
     def to_public(self) -> dict[str, Any]:
         return {
             "sub": self.sub,
+            "org": self.org,
+            "app": self.app,
             "tenant_id": self.tenant_id,
             "display_name": self.display_name,
             "source": self.source,
             "unrestricted": self.unrestricted,
         }
+
+
+@dataclass(frozen=True, slots=True)
+class Grant:
+    """一条授权：某组织下某用户，对某账户别名有什么档位。
+
+    ``org`` 在 v2 里必填；``app`` 可选——同一组织里若有多个应用，
+    写 ``app`` 就能把权限收窄到具体应用（例如只允许 mybmo-mcp 调，不允许别的应用调）。
+    """
+
+    sub: str
+    alias: str
+    permission: str
+    org: str = ""
+    app: str = ""
+
+    def matches(self, principal: Principal, *, org_scoped: bool) -> bool:
+        if self.sub != principal.sub:
+            return False
+        if org_scoped and self.org != principal.org:
+            return False
+        if self.app and self.app != principal.app:
+            return False
+        return True
 
 
 class TenancyStore:
@@ -136,17 +172,23 @@ class TenancyStore:
     文件格式（``data/tenancy.json``）::
 
         {
-          "version": 1,
+          "version": 2,
           "users": [
-            {"sub": "u_zhang", "tenant_id": "t_acme", "display_name": "张三"}
+            {"sub": "u_zhang", "org": "pandabase", "tenant_id": "t_acme", "display_name": "张三"}
           ],
           "grants": [
-            {"sub": "u_zhang", "alias": "axd", "permission": "write"}
+            {"org": "pandabase", "sub": "u_zhang", "alias": "axd", "permission": "write"}
           ]
         }
 
-    ``users`` 不是必需的：只写 grants 也能工作。写上是为了让 ``sub`` 有可读的名字。
-    含 ``role`` 之类的字段会被忽略——**当前所有权限只来自 grants**，没有隐含的管理员。
+    **v2 的三条隔离规则**（v1 文件按"单租户、不校验组织"处理，只为兼容旧部署）：
+
+    1. ``grants[].org`` 必填，且必须等于令牌的 ``owner``（组织）。**不跨组织关联权限**——
+       built-in 组织的授权不会给 pandabase 的用户用，反之亦然。
+    2. ``grants[].app`` 可选；写了就要求令牌的 ``azp``（client_id）一致，
+       用于同一组织内多应用之间再隔离一层。
+    3. ``users`` 不是必需的：只写 grants 也能工作。写上是为了让 ``sub`` 有可读的名字。
+       含 ``role`` 之类的字段会被忽略——**所有权限只来自 grants**，没有隐含的管理员。
     """
 
     def __init__(self, path: str | Path, *, mode: str = MODE_LOCAL) -> None:
@@ -154,8 +196,9 @@ class TenancyStore:
         self._mode = mode
         self._loaded = False
         self._unrestricted = False
-        self._users: dict[str, Principal] = {}
-        self._grants: dict[str, dict[str, str]] = {}
+        self._org_scoped = True
+        self._users: dict[tuple[str, str], Principal] = {}
+        self._grants: list[Grant] = []
 
     @property
     def path(self) -> Path:
@@ -171,7 +214,7 @@ class TenancyStore:
 
     # ---------- 身份 ----------
 
-    def resolve_principal(self, sub: str) -> Principal:
+    def resolve_principal(self, sub: str, *, org: str = "", app: str = "") -> Principal:
         """把 JWT 的 ``sub`` 映射成身份。
 
         **未登记的身份不自动创建**。用户表缺失时也允许通过——但那时它拿不到任何
@@ -183,35 +226,48 @@ class TenancyStore:
         "登录成功，但没有可用账户"。真正的拒绝发生在 :meth:`require`。
         """
         if not self._path.exists():
-            return Principal(sub=sub, tenant_id="", source=MODE_OIDC)
+            return Principal(sub=sub, org=org, app=app, tenant_id="", source=MODE_OIDC)
         self._ensure_loaded()
-        if sub in self._users:
-            return self._users[sub]
-        return Principal(sub=sub, tenant_id="", source=MODE_OIDC)
+        # 先按 (组织, sub) 找；老文件没有 org 时就退回按 sub 找
+        for key in ((org, sub), ("", sub)):
+            if key in self._users:
+                user = self._users[key]
+                return replace(user, org=org or user.org, app=app)
+        return Principal(sub=sub, org=org, app=app, tenant_id="", source=MODE_OIDC)
 
     # ---------- 查询 ----------
 
     def permission_for(self, principal: Principal, alias: str) -> str | None:
-        """返回该身份对该 alias 的档位；没有授权返回 ``None``。"""
+        """返回该身份对该 alias 的档位；没有授权返回 ``None``。
+
+        多条 grant 命中时取**最高档**：同一个人可能既有一条组织级、又有一条应用级授权。
+        组织不匹配的 grant 直接忽略（v2）。
+        """
         self._ensure_loaded()
         if principal.unrestricted:
             return PERMISSION_ADMIN
-        return self._grants.get(principal.sub, {}).get(alias)
+        best: str | None = None
+        for grant in self._grants:
+            if grant.alias != alias or not grant.matches(principal, org_scoped=self._org_scoped):
+                continue
+            if best is None or _RANK[grant.permission] > _RANK[best]:
+                best = grant.permission
+        return best
 
     def visible(self, principal: Principal, aliases: list[str]) -> list[str]:
         """从候选 alias 里筛出该身份能访问的，保持原顺序。"""
         self._ensure_loaded()
         if principal.unrestricted:
             return list(aliases)
-        owned = self._grants.get(principal.sub, {})
-        return [alias for alias in aliases if alias in owned]
+        return [alias for alias in aliases if self.permission_for(principal, alias) is not None]
 
     def require(self, principal: Principal, alias: str, permission: str) -> None:
         """不足则抛 :class:`AccessDenied`。这是唯一应该被调用的判定入口。"""
         granted = self.permission_for(principal, alias)
         if granted is None:
+            where = f"{principal.org}/{principal.sub}" if principal.org else principal.sub
             raise AccessDenied(
-                f"当前身份（{principal.sub}）没有账户 {alias} 的授权",
+                f"当前身份（{where}）没有账户 {alias} 的授权",
                 sub=principal.sub,
                 alias=alias,
                 required=permission,
@@ -229,7 +285,15 @@ class TenancyStore:
     def describe(self, principal: Principal) -> dict[str, Any]:
         """给 ``list_accounts`` 用的身份摘要，不含任何令牌。"""
         self._ensure_loaded()
-        grants = {} if principal.unrestricted else dict(self._grants.get(principal.sub, {}))
+        grants = (
+            {}
+            if principal.unrestricted
+            else {
+                grant.alias: grant.permission
+                for grant in self._grants
+                if grant.matches(principal, org_scoped=self._org_scoped)
+            }
+        )
         return {
             **principal.to_public(),
             "grants": grants,
@@ -260,10 +324,12 @@ class TenancyStore:
             raise TenancyError(f"授权表顶层必须是对象：{self._path}")
 
         version = raw.get("version", TENANCY_VERSION)
-        if version != TENANCY_VERSION:
+        if version not in SUPPORTED_TENANCY_VERSIONS:
             raise TenancyError(
-                f"授权表版本 {version} 不受支持（期望 {TENANCY_VERSION}）：{self._path}"
+                f"授权表版本 {version} 不受支持"
+                f"（支持 {' / '.join(str(v) for v in SUPPORTED_TENANCY_VERSIONS)}）：{self._path}"
             )
+        self._org_scoped = int(version) >= 2
 
         self._users = self._parse_users(raw.get("users") or [])
         self._grants = self._parse_grants(raw.get("grants") or [])
@@ -280,20 +346,25 @@ class TenancyStore:
             sub = str(item.get("sub") or "").strip()
             if not sub:
                 raise TenancyError(f"授权表 users[{index}] 缺少 sub：{self._path}")
-            if sub in users:
-                raise TenancyError(f"授权表 users 里 sub 重复：{sub}（{self._path}）")
-            users[sub] = Principal(
+            org = str(item.get("org") or "").strip()
+            key = (org, sub)
+            if key in users:
+                raise TenancyError(
+                    f"授权表 users 里 sub 重复：{sub}（组织 {org or '未标注'}，{self._path}）"
+                )
+            users[key] = Principal(
                 sub=sub,
+                org=org,
                 tenant_id=str(item.get("tenant_id") or ""),
                 display_name=str(item.get("display_name") or ""),
                 source=MODE_OIDC,
             )
         return users
 
-    def _parse_grants(self, items: Any) -> dict[str, dict[str, str]]:
+    def _parse_grants(self, items: Any) -> list[Grant]:
         if not isinstance(items, list):
             raise TenancyError(f"授权表的 grants 必须是数组：{self._path}")
-        grants: dict[str, dict[str, str]] = {}
+        grants: list[Grant] = []
         for index, item in enumerate(items):
             if not isinstance(item, dict):
                 raise TenancyError(f"授权表 grants[{index}] 必须是对象：{self._path}")
@@ -313,10 +384,23 @@ class TenancyStore:
                     f"授权表 grants[{index}] 的 permission 是 {permission!r}，"
                     f"只能是 {' / '.join(PERMISSIONS)}：{self._path}"
                 )
-            owned = grants.setdefault(sub, {})
-            if alias in owned:
+            org = str(item.get("org") or "").strip()
+            app = str(item.get("app") or "").strip()
+            if self._org_scoped and not org:
                 raise TenancyError(
-                    f"授权表里 {sub} 对 {alias} 有重复授权，无法判断以哪条为准：{self._path}"
+                    f"授权表 grants[{index}] 缺少 org（v2 必须写明组织，"
+                    f"否则会变成跨组织授权）：{self._path}"
                 )
-            owned[alias] = permission
+            for existing in grants:
+                if (
+                    existing.sub == sub
+                    and existing.alias == alias
+                    and existing.org == org
+                    and existing.app == app
+                ):
+                    raise TenancyError(
+                        f"授权表里 {org or '-'}/{sub} 对 {alias} 有重复授权（app={app or '-'}），"
+                        f"无法判断以哪条为准：{self._path}"
+                    )
+            grants.append(Grant(sub=sub, alias=alias, permission=permission, org=org, app=app))
         return grants

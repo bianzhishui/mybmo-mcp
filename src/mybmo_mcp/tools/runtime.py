@@ -48,12 +48,16 @@ from mybmo_mcp.config import Settings, get_settings
 _runtime: Runtime | None = None
 
 
-def _principal_from_bearer_token() -> str | None:
-    """从 SDK 的鉴权上下文里取 ``sub``。
+def _principal_from_bearer_token() -> tuple[str, str, str] | None:
+    """从 SDK 的鉴权上下文里取 ``(sub, 组织, 应用)``。
 
     SDK 的 ``AuthContextMiddleware`` 把已验证的 ``AccessToken`` 放进 ContextVar，
     这里只读它——**不重新解析 JWT**。令牌在中间件里已经验过签名、iss、aud、exp，
     再解析一遍只会引入"两处校验规则不一致"的风险。
+
+    组织取 Casdoor 令牌的 ``owner``：built-in 组织只服务 dbx-mcp / casdoor-mcp，
+    pandabase 组织只服务 mybmo-mcp，授权表按它隔离。应用取 ``azp``（client_id），
+    用于 grant 里写了 ``app`` 时的再收窄。
     """
     try:
         from mcp.server.auth.middleware.auth_context import get_access_token
@@ -62,7 +66,10 @@ def _principal_from_bearer_token() -> str | None:
     access = get_access_token()
     if access is None or not access.subject:
         return None
-    return access.subject
+    claims = getattr(access, "claims", None) or {}
+    org = str(claims.get("owner") or "").strip()
+    app = str(getattr(access, "client_id", "") or claims.get("azp") or "").strip()
+    return str(access.subject), org, app
 
 
 class _AccountCredentials:
@@ -186,7 +193,8 @@ class Runtime:
 
         bearer = _principal_from_bearer_token()
         if bearer is not None:
-            return self.tenancy.resolve_principal(bearer)
+            sub, org, app = bearer
+            return self.tenancy.resolve_principal(sub, org=org, app=app)
 
         if self.settings.mybmo_auth_mode != MODE_LOCAL:
             raise TenancyError(
