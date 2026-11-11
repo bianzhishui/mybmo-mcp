@@ -38,6 +38,8 @@
 | 写接口必填字段清单 | 未验证（已知缺 `campaignShoppingTypes` 时统一报 8602 `_sys`，百度不指出缺哪个字段） | — |
 | 写操作是否幂等 | **已验证幂等**：对已暂停的计划再次 `pause=true`，返回 `succ=1 oprs=1 status=0 failures=[]`，回读 `pause` 仍为 `true`、`status` 仍为 `2` | 2026-11-11 `updateCampaignShopping` 对 2079251858（珠宝专用清洗剂9.7）实测 |
 | 写请求的成功判定字段 | **`header.status==0` 且 `failures==[]` 且 `succ==oprs>=1`**；失败时 `status=2`、`succ=0`、`failures[{code,position,message}]`。响应头恒带 `quota`（本次消耗）与 `rquota`（剩余配额，实测 200000000）、`traceid` | 2026-11-11 成功（updateCampaignShopping）与失败（81020）各一次对照 |
+| 写操作的生效时延 | **同步生效**：`updateCampaignShopping` 返回后 1 秒回读即是新状态（`pause`/`status` 同时翻转），没有异步等待 | 2026-11-11 恢复→复原各一次，中间态与终态均回读确认 |
+| 暂停/恢复是否可回滚 | **可以，且净效果为零**：`pause=false` → `status` 0；`pause=true` → `status` 2；两次往返后与原状态完全一致 | 2026-11-11 计划 2079251858：原 `pause=true/status=2` → 恢复 `false/0` → 复原 `true/2` |
 | `budget=0` 的语义 | **不限预算**（该账户 35 条计划全是 `0.0`） | 运营确认，非接口实测；写验证时不改动此字段 |
 | 计划的名称字段 | 电商计划是 **`campaignShoppingName`**；`campaignName` / `name` 不合法（静默忽略，不报错但也不返回） | 2026-11-11 三个候选字段各试一次 |
 | 异步任务如何查终态（能力名 + 判定字段） | 未验证（已知形态：`createReportTask → getTaskStatus(taskId) → 取文件`，卡在 `reportType` 枚举） | — |
