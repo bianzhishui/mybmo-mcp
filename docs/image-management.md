@@ -65,9 +65,11 @@
 
 - 长度 **[1, 100]**；返回被删的 `imageId` 数组
 - **无部分成功**：一张删失败，整体算失败
-- schema 里还有 `picIds` / `urlList` 两个入口（按 picId / URL 删），**未实测**
+- ⚠️ schema 里还有 `picIds` / `urlList` 两个入口：
+  - `urlList` 实测报 **`9015 参数异常`**（没打通）
+  - `picIds` **未验证**——`getImageList` 请求 `picId` 字段也不会返回它
 
-## 六、尺寸适配 `ImageProcessingService.addCropImage`
+## 六、尺寸适配 `ImageProcessingService.addCropImage` ◐（本账户验证失败）
 
 ```jsonc
 {"srcUrl": "https://…", "width": 370, "height": 245, "desc": "图片描述"}
@@ -76,6 +78,12 @@
 - 走 **feed 产品线**：`/json/feed/v1/ImageProcessingService/addCropImage`
 - `srcUrl` 必须是图库已有图片；**目标宽高不得大于原图**
 - 等比例居中裁剪缩放，结果存入图库
+
+**实测（失败）**：用 `ImageManageService.uploadImage` 上传的 40×40 图 URL 调本接口
+→ `9124015 图片不存在`。说明它**只认 feed 图库的图片**，而本账户是 sms 电商线。
+想绕过也不行：上传时 `needMola=true` 报 `901301 get mola URL failed`（拿不到 molaUrl）。
+
+**结论：本账户无法验证此接口**，需要用 feed 线账户（信息流）才能测。
 
 ## 七、分享 `ImageManagementService.shareImage` ◐（手写补入，未实测）
 
@@ -112,11 +120,17 @@
 | `getImageList` 分页 | ✅ 默认 5 条/页正常 |
 | `getImageList` filters（imageId eq/in，字符串或数字） | ✅ 均命中 |
 | `delImage` | ✅ 返回 [24365854069]，再查为 0 条 |
-| 测试图 | 已删除，图库无残留 |
+| `uploadImage` 传 `productLine` / `needMola` | ❌ 分别报 `1519` / `901301`，**这两个参数不可用** |
+| `addCropImage`（sms 图 URL） | ❌ `9124015 图片不存在`（只认 feed 图库） |
+| `delImage` 的 `urlList` | ❌ `9015 参数异常` |
+| 测试图 | 已全部删除，图库无 `mcp-probe*` 残留 |
 
 ## 十、还没验证的
 
-1. `addCropImage`：未实测（需要一张已知尺寸的图 + feed 线参数）
-2. `shareImage`：未实测（需要目标账户 ID）
-3. `delImage` 的 `picIds` / `urlList` 两种删法
-4. 单次上传 20 张、10MB 上限未压测
+| 项 | 状态 / 需要什么 |
+|---|---|
+| `addCropImage` | ❌ 本账户验证失败（只认 feed 图库）；需要 **feed 线账户** |
+| `shareImage` | 未验证；需要**目标账户 ID** |
+| `delImage` 的 `picIds` | 未验证；`getImageList` 不返回 picId |
+| `delImage` 的 `urlList` | ❌ 实测 `9015`，不可用 |
+| 单次 20 张 / 10MB 上限 | 未压测 |

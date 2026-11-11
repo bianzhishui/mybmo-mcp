@@ -1140,7 +1140,8 @@
         "items 最多 20 张/次，整体请求体 ≤10MB；content 是**纯 base64**，不要带 `data:image/jpg;base64,` 前缀",
         "addImage=true 才进「我的图库」并生成 imageId；false 仅上传不留存（返回里没有 imageId）",
         "**按内容 MD5 去重**：同一张图重复上传返回**同一个 imageId**（实测同一 1×1 PNG 两次上传 → 24365854069）",
-        "返回 imageId / url / width / height / size / signature；url 是 feed-image 域名，可直接预览"
+        "返回 imageId / url / width / height / size / signature；url 是 feed-image 域名，可直接预览",
+        "⚠️ SDK schema 里的 `productLine` / `needMola` 两个参数**接口不认**：productLine 报 1519，needMola=true 报 901301「get mola URL failed」——别传"
       ],
       "params": {
         "items": "图片数组（content 必填，imageName/imgmd5 选填）",
@@ -1216,7 +1217,8 @@
       "notes": [
         "imageIds 长度 [1,100]；返回被删的 imageId 数组",
         "**无部分成功**：只要有一张删失败，整体算失败",
-        "schema 里还有 picIds / urlList 两个可选入口（按 picId 或 URL 删），未实测"
+        "⚠️ schema 里的 `urlList` 实测报 `9015 参数异常`；`picIds` 未验证（getImageList 不返回 picId 字段）",
+        "实测：按 imageIds 删除 24366150585 → 返回 [24366150585]，再查 0 条"
       ],
       "params": {
         "imageIds": "要删除的图片 ID 数组，1..100"
@@ -1236,9 +1238,10 @@
         "改图片尺寸"
       ],
       "notes": [
-        "走 **feed 产品线**：`/json/feed/v1/ImageProcessingService/addCropImage`（不是 /json/sms/）",
-        "srcUrl 必须是图库中已有图片；目标宽高**不得大于原图**，否则会失败",
-        "等比例居中裁剪缩放；desc ≤200 字符"
+        "走 **feed 产品线**：`/json/feed/v1/ImageProcessingService/addCropImage`",
+        "srcUrl 必须是**图库中已有图片**；目标宽高不得大于原图",
+        "⚠️ 实测：用 sms 线（ImageManageService.uploadImage）上传的图片 URL 调用，返回 `9124015 图片不存在` —— 该接口只认 feed 图库的图片，本账户（sms 电商线）无法验证",
+        "⚠️ 上传时 needMola=true 也拿不到 molaUrl（报 901301），没有绕过办法"
       ],
       "params": {
         "srcUrl": "原图 URL（图库内已有）",
