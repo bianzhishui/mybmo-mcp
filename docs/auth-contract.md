@@ -83,6 +83,10 @@ callback https://baiduads.pandabase.top/oauth/baidu/callback
 mybmo-mcp / 709a8e16656a223a1ab7   本服务唯一入口（TTL 168h）
 ```
 
+**用户自助路径**：用户在 `https://auth.pandabase.top/signup/mybmo-mcp` 自己注册 →
+用 `mybmo-mcp` 应用登录 → 调 `bind_account` 拿百度授权链接 → 自己在浏览器授权 →
+回调落库并把 owner 记成自己。全程不需要运维介入。
+
 **Casdoor 的两个约束（都实测踩过）**：
 
 1. **应用只能登录同组织的用户**。应用挂在 `pandabase` 组织下时，`built-in` 组织的 `admin`

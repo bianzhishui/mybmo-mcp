@@ -50,7 +50,8 @@ _LOG_LEVELS = {
 
 _INSTRUCTIONS = (
     "百度营销投放能力网关。调用任何接口前，先用 list_accounts 确认账户别名——"
-    "账户只能从返回的列表里选择，不能自己编。"
+    "账户只能从返回的列表里选择，不能自己编。列表为空时用 bind_account 让用户自己绑定"
+    "一个百度账户（返回授权链接，用户自己在浏览器里完成授权）。"
     "接口能力通过 search_capabilities 检索，用 get_capability_schema 取参数定义，"
     "再用 execute_capability 执行。本服务不判断操作是否安全，写操作前是否需要"
     "人工确认，由调用方自己的工作流决定。"

@@ -1,11 +1,15 @@
 """账户类工具：本项目**自身**的能力，不是百度接口的封装。
 
 百度接口一律通过能力网关（``search_capabilities`` / ``get_capability_schema`` /
-``execute_capability``）调用，这里只保留"用哪个账户"和"令牌还行不行"这两件事。
+``execute_capability``）调用，这里只保留三件事：**看账户、看令牌、绑账户**。
 
-它们不联网：读的是本地加密凭据库，因此没有 AppID、没有网络时也能用。
+- ``list_accounts`` / ``auth_status``：不联网，只读本地加密凭据库
+- ``bind_account``：发起一次百度 OAuth 绑定，**用户自己在浏览器里完成授权**，
+  回调后服务自动落库，并把这个账户的 owner 记成**发起人自己**——这是"用户自助"
+  的关键一步：不给运维打电话也能有自己的百度账户。
 
-两个工具都经过授权层——**看不到的账户不会出现在列表里**。这不是过滤展示，
+前两个不联网；``bind_account`` 只生成链接，也不替用户点授权。
+三个工具都经过授权层——**看不到的账户不会出现在列表里**。这不是过滤展示，
 而是越权防线的一部分：模型只能从返回的别名里选。
 """
 
@@ -16,7 +20,8 @@ from typing import Any
 
 from mcp.server import MCPServer
 
-from mybmo_mcp.auth.models import STATUS_REAUTH_REQUIRED
+from mybmo_mcp.auth.models import STATUS_REAUTH_REQUIRED, validate_alias
+from mybmo_mcp.baidu.errors import CredentialError
 from mybmo_mcp.tools._result import guarded
 from mybmo_mcp.tools.runtime import get_runtime
 
@@ -39,10 +44,24 @@ async def list_accounts() -> dict[str, Any]:
         return {
             "identity": runtime.tenancy.describe(principal),
             "count": len(entries),
-            "accounts": [entry.to_dict() for entry in entries],
+            "accounts": [_view(runtime, principal, entry) for entry in entries],
         }
 
     return await guarded(_run)
+
+
+def _view(runtime: Any, principal: Any, entry: Any) -> dict[str, Any]:
+    """列表行 + 归属信息。
+
+    ``is_owner`` 很关键：自己绑的账户与别人分享的是两种心智模型——
+    前者可以改、可以分享，后者只能按档位用。
+    """
+    view = entry.to_dict()
+    owner = runtime.tenancy.owner_of(entry.alias)
+    view["owner"] = owner
+    view["is_owner"] = owner == principal.sub
+    view["my_permission"] = runtime.tenancy.permission_for(principal, entry.alias)
+    return view
 
 
 async def auth_status(account: str | None = None) -> list[dict[str, Any]]:
@@ -77,6 +96,56 @@ async def auth_status(account: str | None = None) -> list[dict[str, Any]]:
     return await guarded(_run)
 
 
+async def bind_account(alias: str) -> dict[str, Any]:
+    """发起一次百度账户绑定，返回一个授权链接——**由你本人在浏览器里完成授权**。
+
+    ``alias`` 是给这个账户起的别名（小写字母开头，可含数字与下划线），之后所有调用都用它。
+    链接有效期 15 分钟、state 一次性；在浏览器里登录百度并同意授权后，服务会自动换取令牌、
+    加密落库，并把这个账户的 owner 记成**你**（owner 自带 admin 档）。
+
+    什么时候用它：``list_accounts`` 返回 0 个账户时。**不要自己编别名去用**，
+    先绑一个自己的，或让已有账户的 owner 分享给你。
+    """
+
+    async def _run() -> dict[str, Any]:
+        runtime = get_runtime()
+        principal = runtime.current_principal()
+        name = validate_alias(alias)
+        owner = runtime.tenancy.owner_of(name)
+        if owner and owner != principal.sub:
+            raise CredentialError(
+                f"账户别名 {name} 已属于别人（owner={owner}）——换一个别名，"
+                "或请 owner 用分享把该账户授给你"
+            )
+        existing = set(runtime.vault.scan()[0])
+        if name in existing and owner is None:
+            raise CredentialError(
+                f"凭据库里已有 {name}，但授权表没有它的归属记录；"
+                f"先让账户负责人补 accounts[{{alias: {name}, owner: ...}}]，"
+                "否则绑了也没人能看见"
+            )
+        manager = runtime.binding
+        url, state = manager.authorize_url(
+            subject=principal.sub,
+            tenant=principal.tenant_id or "t_default",
+            alias=name,
+        )
+        return {
+            "authorize_url": url,
+            "alias": state.alias,
+            "owner": state.subject,
+            "expires_at": state.expires_at,
+            "expires_in_seconds": int(state.expires_at - time.time()),
+            "how_to": (
+                "在浏览器打开 authorize_url，用要绑定的百度账户登录并同意授权；"
+                "百度会跳回本服务的回调地址，页面显示「绑定成功」后这个账户就能用了"
+            ),
+        }
+
+    return await guarded(_run)
+
+
 def register(mcp: MCPServer) -> None:
     mcp.tool()(list_accounts)
     mcp.tool()(auth_status)
+    mcp.tool()(bind_account)

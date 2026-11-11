@@ -118,6 +118,7 @@ def test_server_registers_all_tools() -> None:
     assert names == {
         "list_accounts",
         "auth_status",
+        "bind_account",
         "search_capabilities",
         "get_capability_schema",
         "execute_capability",

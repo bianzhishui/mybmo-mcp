@@ -1,8 +1,9 @@
 """MCP 工具层。
 
-五个常驻工具，分两类：
+六个常驻工具，分两类：
 
-- ``accounts``：``list_accounts`` / ``auth_status``，本项目自身能力，不联网
+- ``accounts``：``list_accounts`` / ``auth_status`` / ``bind_account``，
+  本项目自身能力；前两个不联网，``bind_account`` 只生成授权链接，用户自己在浏览器完成
 - ``capability``：``search_capabilities`` / ``get_capability_schema`` /
   ``execute_capability``，能力网关三件套
 
