@@ -309,13 +309,40 @@ class TenancyStore:
             dict(item)
             for item in (data.get("grants") or [])  # type: ignore[union-attr]
             if isinstance(item, dict)
-            and str(item.get("sub") or "") == sub
-            and str(item.get("alias") or "").strip().lower() != alias
+            and not (
+                str(item.get("sub") or "") == sub
+                and str(item.get("alias") or "").strip().lower() == alias
+            )
         ]
         grants.append({"sub": sub, "alias": alias, "permission": permission})
         data["grants"] = grants
         self._write_raw(data)
         self.reload()
+
+    def revoke(self, alias: str, *, sub: str) -> bool:
+        """撤销某人对某账户的分享。返回是否真的删掉了一条。"""
+        self._ensure_loaded()
+        alias = validate_alias(alias)
+        data = self._read_raw()
+        grants = [
+            dict(item)
+            for item in (data.get("grants") or [])  # type: ignore[union-attr]
+            if isinstance(item, dict)
+            and not (str(item.get("sub") or "") == sub
+                     and str(item.get("alias") or "").strip().lower() == alias)
+        ]
+        removed = len(grants) != len(data.get("grants") or [])
+        if removed:
+            data["version"] = TENANCY_VERSION
+            data["grants"] = grants
+            self._write_raw(data)
+            self.reload()
+        return removed
+
+    def shares_of(self, alias: str) -> dict[str, str]:
+        """某账户被分享给了谁：``{sub: permission}``。"""
+        self._ensure_loaded()
+        return {g.sub: g.permission for g in self._grants if g.alias == alias}
 
     def _read_raw(self) -> dict[str, Any]:
         if not self._path.exists():

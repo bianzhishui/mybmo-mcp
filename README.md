@@ -61,7 +61,7 @@ curl -fsS https://baiduads.pandabase.top/healthz
 证书与备份由 [`pandabase-infra`](https://github.com/bianzhishui/pandabase-infra) 提供。
 **反代不做鉴权**，`/mcp` 的令牌校验必须在本进程内完成。
 
-## 六个工具
+## 九个工具
 
 | 工具 | 作用 |
 |---|---|
@@ -71,6 +71,9 @@ curl -fsS https://baiduads.pandabase.top/healthz
 | `list_accounts` | 当前身份可见的百度账户（别名、中文名、是否可用） |
 | `auth_status` | 令牌有效期、是否需要重新授权 |
 | `bind_account` | 发起百度账户绑定，返回授权链接——**用户自己在浏览器完成**，绑完他就是 owner |
+| `share_account` | 把账户分享给别人（**仅 owner**，只能 read/write） |
+| `revoke_share` | 撤销分享（仅 owner） |
+| `list_shares` | 看账户分享给了谁（仅 owner） |
 
 **本服务只提供能力，不做业务编排，也不拦写操作。** 拓词、报表汇总、写前确认属于
 调用方（skill / agent 工作流）的职责，理由见 [ADR 0003](docs/decisions/0003-capability-only.md)。

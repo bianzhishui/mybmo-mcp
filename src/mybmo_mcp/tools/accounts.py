@@ -145,7 +145,81 @@ async def bind_account(alias: str) -> dict[str, Any]:
     return await guarded(_run)
 
 
+async def share_account(
+    alias: str, sub: str, permission: str = "read"
+) -> dict[str, Any]:
+    """把自己绑定的百度账户分享给别人（**只有 owner 能调**）。
+
+    ``permission`` 只能是 ``read`` 或 ``write`` —— ``admin`` 是 owner 的天然权利，不能转授。
+    对方要用之前必须先用 ``list_accounts`` 确认能看到这个账户；分享后立刻生效，不用重启。
+    """
+
+    async def _run() -> dict[str, Any]:
+        runtime = get_runtime()
+        principal = runtime.current_principal()
+        name = validate_alias(alias)
+        target = (sub or "").strip()
+        if not target:
+            raise CredentialError("缺少 sub：用对方的 list_accounts → identity.sub 取值")
+        level = (permission or "read").strip().lower()
+        if level not in ("read", "write"):
+            raise CredentialError("分享只能给 read 或 write；admin 是 owner 的天然权利，不能转授")
+        owner = runtime.tenancy.owner_of(name)
+        if not principal.unrestricted and owner != principal.sub:
+            raise CredentialError(
+                f"只有账户 owner 能分享：{name} 的 owner 是 "
+                f"{owner or '未登记'}，不是 {principal.sub}"
+            )
+        runtime.tenancy.share(name, sub=target, permission=level)
+        return {
+            "alias": name,
+            "shared_with": target,
+            "permission": level,
+            "shares": runtime.tenancy.shares_of(name),
+        }
+
+    return await guarded(_run)
+
+
+async def revoke_share(alias: str, sub: str) -> dict[str, Any]:
+    """撤销分享（**只有 owner 能调**）。"""
+
+    async def _run() -> dict[str, Any]:
+        runtime = get_runtime()
+        principal = runtime.current_principal()
+        name = validate_alias(alias)
+        owner = runtime.tenancy.owner_of(name)
+        if not principal.unrestricted and owner != principal.sub:
+            raise CredentialError(
+                f"只有账户 owner 能撤销分享：{name} 的 owner 是 {owner or '未登记'}"
+            )
+        removed = runtime.tenancy.revoke(name, sub=(sub or "").strip())
+        return {"alias": name, "revoked": removed, "shares": runtime.tenancy.shares_of(name)}
+
+    return await guarded(_run)
+
+
+async def list_shares(alias: str) -> dict[str, Any]:
+    """看某个账户分享给了谁（owner 或 admin 可见）。"""
+
+    async def _run() -> dict[str, Any]:
+        runtime = get_runtime()
+        principal = runtime.current_principal()
+        name = validate_alias(alias)
+        owner = runtime.tenancy.owner_of(name)
+        if not principal.unrestricted and owner != principal.sub:
+            raise CredentialError(
+                f"只有账户 owner 能查看分享列表：{name} 的 owner 是 {owner or '未登记'}"
+            )
+        return {"alias": name, "owner": owner, "shares": runtime.tenancy.shares_of(name)}
+
+    return await guarded(_run)
+
+
 def register(mcp: MCPServer) -> None:
     mcp.tool()(list_accounts)
     mcp.tool()(auth_status)
     mcp.tool()(bind_account)
+    mcp.tool()(share_account)
+    mcp.tool()(revoke_share)
+    mcp.tool()(list_shares)
