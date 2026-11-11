@@ -152,29 +152,59 @@
       "properties": {
         "pageNo": {
           "type": "integer",
-          "description": "页码，从 1 开始；实测生效"
+          "description": "页码，从 1 开始"
         },
         "pageSize": {
           "type": "integer",
-          "description": "每页条数；实测生效"
+          "description": "每页条数"
+        },
+        "sortField": {
+          "type": "string",
+          "description": "排序字段，如 packageName / keywordCount"
+        },
+        "sortOrder": {
+          "type": "string",
+          "enum": [
+            "asc",
+            "desc"
+          ],
+          "description": "排序方向"
         },
         "filters": {
           "type": "array",
-          "description": "⚠ 过滤条件：照后台 URL 的 {field, operatorValue, value} 形状传实测**全部返回 0 条**（like/LIKE/contains/eq 与 packageId 都试过），暂时不要依赖",
+          "description": "过滤条件：{field, op, values}，op 实测 like 可用；结果总数看 expand.totalCount",
           "items": {
             "type": "object",
             "properties": {
               "field": {
-                "type": "string"
+                "type": "string",
+                "description": "字段名，如 packageName"
               },
-              "operatorValue": {
-                "type": "string"
+              "op": {
+                "type": "string",
+                "description": "操作符，实测 like"
               },
-              "value": {
-                "type": "string"
+              "values": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "取值数组"
               }
-            }
+            },
+            "required": [
+              "field",
+              "op",
+              "values"
+            ]
           }
+        },
+        "keywordPackageFields": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "⚠ 实测传 [\"keywordDetail\"] 无效果，返回仍是汇总字段（拿不到包内具体词）"
         }
       }
     },

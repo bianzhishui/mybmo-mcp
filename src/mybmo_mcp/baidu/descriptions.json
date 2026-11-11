@@ -922,22 +922,26 @@
         "关键词包"
       ],
       "notes": [
-        "返回**汇总视图**：packageId / packageName / keywordCount / planCount / bindPlanIdList（看不到包内具体词）",
-        "分页用 pageNo + pageSize（从 1 开始）；实测 pageSize=5：第 1、2 页各 5 条，第 8 页 3 条 → 共 38 个包",
-        "⚠️ filters 过滤**没打通**：照后台 URL 的 {field, operatorValue, value} 形状传（like / LIKE / contains / eq / packageId）实测全部返回 0 条，先只用分页 + 自己筛",
-        "想看包内关键词明细目前没有接口（getKeywordPackageDetail 报 87091 不存在）",
+        "返回**汇总视图**：packageId / packageName / keywordCount / planCount / bindPlanIdList；总数在 expand.totalCount",
+        "分页用 pageNo + pageSize（从 1 开始）；pageSize=5 时第 1/2 页各 5 条、第 8 页 3 条",
+        "过滤写法是 **{field, op, values}**（注意是 op + values 数组，不是 operatorValue/value）：{\"field\":\"packageName\",\"op\":\"like\",\"values\":[\"特效药\"]} → 实测 39 个包里命中 2 个",
+        "排序：sortField + sortOrder（asc/desc）；实测 sortField=keywordCount&sortOrder=desc 生效",
+        "⚠️ keywordPackageFields 传 [\"keywordDetail\"] 实测无效果，返回仍是汇总字段——包内具体词目前拿不到",
         "这是电商推广线的关键词包，与搜索推广的 OCPC 定向包（OcpcService.*TargetPackage）无关"
       ],
       "params": {
         "pageNo": "页码，从 1 开始",
         "pageSize": "每页条数",
-        "filters": "⚠ 过滤条件未打通（实测恒返回 0 条），先别用"
+        "sortField": "排序字段，如 packageName / keywordCount",
+        "sortOrder": "asc / desc",
+        "filters": "[{field, op, values}]，op 实测 like 可用",
+        "keywordPackageFields": "⚠ 实测无效（keywordDetail 拿不到包内词）"
       },
       "verified": {
         "at": "2026-11-11",
         "level": "read",
         "account": "baidu-YF电商-玛卡快消01",
-        "basis": "pageSize=5 时第 1/2 页各 5 条、第 8 页 3 条，合计 38 个包；filters 五种形状均返回 0"
+        "basis": "filters {field:packageName, op:like, values:[特效药]} → 39 中命中 2；sortField=keywordCount desc 生效；expand.totalCount=39"
       }
     },
     "KeyWordShoppingService.addKeywordPackages": {

@@ -62,13 +62,25 @@ status=0  succ=39  oprs=39  → 39 个关键词包
 | `planCount` | 绑定的计划数量 |
 | `bindPlanIdList` | 绑定的计划 ID 列表 |
 
-**分页实测可用**：`pageNo` + `pageSize`（从 1 开始）。`pageSize=5` 时第 1、2 页各 5 条，
-第 8 页 3 条 → 该账户共 **38 个包**。
+真实请求参数（后台抓包）：
 
-⚠️ **过滤没打通**：照后台 URL 的 `filters=[{field, operatorValue, value}]` 形状传，
-`like` / `LIKE` / `contains` / `eq` / 按 `packageId` 全都返回 **0 条**。要按包名筛，暂时先翻页自己过滤。
+```jsonc
+{"sortField": "packageName", "sortOrder": "asc",
+ "pageNo": 1, "pageSize": 20,
+ "filters": [{"field": "packageName", "op": "like", "values": ["测试用"]}],
+ "keywordPackageFields": ["keywordDetail"]}
+```
 
-想看包内具体词，目前没有对应接口（`getKeywordPackageDetail` 报 87091）。
+| 参数 | 实测 |
+|---|---|
+| `pageNo` / `pageSize` | ✅ 生效（`pageSize=5`：第 1/2 页各 5 条、第 8 页 3 条） |
+| `filters` | ✅ 生效，形状是 **`{field, op, values:[...]}`**（不是 `operatorValue`/`value`）。`op:"like"` + `values:["特效药"]` → 39 个包里命中 2 个 |
+| `sortField` / `sortOrder` | ✅ 生效（`keywordCount` + `desc` → 500 词那个包排第一） |
+| `expand.totalCount` | ✅ 返回总数（39），配合分页判断是否到底 |
+| `keywordPackageFields: ["keywordDetail"]` | ❌ **无效果**，返回仍是汇总字段 → **包内具体词拿不到** |
+
+> 之前我用 `{field, operatorValue, value}` 猜的形状全部返回 0 条，就是这个原因——
+> 后台传的是 `op` + `values` 数组。又一个"不能猜、要抓包"的例子。
 
 ## 四、写接口：字段名从后台抓包得到（已实测）
 
