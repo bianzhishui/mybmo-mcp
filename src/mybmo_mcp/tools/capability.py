@@ -35,21 +35,42 @@ from mybmo_mcp.tools._result import fail, fail_from, guarded, ok
 from mybmo_mcp.tools.runtime import get_runtime
 
 
-async def search_capabilities(query: str, limit: int = 10) -> dict[str, Any]:
+async def search_capabilities(
+    query: str, limit: int = 10, only_verified: bool = False
+) -> dict[str, Any]:
     """按中文或英文关键词检索能力，返回候选清单（只有摘要，不含参数）。
 
     用法：先在这里找，再用 ``get_capability_schema`` 取参数，最后 ``execute_capability`` 执行。
     中文可以直接说"拓词""加词""拉报表""改预算"；也可以给服务名或方法名。
+
+    摘要里带实测标记：``✅`` 已实测可用、``◐`` 部分验证、无标记 = 只按文档推断。
+    同一条需求有多条候选时，优先选带 ✅ 的。``only_verified=True`` 只返回打过标记的。
     """
 
     async def _run() -> dict[str, Any]:
         registry = get_runtime().capabilities
-        found = registry.search(query, limit=max(1, min(limit, 50)))
+        # 过滤发生在检索之后：先按相关度取一批，再筛掉未验证的，避免过滤把好结果挤掉
+        wanted = max(1, min(limit, 50))
+        if only_verified:
+            pool = registry.search(query, limit=max(wanted * 5, 50))
+            found = [cap for cap in pool if cap.verified][:wanted]
+        else:
+            found = registry.search(query, limit=wanted)
         return {
             "query": query,
             "count": len(found),
+            "only_verified": only_verified,
             "capabilities": [cap.to_summary() for cap in found],
-            "hint": "" if found else "换个更短的关键词，或直接用 Service.method 形式检索",
+            "hint": (
+                ""
+                if found
+                else (
+                    "没有已验证的能力命中；去掉 only_verified 再试，"
+                    "或用 get_capability_schema 看清参数后小范围试跑"
+                    if only_verified
+                    else "换个更短的关键词，或直接用 Service.method 形式检索"
+                )
+            ),
         }
 
     return await guarded(_run)
@@ -66,7 +87,17 @@ async def get_capability_schema(capability: str) -> dict[str, Any]:
         return _not_found(registry, capability)
 
     # 手写要点在前：单位、层级、前置条件这类信息比通用提示重要得多
-    notes = [*cap.notes, "参数名用驼峰（如 campaignName）；传 snake_case 会自动转换"]
+    notes = [*cap.notes]
+    if cap.verified is not None:
+        notes.insert(
+            0,
+            f"{cap.verified.marker} 实测于 {cap.verified.at}"
+            f"（{cap.verified.level}）"
+            + (f"：{cap.verified.basis}" if cap.verified.basis else ""),
+        )
+    else:
+        notes.insert(0, "未实测：本能力只用官方文档推断过，首次调用请小范围试，别一次性批量写")
+    notes.append("参数名用驼峰（如 campaignName）；传 snake_case 会自动转换")
     input_schema = registry.resolved_input_schema(cap)
     if not (input_schema.get("properties") or {}):
         notes.append("该能力不需要业务参数，input 传空对象即可")
@@ -79,6 +110,7 @@ async def get_capability_schema(capability: str) -> dict[str, Any]:
             "endpoint": cap.endpoint,
             "product_line": cap.product_line,
             "mutating": cap.mutating,
+            "verified": cap.verified.to_dict() if cap.verified else None,
             "input_schema": input_schema,
             "schemas": registry.schema_closure(cap),
             "notes": notes,

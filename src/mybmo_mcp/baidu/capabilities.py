@@ -106,6 +106,52 @@ class AsyncTask:
         )
 
 
+#: ``verified.level`` 的合法取值。``partial`` = 只验了一部分（例如只确认了必填字段规则）。
+VERIFIED_LEVELS: tuple[str, ...] = ("read", "write", "partial")
+
+
+@dataclass(frozen=True, slots=True)
+class Verified:
+    """一条能力的**实测凭证**，来自 ``descriptions.json`` 的 ``verified``。
+
+    只表达"验到什么程度"，**不参与权限判定**——没打标的能力照样能调，
+    只是 agent 不知道它可不可信。证据要能指到具体调用，不写"看起来对了"。
+    """
+
+    #: 验证日期 yyyy-mm-dd
+    at: str
+    #: read / write / partial
+    level: str
+    #: 凭什么算验过（哪次调用、什么结果）
+    basis: str = ""
+    #: 用哪个账户验的
+    account: str = ""
+
+    @classmethod
+    def from_dict(cls, raw: dict[str, Any]) -> Verified | None:
+        """形状不对或档位不在白名单就返回 ``None``，由调用方决定是否报错。"""
+        if not isinstance(raw, dict):
+            return None
+        level = str(raw.get("level") or "").strip().lower()
+        at = str(raw.get("at") or "").strip()
+        if level not in VERIFIED_LEVELS or not at:
+            return None
+        return cls(
+            at=at,
+            level=level,
+            basis=str(raw.get("basis") or "").strip(),
+            account=str(raw.get("account") or "").strip(),
+        )
+
+    def to_dict(self) -> dict[str, str]:
+        return {"at": self.at, "level": self.level, "basis": self.basis, "account": self.account}
+
+    @property
+    def marker(self) -> str:
+        """检索摘要里的一眼标记：✅ 实测可用 / ◐ 部分验证。"""
+        return "✅" if self.level in ("read", "write") else "◐"
+
+
 @dataclass(frozen=True, slots=True)
 class Capability:
     key: str
@@ -120,6 +166,8 @@ class Capability:
 
     #: 手写的一句话说明（来自 ``descriptions.json``）。为空时退回"分组｜key"。
     description: str = ""
+    #: 实测凭证（来自 ``descriptions.json``）。``None`` = 未验证，不影响可调用性。
+    verified: Verified | None = None
     #: 手写要点：单位、层级、前置条件、容易踩的坑
     notes: tuple[str, ...] = ()
     #: 异步任务的轮询协议；为 ``None`` 时 ``wait=True`` 会被忽略
@@ -137,9 +185,10 @@ class Capability:
         比看到"投放管理｜CampaignService.addCampaign"有用得多。
         """
         flag = {"true": "写", "false": "读"}.get(self.mutating, "读写未知")
+        mark = f"｜{self.verified.marker}" if self.verified else ""
         if self.description:
-            return f"{self.description}｜{flag}"
-        return f"{self.group or '未分组'}｜{self.key}｜{flag}"
+            return f"{self.description}｜{flag}{mark}"
+        return f"{self.group or '未分组'}｜{self.key}｜{flag}{mark}"
 
     def to_summary(self) -> dict[str, Any]:
         return {
@@ -147,6 +196,7 @@ class Capability:
             "summary": self.summary,
             "mutating": self.mutating,
             "product_line": self.product_line,
+            "verified": self.verified.to_dict() if self.verified else None,
         }
 
 
@@ -222,6 +272,7 @@ class CapabilityRegistry:
             "schemas": len(self._schemas),
             "services": len({cap.service for cap in self._capabilities.values()}),
             "described": sum(1 for cap in self._capabilities.values() if cap.description),
+            "verified": sum(1 for cap in self._capabilities.values() if cap.verified),
         }
 
     def validate_aliases(self) -> list[str]:
@@ -424,6 +475,15 @@ def _apply_descriptions(
         if aliases:
             extra_aliases[key] = aliases
 
+        verified = capability.verified
+        if "verified" in entry:
+            verified = Verified.from_dict(entry["verified"] or {})
+            if verified is None:
+                raise ValueError(
+                    f"{DESCRIPTIONS_FILENAME} 的 {key}.verified 不合法："
+                    f"需要 at（yyyy-mm-dd）与 level（{'/'.join(VERIFIED_LEVELS)}）"
+                )
+
         async_task = capability.async_task
         if isinstance(entry.get("async_task"), dict):
             async_task = AsyncTask.from_dict(entry["async_task"])
@@ -439,6 +499,7 @@ def _apply_descriptions(
             notes=tuple(str(note) for note in (entry.get("notes") or ())),
             mutating=str(entry.get("mutating") or capability.mutating),
             async_task=async_task,
+            verified=verified,
         )
     return updated, extra_aliases
 

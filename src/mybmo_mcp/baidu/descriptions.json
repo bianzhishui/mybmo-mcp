@@ -15,6 +15,12 @@
       ],
       "params": {
         "accountFields": "指定返回字段；留空返回默认子集。字段名大小写敏感"
+      },
+      "verified": {
+        "at": "2026-11-11",
+        "account": "baidu-YF电商-玛卡快消01",
+        "level": "partial",
+        "basis": "确认 accountFields 必填(9011519)、userName 非合法字段、仅 userId 通过；有效字段组合未穷举"
       }
     },
     "AccountService.updateAccountInfo": {
@@ -110,6 +116,12 @@
       "params": {
         "campaignIds": "计划 ID 列表；不传返回全部",
         "campaignFields": "需要返回的字段名列表"
+      },
+      "verified": {
+        "at": "2026-11-11",
+        "account": "baidu-YF电商-玛卡快消01",
+        "level": "partial",
+        "basis": "只验证了空结果返回 [] 与请求体无分页参数；账户内无搜索计划，字段驼峰未取样"
       }
     },
     "CampaignService.addCampaign": {
@@ -354,6 +366,12 @@
         "query": "种子词，字符串",
         "seedFilter.maxNum": "返回条数上限",
         "seedFilter.negativeWords": "排除词，用来剔掉不相关行业"
+      },
+      "verified": {
+        "at": "2026-11-11",
+        "account": "baidu-YF电商-玛卡快消01",
+        "level": "read",
+        "basis": "query=跨境电商 返回 300 条扁平词对象，字段与 FIELD_MAP 假设一致"
       }
     },
     "KRService.getKRCustom": {
@@ -475,6 +493,12 @@
         },
         "poll_interval": 2,
         "timeout": 120
+      },
+      "verified": {
+        "at": "2026-11-11",
+        "account": "baidu-YF电商-玛卡快消01",
+        "level": "write",
+        "basis": "reportType=1783967 建任务返回 taskId + taskStatus=RUNNING，响应为单元素数组"
       }
     },
     "OpenApiReportService.getTaskStatus": {
@@ -488,6 +512,12 @@
       ],
       "params": {
         "taskId": "createReportTask 返回的任务 ID"
+      },
+      "verified": {
+        "at": "2026-11-11",
+        "account": "baidu-YF电商-玛卡快消01",
+        "level": "read",
+        "basis": "轮询到 SUCCESS，终态带 fileUrl/tableHeader/dataStartRow；wait=True polls=2"
       }
     },
     "OpenApiReportService.getReportData": {
@@ -513,6 +543,12 @@
         "withColumnMeta": "true 时返回列元数据，适合不确定列名时先探一次",
         "reportType": "报表类型枚举，必填。一站式多渠道账户报告 = 1783967（实测）",
         "timeUnit": "HOUR / DAY / WEEK / MONTH / SUMMARY（大写）"
+      },
+      "verified": {
+        "at": "2026-11-11",
+        "account": "baidu-YF电商-玛卡快消01",
+        "level": "read",
+        "basis": "一站式 1783967 + 13 个电商 reportType 逐个跑通；分页/824 天上限/Enum 返回 value 均已验"
       }
     },
     "CampaignFeedService.getCampaignFeed": {
@@ -726,6 +762,38 @@
         "campaignShoppingIds": "计划 ID 列表；不传返回账户下全部",
         "sortField": "排序字段名，配合 isDesc 使用",
         "filters": "过滤条件数组"
+      },
+      "verified": {
+        "at": "2026-11-11",
+        "account": "baidu-YF电商-玛卡快消01",
+        "level": "read",
+        "basis": "35 条计划全量取样；limit=[0,5] 与 [5,5] 不重叠证明分页"
+      }
+    },
+    "CampaignShoppingService.updateCampaignShopping": {
+      "description": "改电商推广计划（暂停/恢复、改名、改预算等，电商/购物推广线）",
+      "aliases": [
+        "暂停电商计划",
+        "恢复电商计划",
+        "改电商计划",
+        "电商计划暂停"
+      ],
+      "notes": [
+        "入参是 campaignShoppingTypes 数组，每项至少带 campaignShoppingId，只改传入的字段",
+        "暂停/恢复用 pause（布尔）：true 暂停、false 恢复；实测**同步生效**，回读立即是新状态",
+        "幂等：对已暂停的计划再次 pause=true 返回 succ=1，状态不变",
+        "成功判定 header.status==0 且 failures==[] 且 succ==oprs；失败时 status=2、succ=0",
+        "缺 campaignShoppingTypes 统一报 8602（position=_sys），百度不指出具体字段",
+        "budget=0 表示不限预算，不要以为 0 就是停投"
+      ],
+      "params": {
+        "campaignShoppingTypes": "计划对象数组，每项含 campaignShoppingId 与要修改的字段（如 pause）"
+      },
+      "verified": {
+        "at": "2026-11-11",
+        "level": "write",
+        "account": "baidu-YF电商-玛卡快消01",
+        "basis": "计划 2079251858 暂停→恢复→复原，succ=1/oprs=1，回读状态一致"
       }
     }
   }

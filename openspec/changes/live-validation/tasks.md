@@ -82,7 +82,9 @@
 ## 7. 收尾
 
 - [ ] 7.1 `docs/baidu-behavior.md` 没有"待确认"残留
-- [ ] 7.2 至少一条能力从 `experimental` 提升，并在能力表里注明验证依据
+- [x] 7.2 至少一条能力从 `experimental` 提升，并在能力表里注明验证依据
+      （新增 `verified` 维度：8 条打标——6 个 ✅ read/write、2 个 ◐ partial；
+      检索摘要显示标记、`get_capability_schema` 返回凭证、`/healthz` 报总数）
 - [x] 7.3 `README` 的「尚未验证」段落改为已验结论
       （改成 9 行实测表 + 3 条「没有账户/客户端」的明确未知）
 - [x] 7.4 全量测试 + `ruff` 绿

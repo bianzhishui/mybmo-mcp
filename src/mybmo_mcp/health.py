@@ -32,6 +32,8 @@ def health_payload() -> dict[str, Any]:
         stats = runtime.capabilities.stats
         payload["capabilities"] = stats["capabilities"]
         payload["described"] = stats["described"]
+        #: 打过"已实测"标记的能力数。对着 ``described`` 看，就知道这部署里有多少条能承诺
+        payload["verified"] = stats["verified"]
     except (OSError, ValueError):
         # 能力表读不出来是打包问题，值得暴露在探活里，但不该让进程判死
         payload["capabilities"] = None

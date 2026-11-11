@@ -64,3 +64,20 @@
 2. 结论变了就改这一行，不追加"补充说明"——保持每次读到的是当前事实。
 3. 能力级细节（单位、层级、前置条件）不写这里，写进 `baidu/descriptions.json` 的
    `notes` / `params`，让 agent 在 schema 里直接看到。
+4. **验证过一条能力，就在 `descriptions.json` 给它加 `verified` 块**（本文只记行为结论，
+   不承担"哪些能力能承诺"这件事）：
+
+   ```json
+   "CampaignShoppingService.updateCampaignShopping": {
+     "verified": {
+       "at": "2026-11-11",
+       "level": "write",
+       "account": "baidu-YF电商-玛卡快消01",
+       "basis": "计划 2079251858 暂停→恢复→复原，succ=1/oprs=1，回读状态一致"
+     }
+   }
+   ```
+
+   `level` 只能是 `read`（只读验过）/ `write`（写路径验过且可回滚）/ `partial`（只验了一部分）。
+   检索摘要会显示 ✅（read/write）或 ◐（partial），`/healthz` 的 `verified` 字段是总数。
+   **没打标不等于不能用**，只表示"没验过，别一次批量写"。

@@ -67,7 +67,8 @@ def test_summary_is_non_empty_and_flags_mutation() -> None:
     read = registry.get("KRService.getKRByQuery")
     assert write is not None and read is not None
 
-    assert write.summary and write.summary.endswith("｜写")
-    assert read.summary and read.summary.endswith("｜读")
+    # 摘要末尾可能跟实测标记（✅ / ◐），去掉标记再判读写标记
+    assert write.summary and write.summary.removesuffix("｜✅").removesuffix("｜◐").endswith("｜写")
+    assert read.summary and read.summary.removesuffix("｜✅").removesuffix("｜◐").endswith("｜读")
     assert write.is_mutating is True
     assert read.is_mutating is False
