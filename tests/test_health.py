@@ -38,7 +38,7 @@ def test_reports_ok_with_capabilities(tmp_path: Path) -> None:
     payload = health_payload()
 
     assert payload["status"] == "ok"
-    assert payload["capabilities"] == 397
+    assert payload["capabilities"] == 398
     assert payload["described"] >= 50
     assert payload["auth_mode"] == "local"
     assert payload["credentials"] == "configured"
@@ -56,7 +56,7 @@ def test_missing_master_key_is_reported_not_fatal(tmp_path: Path) -> None:
 
     assert payload["status"] == "ok"
     assert payload["credentials"] == "unconfigured"
-    assert payload["capabilities"] == 397
+    assert payload["capabilities"] == 398
 
 
 def test_health_does_not_leak_account_or_token_info(tmp_path: Path) -> None:

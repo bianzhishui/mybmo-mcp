@@ -3,11 +3,11 @@
     "version": 1,
     "source": "baiduads-sdk 1.0.0",
     "note": "构建期从 SDK 内省生成；嵌套结构保持原样，input 可直接作为请求体",
-    "capabilities": 397,
-    "schemas": 596,
-    "handwritten": 8,
+    "capabilities": 398,
+    "schemas": 597,
+    "handwritten": 9,
     "mutating": {
-      "true": 212,
+      "true": 213,
       "false": 184,
       "unknown": 1
     }
@@ -7441,6 +7441,38 @@
           }
         }
       }
+    },
+    "KWShopBindPlanRequest": {
+      "type": "object",
+      "properties": {
+        "bindPlanKeywordTypes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "packageId": {
+                "type": "integer",
+                "description": "关键词包 ID"
+              },
+              "planIds": {
+                "type": "array",
+                "items": {
+                  "type": "integer"
+                },
+                "description": "要绑定的计划 ID 列表。**替换语义**：传什么就是最终列表，不是追加"
+              }
+            },
+            "required": [
+              "packageId",
+              "planIds"
+            ]
+          },
+          "description": "词包-计划绑定关系数组"
+        }
+      },
+      "required": [
+        "bindPlanKeywordTypes"
+      ]
     },
     "KWShopDelKeywordRequest": {
       "type": "object",
@@ -18149,6 +18181,18 @@
       "body": "KWShopPackageAddRequest",
       "input_schema": {
         "$ref": "#/schemas/KWShopPackageAddRequest"
+      }
+    },
+    "KeyWordShoppingService.bindPlanKeywordPackages": {
+      "service": "KeyWordShoppingService",
+      "method": "bindPlanKeywordPackages",
+      "endpoint": "/json/sms/service/KeyWordShoppingService/bindPlanKeywordPackages",
+      "product_line": "sms",
+      "mutating": "true",
+      "group": "电商推广投放",
+      "body": "KWShopBindPlanRequest",
+      "input_schema": {
+        "$ref": "#/schemas/KWShopBindPlanRequest"
       }
     },
     "KeyWordShoppingService.delKeyword": {

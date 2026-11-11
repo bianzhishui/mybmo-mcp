@@ -28,8 +28,8 @@ def collect_refs(node: Any, found: set[str]) -> set[str]:
 
 
 def test_capability_count_matches_sdk_index(data: dict[str, Any]) -> None:
-    assert len(data["capabilities"]) == 397
-    assert data["meta"]["capabilities"] == 397
+    assert len(data["capabilities"]) == 398
+    assert data["meta"]["capabilities"] == 398
 
 
 def test_every_capability_has_required_fields(data: dict[str, Any]) -> None:

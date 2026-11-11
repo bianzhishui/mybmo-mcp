@@ -1090,6 +1090,33 @@
         "account": "baidu-YF电商-玛卡快消01",
         "basis": "导出 3 词包 → succ=1 返回 downloadUrl → 下载 HTTP 200/121 字节/4 行，GB18030 解码得到表头「词包名称,关键词,审核状态」与 3 行词"
       }
+    },
+    "KeyWordShoppingService.bindPlanKeywordPackages": {
+      "description": "把关键词包绑定到推广计划（替换式绑定）",
+      "aliases": [
+        "词包绑计划",
+        "绑定词包",
+        "关键词包绑计划"
+      ],
+      "notes": [
+        "请求体：{bindPlanKeywordTypes:[{packageId, planIds:[...]}]}",
+        "⚠️ **替换语义**：传 planIds=[P2] 会把原来的 [P1] 覆盖成 [P2]，不是追加。要绑多个计划就一次全传",
+        "⚠️ **planIds 传空数组不能解绑**：返回 901404「词包或者计划缺失」",
+        "⚠️ 别传 planIds=[0]：实测返回 status=3 且 bindPlanIdList 变成 [0]（脏数据）",
+        "**没有找到解绑接口**：unbind/del/remove 等命名都返回 87091；解绑需要在后台操作，抓到请求后再补",
+        "绑定效果：getKeywordPackages 的 bindPlanIdList 会反映出来；planCount 也随之变化"
+      ],
+      "params": {
+        "bindPlanKeywordTypes": "绑定关系数组",
+        "bindPlanKeywordTypes[].packageId": "词包 ID",
+        "bindPlanKeywordTypes[].planIds": "计划 ID 列表（替换语义，空数组会报 901404）"
+      },
+      "verified": {
+        "at": "2026-11-11",
+        "level": "write",
+        "account": "baidu-YF电商-玛卡快消01",
+        "basis": "探测包先绑 2079251858 → bindPlanIdList=[2079251858]；改传 1924321849 → 列表被替换为 [1924321849]（证明替换非追加）；planIds=[] 报 901404；探测包已删除"
+      }
     }
   }
 }

@@ -15,6 +15,7 @@
 | `KeyWordShoppingService.delKeywordPackages` | `…/delKeywordPackages` | ✅ **写实测通过**（注意是 **del**，不是 delete） |
 | `KeyWordShoppingService.delKeyword` | `…/delKeyword` | ✅ **写实测通过**（删包内单个词） |
 | `KeyWordShoppingService.downloadKeyword` | `…/downloadKeyword` | ✅ **读实测通过**（导出 CSV） |
+| `KeyWordShoppingService.bindPlanKeywordPackages` | `…/bindPlanKeywordPackages` | ✅ **写实测通过**（绑计划，替换语义） |
 
 ## 二、怎么确认一个"SDK 里没有的接口"到底存不存在
 
@@ -142,6 +143,22 @@ status=0  succ=39  oprs=39  → 39 个关键词包
 | 内容 | 即时快照；包内词变了要重新导出 |
 
 实测：3 词包 → `succ=1` → 下载 HTTP 200、121 字节、4 行（表头 + 3 个词，均"审核中"）。
+
+## 三点七、绑定计划 `bindPlanKeywordPackages`
+
+```jsonc
+{"bindPlanKeywordTypes": [{"planIds": [2079251858], "packageId": 1615571277581}]}
+```
+
+| 要点 | 实测结果 |
+|---|---|
+| 语义 | ⚠️ **替换，不是追加**：先绑 `[P1]` 再传 `[P2]`，最终列表是 `[P2]` |
+| `planIds: []` | ❌ 不能用来解绑，返回 **`901404 词包或者计划缺失`** |
+| `planIds: [0]` | ⚠️ 返回 `status=3`，且 `bindPlanIdList` 变成 `[0]`（脏数据，别传 0） |
+| 解绑 | **没找到接口**：`unbindPlanKeywordPackages` / `unBindPlanKeywordPackages` / `delPlanKeywordPackages` / `unbindPlanKeyword` / `removePlanKeywordPackages` 全部 `87091` |
+| 回读 | `getKeywordPackages` 的 `bindPlanIdList` / `planCount` 会反映绑定结果 |
+
+要绑多个计划就**一次全传**；解绑目前只能在后台操作（抓到解绑请求后我再补接口）。
 
 ## 四、写接口：字段名从后台抓包得到（已实测）
 
