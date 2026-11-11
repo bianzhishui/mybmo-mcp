@@ -30,13 +30,15 @@
 | 报表时间区间上限 | **824 天**，超出报 `901606 时间区间不能超过824天!` | 2026-11-11 传 2024-01-01~2026-11-09 实测 |
 | 报表单次返回行数上限 | **未触顶**：`rowCount=10000` 请求 30 天数据只回 30 行（受 `totalRowCount` 约束），真实上限仍未测到 | 2026-11-11 一站式多渠道报告实测 |
 | 报表是否支持分页（字段名） | **已验证**：请求 `startRow` + `rowCount`，响应 `rowCount`（本次行数）/ `totalRowCount`（总行数）。**默认排序不稳定**（相邻两页日期不连续），取全量必须先传 `sorts` | 2026-11-11 30 天 DAY 实测：`rowCount=5` → 5 行/总数 30，`startRow=5` → 换了一页 |
-| `getKRByQuery` 单次返回上限 | **已验证：300 条**，`data` 是扁平词对象数组 | 2026-11-11 `query=跨境电商` 正好返回 300 条，字段含 `word/competition/recBid/pcPV/mobilePV/show/click/recommendPricePc/recommendPriceMobile/pv/groupName...` |
+| `getKRByQuery` 返回条数 | **已验证：由 `seedFilter.maxNum` 控制——不传默认 300，最大 1000**（传 2000 报 `901720 The maximum return number is not valid`）。`data` 是扁平词对象数组 | 2026-11-11 `query=益生菌`：默认→300、maxNum=500→500、1000→1000、2000→901720 |
 | 计划列表是否分页 | **分两套，不一样**：搜索 `getCampaign` 无分页参数（`campaignFields/campaignIds/mobileExtend/adType`），空结果 `[]`；电商 `getCampaignShopping` 用 **`limit: [offset, size]`**，且**必传**（不传报 8602） | 2026-11-11 实测：`limit=[0,5]` 与 `[5,5]` 返回不重叠；电商计划共 35 条 |
 
 ## 三、字段与写接口
 
 | 问题 | 结论 | 依据 |
 |---|---|---|
+| 关键词规划师（拓词）全链路 | **已验证**：① `getKRByQuery` 拓词（默认 300/最大 1000 条）② `getKRFileIdByWords` 词表→`fileId` ③ `getFileStatus` 轮询（`isGenerated` 2=处理中、3=已生成）④ `getFilePath` 取 CSV 签名直链（有效期 3600s，未生成完报 `901726`） | 2026-11-11 全流程实跑：fileId `cd9fe925…`，2→3 约 5 秒，下载地址为 `bj.bcebos.com/v1/papfc/krcsv/*.csv` |
+| `getKRCustom` 的 `idType` | **部分已知**：实测 `3` / `5` 可用（该账户返回空列表），`0/1/2/4/6/7/8` 报 `901743 idType is not valid to get KR results`；语义仍待文档 | 2026-11-11 逐个试探 |
 | 计划的暂停字段名 | **已验证（电商推广）：`pause` 布尔值**，`false` 启用 / `true` 暂停；与 `status` 一致（`status=0` 启用 24 条、`status=2` 暂停 11 条） | 2026-11-11 `CampaignShoppingService.getCampaignShopping` 全量 35 条取样 |
 | 搜索推广计划的暂停字段名 | **范围外**：本项目只做电商推广线；搜索侧 `getCampaign` 在该账户返回 `[]`，也不打算验 | — |
 | 单元 / 关键词 / 创意的暂停字段名 | **无接口可验**：SDK 里没有电商单元/创意的**读**接口（只有 campaign 级），搜索侧又在范围外 | — |
@@ -56,6 +58,9 @@
 | 81020 | `The username information in the request is incorrect.`（`position=_user`） | 请求头 `userName` 不是令牌所属账户的中文名 | 已验证：2026-11-11 错误 `userName` 实测 |
 | 9011519 / 1519 | `Request field is invalid`，`position` 指到具体字段 | 字段名不在接口白名单；`AccountService.getAccountInfo` 不传 `accountFields` 也报此码 | 已验证：2026-11-11 四种 `accountFields` 组合实测（仅 `userId` 通过）；报表接口里 `position=_user` 是笼统提示，不代表真跟用户有关 |
 | 8602 | `We are unable to serve your request, please try again later.` | `getCampaignShopping` **不传 `limit`**（不是网络问题，重试无用） | 已验证：2026-11-11 缺省 `limit` 时必现，加上即正常 |
+| 901720 | `The maximum return number is not valid` | `getKRByQuery` 的 `seedFilter.maxNum` 超过 1000 | 已验证：2026-11-11 传 2000 实测 |
+| 901726 | `The request KR File is still in processing` | 词表文件未生成完就调 `getFilePath` | 已验证：2026-11-11 实测（`isGenerated=2` 时） |
+| 901743 | `idType is not valid to get KR results` | `getKRCustom` 传了不支持的 `idType` | 已验证：2026-11-11 0-8 逐个试探 |
 | 901400 | `Reporttype could not be empty` / `Unknow reportType: N` | `getReportData` 不传 `reportType`，或传了不存在的值。**实测 1–12 全部 `Unknow`，真实枚举未知** | 已验证：2026-11-11 reportType 1–12 扫描 |
 | 30002 | `应用不存在`（OAuth 层，AppID 无效） | 用不存在的 `appId=app-demo` 调 `oauth/accessToken` | 已验证：2026-11-10 本地回调路由实测，返回 `code=30002 message=应用不存在`（说明授权回调 → 换令牌这条链路本身是通的，只差真实 AppID） |
 
