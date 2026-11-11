@@ -29,6 +29,7 @@ from mybmo_mcp.audit.log import AuditLog
 from mybmo_mcp.auth.access import AccountAccess
 from mybmo_mcp.auth.binding import BindingManager, StateStore
 from mybmo_mcp.auth.oauth import BaiduOAuth
+from mybmo_mcp.auth.pg_tenancy import PgTenancyStore
 from mybmo_mcp.auth.registry import AccountRegistry
 from mybmo_mcp.auth.resource import SCOPE_READ, JwtVerifier
 from mybmo_mcp.auth.service import CredentialService
@@ -123,7 +124,15 @@ class Runtime:
         return AccountRegistry(self.vault)
 
     @cached_property
-    def tenancy(self) -> TenancyStore:
+    def tenancy(self) -> TenancyStore | PgTenancyStore:
+        """授权表。``MYBMO_TENANCY_BACKEND=pg`` 时走 PostgreSQL，否则读文件。"""
+        if (
+            self.settings.mybmo_tenancy_backend == "pg"
+            and self.settings.mybmo_database_url
+        ):
+            return PgTenancyStore(
+                self.settings.mybmo_database_url, mode=self.settings.mybmo_auth_mode
+            )
         return TenancyStore(
             self.settings.mybmo_data_dir / "tenancy.json", mode=self.settings.mybmo_auth_mode
         )

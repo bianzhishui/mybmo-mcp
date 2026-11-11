@@ -58,6 +58,8 @@ class Settings(BaseSettings):
     mybmo_oidc_orgs: str = ""
     mybmo_jwks_url: str = ""
     mybmo_database_url: str = ""
+    #: 授权表后端：``file``（data/tenancy.json，默认）/ ``pg``（PostgreSQL）
+    mybmo_tenancy_backend: str = "file"
 
     def master_key_bytes(self) -> bytes:
         """解码并校验主密钥。

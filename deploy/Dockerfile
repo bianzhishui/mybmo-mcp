@@ -25,6 +25,8 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev --no-install-project
 
 COPY src ./src
+COPY migrations ./migrations
+COPY scripts/import_tenancy.py ./import_tenancy.py
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev
 # psycopg 单独装：版本与 uv.lock 对齐（3.3.8），避免 --extra 不生效的坑
