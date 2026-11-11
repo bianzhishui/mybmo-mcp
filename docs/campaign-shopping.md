@@ -56,7 +56,7 @@
 | `audience.fcKeywordWtpids` | **关键词包 ID 列表**（逗号分隔，`fc`=风巢）。词包绑定/解绑就改这里 |
 | `audience.keywords` | 计划投放的关键词（逗号分隔字符串）。实测 38 个词 |
 | `audience.region` / `regionType` | 地域定向（`region` 是逗号分隔的地域码，实测 367 段） |
-| `material.fengchaoTitle` | **风巢模板标题**：`{关键词}` + 文案槽，按搜索词动态替换（实测 6 条） |
+| `material.fengchaoTitle` | **风巢模板标题**：写入时用 `{关键词}` + 文案槽，按搜索词动态替换；**读回来显示成 `#{文案}`，`#` 就是动态词位的展示形式，不是数据损坏**（实测 6 条） |
 | `material.title` / `description` | 普通固定文案（各 6 条） |
 | `material.pictures` / `videos` | 图片（18 张，含 370×245 / 750×1000 / 1140×640 三种尺寸）与视频（1 个 + 3 张封面） |
 | `material.userPortrait` | 品牌头像（120×120） |
@@ -69,6 +69,8 @@
 | 绑定 | `KeyWordShoppingService.bindPlanKeywordPackages`：`{bindPlanKeywordTypes:[{packageId, planIds:[...]}]}`，**替换语义** |
 | 解绑 | 没有独立接口：按第一节读全 → 从 `audience.fcKeywordWtpids` 移除包 ID → 整体回传 `updateCampaignShopping` |
 | 回读确认 | `getKeywordPackages` 的 `bindPlanIdList` / `planCount`，以及计划的 `fcKeywordWtpids` |
+
+> `fengchaoTitle` 的恢复已在后台确认显示正常（2026-11-11）。
 
 实测解绑（计划 2079251858，移除 1615571277581）：
 `fcKeywordWtpids` 从 `"1352096810890,1615571277581"` 变为 `"1352096810890"`，

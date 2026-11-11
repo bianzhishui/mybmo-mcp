@@ -54,7 +54,8 @@
 | `budget=0` 的语义 | **不限预算**（该账户 35 条计划全是 `0.0`） | 运营确认，非接口实测；写验证时不改动此字段 |
 | 计划配置能否完整读回 | **能，但字段名是扁平的**：要 `audience` 就传 `sex/age/customAge/regionType/region/interests/keywords/keywordsExtend/crowd/etradecrowds/fcKeywordWtpids/intelligentWeight`；要 `material` 就传 `brand/userPortrait/title/description/pictures/videos`。传 `material`/`audience` 这类顶层名会被**静默忽略**（返回空） | 2026-11-11 实测：扁平字段读回 38 关键词 / 367 地域 / 6 标题 / 6 描述 / 18 图 / 1 视频 |
 | 读 `material` 需要哪些字段 | **必须整组请求**：`brand`（关键——不带它 material 整个为空）+ `userPortrait` + `title` + `fengchaoTitle` + `description` + `pictures` + `videos`。`fengchaoTitle` 也要**显式列进字段表**，漏了就返回缺失 | 2026-11-11 四组字段对照实测 |
-| 对 `material` 读-改-写的风险 | `material` 是**整体替换**；若读取时漏了某个字段（如 `fengchaoTitle`），写回就会把它清空 | 2026-11-11 真实事故：漏读 fengchaoTitle → 被清空 → 已用抓包原文恢复 |
+| 对 `material` 读-改-写的风险 | `material` 是**整体替换**；若读取时漏了某个字段（如 `fengchaoTitle`），写回就会把它清空 | 2026-11-11 真实事故：漏读 fengchaoTitle → 被清空 → 已用抓包原文恢复，**后台确认显示正常** |
+| `fengchaoTitle` 的 `{关键词}` 位怎么显示 | 读回是 **`#{文案}`**（`#` 就是动态词位的展示形式，写入时用 `{关键词}`），不是数据损坏 | 2026-11-11 恢复后在后台确认显示正常 |
 | 词包与计划的绑定关系存在哪 | **`audience.fcKeywordWtpids`**：逗号分隔的关键词包 ID 列表。解绑=从该列表移除 ID 后整体回传 `updateCampaignShopping`，实测除该字段外零变化 | 2026-11-11 计划 2079251858 解绑实测 |
 | 计划的名称字段 | 电商计划是 **`campaignShoppingName`**；`campaignName` / `name` 不合法（静默忽略，不报错但也不返回） | 2026-11-11 三个候选字段各试一次 |
 | 异步任务如何查终态（能力名 + 判定字段） | **已验证**：`OpenApiReportService.createReportTask` 返回 `taskId` + `taskStatus=RUNNING` → `getTaskStatus(taskId)` 轮询到 `taskStatus=SUCCESS`，终态响应**直接带** `fileUrl`（CSV）、`tableHeader`、`dataStartRow`。两个接口的响应都是单元素数组。实测 ~0.7 秒完成，`wait=True` 轮询 2 次命中 | 2026-11-11 实测 |
