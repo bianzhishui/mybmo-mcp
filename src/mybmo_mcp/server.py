@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import html
+import json
 import logging
 import sys
 from collections.abc import Sequence
@@ -23,6 +24,7 @@ from mybmo_mcp.auth.callback import CallbackOutcome, complete_binding
 from mybmo_mcp.auth.tenancy import MODE_LOCAL, Principal
 from mybmo_mcp.baidu.errors import BaiduError
 from mybmo_mcp.health import health_payload
+from mybmo_mcp.subscribe import append_record, build_record, check_key
 from mybmo_mcp.tools import register_all
 from mybmo_mcp.tools.runtime import get_runtime
 
@@ -32,6 +34,10 @@ Transport = Literal["stdio", "streamable-http"]
 #: 且**根域**要与 dev2 应用「安全设置」里登记的保持一致（百度按根域比对）。
 #: 这是一条免鉴权路由：跳转过来的是浏览器，带不了 Bearer 令牌。
 BAIDU_CALLBACK_PATH = "/oauth/baidu/callback"
+
+#: 百度订阅（事件推送）的接收路径。与授权回调是两套机制，别互相填。
+#: 同样免 Token 鉴权，靠**共享密钥**把关；密钥没配就 503（失败关闭）。
+BAIDU_SUBSCRIBE_PATH = "/oauth/baidu/subscribe"
 
 _logger = logging.getLogger(__name__)
 
@@ -125,6 +131,66 @@ def _register_baidu_callback(server: MCPServer) -> None:
         return _callback_page(outcome, title=title, message=outcome.message)
 
 
+def _register_baidu_subscribe(server: MCPServer) -> None:
+    """挂载百度订阅（事件推送）接收端：验密钥 → 打印并落盘 → 回 200。
+
+    免 Token 鉴权（百度服务端不会带我们的 Bearer），所以三条铁律见
+    :mod:`mybmo_mcp.subscribe`：不配密钥 503、验不过不落盘、落盘前脱敏。
+    这里**故意不解析成业务动作**——能力层不编排（ADR 0003），
+    推送只当样本采集，攒够真实报文再写解析器。
+    """
+
+    @server.custom_route(
+        BAIDU_SUBSCRIBE_PATH,
+        methods=["GET", "POST", "PUT"],
+        include_in_schema=False,
+    )
+    async def baidu_subscribe(request: Request) -> JSONResponse:
+        secret = get_runtime().settings.mybmo_baidu_subscribe_secret.strip()
+        if not secret:
+            _logger.error("收到订阅推送但未配置 MYBMO_BAIDU_SUBSCRIBE_SECRET，拒绝接收")
+            return JSONResponse(
+                {"ok": False, "error": "subscribe endpoint not configured"}, status_code=503
+            )
+
+        ok, key_source = check_key(secret, request.headers, request.query_params)
+        client = request.client.host if request.client is not None else ""
+        if not ok:
+            # 只记一行，不落 body——否则扫描器就能把磁盘灌满
+            _logger.warning(
+                "订阅推送验签失败：client=%s method=%s 命中来源=%s",
+                client,
+                request.method,
+                key_source or "无",
+            )
+            return JSONResponse({"ok": False, "error": "unauthorized"}, status_code=401)
+
+        body = await request.body()
+        record = build_record(
+            method=request.method,
+            path=request.url.path,
+            headers=request.headers,
+            params=request.query_params,
+            body=body,
+            secret=secret,
+            key_source=key_source,
+            client=client,
+        )
+        try:
+            path = append_record(get_runtime().settings.mybmo_data_dir, record)
+        except OSError as exc:
+            # 落盘失败不影响回 200：百度重推一遍也不会更好，先在日志里留证据
+            _logger.error("订阅推送落盘失败（%s），仅打印", type(exc).__name__)
+            path = None
+
+        _logger.info(
+            "收到订阅推送（%s）：%s",
+            key_source,
+            json.dumps(record, ensure_ascii=False, indent=2),
+        )
+        return JSONResponse({"ok": True, "stored": str(path) if path else None}, status_code=200)
+
+
 def build_server(*, with_auth: bool = True) -> MCPServer:
     """构造 MCP 服务实例并挂载工具。
 
@@ -142,6 +208,7 @@ def build_server(*, with_auth: bool = True) -> MCPServer:
     register_all(server)
     _register_health(server)
     _register_baidu_callback(server)
+    _register_baidu_subscribe(server)
     return server
 
 

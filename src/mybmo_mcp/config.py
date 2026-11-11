@@ -41,6 +41,11 @@ class Settings(BaseSettings):
     #: 且不能带 ``?`` 或 ``%``（百度侧不允许把参数塞进 callback，附加信息走 state）。
     #: 只在 ``auth bind`` 与回调端点里用到；为空时这两个入口直接报错，不影响其他功能。
     mybmo_baidu_callback_url: str = ""
+    #: 百度订阅（事件推送）的共享密钥。**不配则 ``/oauth/baidu/subscribe`` 直接 503**，
+    #: 失败关闭——宁可端点不可用，也不能悄悄变成谁都能灌数据的匿名接收器。
+    #: 它与 ``BAIDU_SECRET_KEY``（应用密钥）和 ``MYBMO_MASTER_KEY``（凭据加密主密钥）
+    #: 是三个互不相干的东西，别混用。
+    mybmo_baidu_subscribe_secret: str = ""
     #: JWT 的 audience **白名单**。**不是资源地址，是 OAuth 客户端的 client_id**
     #: （IdP 把 aud 填成 client_id，与 RFC 8707 的资源标识语义不同，见 docs/auth-contract.md）。
     #: 多个客户端用逗号分隔；每个都必须先在 IdP 里显式注册（不开 DCR）。
