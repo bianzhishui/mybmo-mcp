@@ -4,11 +4,103 @@
 Caddy）的部署与运维在 infra 仓库，这里只记录**本仓库代码依赖的那些事实**。
 改动本文件里的任何一条，都要同步通知 infra。
 
-## 一、五个不能违背的不变量
+## 一、认证全流程
 
-1. **`aud` 是 client_id，不是资源地址。** Casdoor 把令牌的 `aud` 填成签发它的客户端
-   client_id，与 RFC 8707 的资源标识语义不同。所以本服务把 `MYBMO_OIDC_AUDIENCE`
-   当**白名单**用：每个允许调用它的客户端，把 client_id 加进去。
+一句话：**Casdoor 只回答"你是谁"，本服务只回答"你能用哪个百度账户"。**
+
+### 角色
+
+```
+客户端(Cursor / DSH+mcp-remote) ──①登录──▶ Casdoor(auth.pandabase.top)
+                                ◀─②令牌──
+                                ──③Bearer JWT──▶ mybmo-mcp（资源服务器）
+                                                     │ ④取百度凭据
+                                                     ▼
+                                                 api.baidu.com
+```
+
+三条底线：**百度令牌不出服务端**；**本服务只验令牌、不签令牌**；**身份(sub) 与授权(账户) 分离**。
+
+### 阶段 1：客户端登记（离线，一次性）
+
+| 项 | 当前值 |
+|---|---|
+| 应用 | `mybmo-mcp` / client_id `709a8e16656a223a1ab7`（唯一） |
+| 组织 | `pandabase`（应用只能登录同组织用户） |
+| grant | `authorization_code` + `refresh_token` |
+| scopes | `openid / profile / email / read / offline_access / baidu:read / baidu:write / baidu:admin` |
+| 客户端类型 | **公共客户端**：只带 client_id + PKCE，无需 client_secret（见第二节不变量 8） |
+| DCR | 关闭，客户端必须预置 client_id |
+
+`client_id` 是给 **Casdoor** 认客户端用的；它出现在授权 URL 与 token 请求里，**不是给本服务看的**。
+
+### 阶段 2：授权码 + PKCE（用户自己登录）
+
+```
+① 发现   GET /.well-known/oauth-protected-resource          ← 本服务
+         ← {"resource":"https://baiduads.pandabase.top/",
+            "authorization_servers":["https://auth.pandabase.top/"],
+            "scopes_supported":["baidu:read"]}
+
+② 元数据 GET https://auth.pandabase.top/.well-known/oauth-authorization-server
+         ← authorization_endpoint / token_endpoint / jwks_uri / registration_endpoint
+
+③ 授权   GET {authorization_endpoint}?client_id=709a8e…&response_type=code
+           &redirect_uri=http://localhost:<随机端口>/oauth/callback
+           &scope=baidu:read offline_access
+           &code_challenge=…&code_challenge_method=S256&state=…
+         ← 用户在浏览器里用 pandabase 账号登录并同意
+         ← 302 回 localhost:<端口>/oauth/callback?code=…&state=…
+
+④ 换令牌 POST {token_endpoint}
+           grant_type=authorization_code&code=…&code_verifier=…
+           &client_id=709a8e…&redirect_uri=…
+         ← JWT：sub=<用户UUID> / owner=pandabase / aud=["709a8e…"] /
+                scope="baidu:read offline_access" / exp=+168h
+
+⑤ 缓存   客户端本地存令牌，到期用 refresh_token 续期（Casdoor 默认轮换）
+```
+
+**前三步的请求落在哪里**：① ② 分别打本服务和 Casdoor 的元数据；③ ④ 才是浏览器与
+token 端点；⑤ 之后每次工具调用才回到 `/mcp`。
+
+### 阶段 3：每次调用的五道闸
+
+```
+POST /mcp   Authorization: Bearer <JWT>
+ ① 签名     Casdoor JWKS（按 kid 取，缓存 10 分钟）        不通→401
+ ② iss      精确等于 CASDOOR_ISSUER                      不通→401
+ ③ aud      命中 MYBMO_OIDC_AUDIENCE（只放 709a8e…）      不通→401
+ ④ exp/nbf  时钟偏移容忍 ≤60s                            不通→401
+ ⑤ owner    命中 MYBMO_OIDC_ORGS（pandabase）             不通→401
+ scope 检查：工具要求的 scope（如 baidu:read）             不足→403
+```
+
+未认证请求返回 `401 + WWW-Authenticate: Bearer resource_metadata="…/.well-known/oauth-protected-resource"`，
+把客户端指向 Casdoor。**③+⑤ 的语义是"必须是 pandabase 组织下 mybmo-mcp 应用签出的令牌"。**
+
+### 阶段 4：业务判权（`/data/tenancy.json`）
+
+见第五节数据卷布局与 `docs/architecture.md`。要点：账户**私有**，owner 隐式 admin，
+分享只能 read/write，未登记的 alias 一律不可见，判定发生在**取凭据之前**。
+
+### 阶段 5：取百度凭据 → 调百度
+
+```
+判权通过 → 取该账户加密凭据 → access 过期则加锁刷新（先落库再返回）
+        → {header:{userName, accessToken, action}, body:{…}}
+        → POST api.baidu.com/json/sms/service/<Service>/<Method>
+```
+
+`userName` 必须是**百度账户中文名**（填错报 81020）。
+
+## 二、八个不能违背的不变量
+
+1. **`aud` 默认为 client_id，但带 `resource` 参数时会变成资源地址。** Casdoor 收到
+   RFC 8707 的 `resource` 就把它填进 `aud`（实测：带 `resource=https://baiduads.pandabase.top/`
+   时 `aud=["https://baiduads.pandabase.top/"]`，不带时 `aud=["709a8e…"]`）。本服务把
+   `MYBMO_OIDC_AUDIENCE` 当**白名单**用（只放 client_id），所以**客户端必须加
+   `--disable-resource-parameter`**，否则令牌必被拒、并触发"授权→401→再授权"的死循环。
 2. **JWKS 路径必须显式配置。** 实测在 `/.well-known/jwks`，不是常见的
    `{issuer}/api/v1/jwks`。推导值恰好能用是巧合，不是契约。
 3. **DCR 已关闭（组织级 `dcrPolicy` 置空 = disabled）。** 实测证据：向
@@ -22,7 +114,7 @@ Caddy）的部署与运维在 infra 仓库，这里只记录**本仓库代码依
 6. **只有一个应用、一个组织。** 本服务只接受 Casdoor 的 `pandabase` 组织下
    `mybmo-mcp` 应用（client_id `709a8e16656a223a1ab7`）签出的令牌：`MYBMO_OIDC_AUDIENCE`
    里只放这一个 client_id，`MYBMO_OIDC_ORGS=pandabase`。多出来的客户端应用一律删除，
-   见[第二层](#二环境变量值由-infra-提供变量名由本仓库决定)那两条变量。
+   见第三节的两条变量 `MYBMO_OIDC_AUDIENCE` / `MYBMO_OIDC_ORGS`。
 7. **组织边界由鉴权层保证，授权表不重复表达。** 本服务只对应 Casdoor 的
    `pandabase` 组织下的 `mybmo-mcp` 应用；`built-in` 只服务 `dbx-mcp` / `casdoor-mcp`。
    两道闸：`MYBMO_OIDC_AUDIENCE` 只放行本服务的 client_id，`MYBMO_OIDC_ORGS`
@@ -31,7 +123,7 @@ Caddy）的部署与运维在 infra 仓库，这里只记录**本仓库代码依
    的 `sub`；owner 自动拥有 admin，别人要用必须显式 `grants`（只能 read/write）。
    没登记在 `accounts` 里的 alias 一律不可见。
 
-## 二、环境变量（值由 infra 提供，变量名由本仓库决定）
+## 三、环境变量（值由 infra 提供，变量名由本仓库决定）
 
 | 变量 | 含义 | 缺失时 |
 |---|---|---|
@@ -47,7 +139,7 @@ Caddy）的部署与运维在 infra 仓库，这里只记录**本仓库代码依
 | `MYBMO_MASTER_KEY` | base64 的 32 字节 AES-GCM 主密钥 | 能否启动不报错，但调不动百度 |
 | `MYBMO_DATABASE_URL` | 平台 PG 的 DSN（当前未启用） | 忽略 |
 
-## 三、端点契约
+## 四、端点契约
 
 | 端点 | 约定 |
 |---|---|
@@ -59,7 +151,7 @@ Caddy）的部署与运维在 infra 仓库，这里只记录**本仓库代码依
 
 反代（Caddy）**不做鉴权**：它注入的身份头可被直连回环伪造，令牌校验必须在本进程内完成。
 
-## 四、数据卷布局
+## 五、数据卷布局
 
 挂载点是 `/data`，由 infra 提供卷；里面放什么都由本仓库决定：
 
@@ -71,7 +163,7 @@ Caddy）的部署与运维在 infra 仓库，这里只记录**本仓库代码依
 /data/<加密凭据文件>    AES-GCM 密文，权限 600
 ```
 
-## 五、当前实例的取值（2026-11-08）
+## 六、当前实例的取值（2026-11-11）
 
 ```text
 issuer   https://auth.pandabase.top

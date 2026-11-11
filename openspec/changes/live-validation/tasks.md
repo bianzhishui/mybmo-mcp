@@ -75,7 +75,10 @@
 - [x] 6.1 在 IdP 给目标客户端建应用、登记回调、把 client_id 加进 `MYBMO_OIDC_AUDIENCE`
       （`mybmo-mcp` 补 scopes 并沿用 33418 回调；另建 `mybmo-client` 备用。
       授权码 + PKCE + 换令牌 + `/mcp` 握手 + `tools/call` 全部实测通过）
-- [ ] 6.2 `[live]` Claude Desktop 或 Cursor 走完授权码登录，列出 5 个工具
+- [ ] 6.2 `[live]` 真实客户端（Claude Desktop / Cursor / DSH）走完授权码登录，列出全部工具
+      （已用 mcp-remote 真实走通：授权码 + PKCE → 令牌 `aud=["709a8e…"]` /
+      `owner=pandabase` / `scope="baidu:read offline_access"`，该令牌实测 `/mcp` 认证通过；
+      但"在客户端里稳定列出工具"尚未确认，且 Claude Desktop / Cursor 本体未试）
 - [x] 6.3 `[live]` 调一次 `search_capabilities` 与一次 `execute_capability`，确认端到端可用
       （`list_accounts` 返回 main/read；`search_capabilities("拓词")` 3 条命中，
       检索摘要里带 ✅ 与实测依据。尚未用真客户端复跑，见 6.2）

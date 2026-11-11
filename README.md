@@ -114,6 +114,8 @@ curl -fsS https://baiduads.pandabase.top/healthz
 | 报表 | 一站式多渠道（`reportType=1783967`）+ **13 个电商报告**逐个跑通；`startRow`/`rowCount` 分页、区间上限 824 天 |
 | 异步 | `createReportTask → getTaskStatus`（`RUNNING`→`SUCCESS`+`fileUrl`），`execute_capability(wait=True)` 实测 `polls=2` |
 | 错误码 | 81020 / 8602 / 901400 / 901606 / 1519 / 30002 / 3 各有实测样本 |
+| 多用户 | 用户可**自助注册**（`/signup/mybmo-mcp`）→ 登录 → `bind_account` 自己绑百度账户（owner 自动是自己）；账户私有，分享只能 read/write |
+| 客户端接入 | Casdoor 侧是**公共客户端**（client_id + PKCE，无需 client_secret）；`aud` 白名单 + `owner` 校验 + 账户授权三段防线 |
 
 **尚未验证**（都是"没有对应账户或客户端"，不是已知缺陷）：
 
