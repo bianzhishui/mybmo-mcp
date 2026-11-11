@@ -61,10 +61,22 @@ Caddy）的部署与运维在 infra 仓库，这里只记录**本仓库代码依
 ```text
 issuer   https://auth.pandabase.top
 jwks     https://auth.pandabase.top/.well-known/jwks
-client   mybmo-mcp / 709a8e16656a223a1ab7
 resource https://baiduads.pandabase.top
 callback https://baiduads.pandabase.top/oauth/baidu/callback
+
+# OAuth 客户端（每个 client_id 都必须进 MYBMO_OIDC_AUDIENCE 白名单）
+mybmo-mcp    / 709a8e16656a223a1ab7   Casdoor 控制台登录 + 客户端验证（TTL 168h，无 refresh 到期）
+mybmo-client / 06fa59d425b54981e537   备用客户端应用（TTL 1h + refresh 30 天），回调 127.0.0.1:33418
 ```
+
+**Casdoor 的两个约束（都实测踩过）**：
+
+1. **应用只能登录同组织的用户**。应用挂在 `pandabase` 组织下时，`built-in` 组织的 `admin`
+   登录会报 `用户: pandabase/admin不存在`。当前可登录的是 `pandabase` 里的 `test01` 等账号。
+2. **`refresh_expire_in_hours=0` 不等于没有 refresh token**。实测令牌里带 `refresh_token`，
+   用 `/api/login/oauth/refresh_token` 能换到新令牌（`expires_in=604800`）。
+   但 Casdoor 默认**开启 refresh 轮换**，新令牌会换掉旧的 refresh_token——所以刷新后必须
+   立即落库（`auth/service.py` 的"先 save 再返回"就是为这个）。
 
 `callback` 是**百度** OAuth 的回调，与上面 IdP 的凭据无关：它只是本服务对百度暴露的一个
 路径。百度侧按**根域**比对（不一致报 `redirect_uri_mismatch`），所以换路径可以、换域名不行。

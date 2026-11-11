@@ -72,10 +72,14 @@
 
 ## 6. 真实客户端
 
-- [ ] 6.1 在 IdP 给目标客户端建应用、登记回调、把 client_id 加进 `MYBMO_OIDC_AUDIENCE`
+- [x] 6.1 在 IdP 给目标客户端建应用、登记回调、把 client_id 加进 `MYBMO_OIDC_AUDIENCE`
+      （`mybmo-mcp` 补 scopes 并沿用 33418 回调；另建 `mybmo-client` 备用。
+      授权码 + PKCE + 换令牌 + `/mcp` 握手 + `tools/call` 全部实测通过）
 - [ ] 6.2 `[live]` Claude Desktop 或 Cursor 走完授权码登录，列出 5 个工具
-- [ ] 6.3 `[live]` 调一次 `search_capabilities` 与一次 `execute_capability`，确认端到端可用
-- [ ] 6.4 记下该客户端的回调地址与 client_id 用途（写进 `deploy/.env.example` 注释）
+- [x] 6.3 `[live]` 调一次 `search_capabilities` 与一次 `execute_capability`，确认端到端可用
+      （`list_accounts` 返回 main/read；`search_capabilities("拓词")` 3 条命中，
+      检索摘要里带 ✅ 与实测依据。尚未用真客户端复跑，见 6.2）
+- [x] 6.4 记下该客户端的回调地址与 client_id 用途（写进 `deploy/.env.example` 注释）
 
 **出口**：不依赖脚本，真实客户端能接入并调用。
 
