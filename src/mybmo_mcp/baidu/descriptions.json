@@ -879,6 +879,40 @@
         "account": "baidu-YF电商-玛卡快消01",
         "basis": "isGenerated=3 后调用成功，返回 bj.bcebos.com/v1/papfc/krcsv/*.csv 签名直链（3600s）"
       }
+    },
+    "PvSearchFunction.getPvSearch": {
+      "description": "查关键词流量：给一批词，返回月均搜索量、指导价、竞价激烈程度、预估展现/点击",
+      "aliases": [
+        "查关键词流量",
+        "关键词搜索量",
+        "查词流量",
+        "关键词指导价",
+        "词流量估算"
+      ],
+      "notes": [
+        "bidWordSource 目前只有 wordList；keywordList 1..1000 个，每个词 ≤40 字节（中文算 2 字节）",
+        "matchType/phraseType 要配对：1+1 精确；2+1 短语；2+3 智能。只传 keywordName 也能查",
+        "返回是**单元素数组**：[{logid, data:[…], actualWordList, errorItems}]；errorItems 非空说明有词被跳过（黄反或次数限制），不是全部词都会预估",
+        "实测返回字段比文档多：除 averageMonthPv/Pc/Mobile、pcPrice/mobilePrice、kwc、show/click、showReasons 外，还有 pv/pcPv/mobilePv、pcShow/mobileShow、pcClick/mobileClick、pcShowRate 等一堆扩展字段",
+        "kwc 文档写 1=高 2=中 3=低（与拓词的 competition 相反方向，注意别混）",
+        "orderBy 可用 averageMonthPv / price / show / click 等；order 默认 desc"
+      ],
+      "params": {
+        "bidWordSource": "估算来源，目前只有 wordList",
+        "keywordList": "词对象数组，1..1000 个",
+        "keywordList[].keywordName": "关键词字面，≤40 字节",
+        "keywordList[].matchType": "1 精确 / 2 短语或智能，需与 phraseType 配合",
+        "keywordList[].phraseType": "matchType=1 时填 1；matchType=2 时 1=短语、3=智能",
+        "device": "0 全部 / 1 仅移动 / 2 仅计算机",
+        "orderBy": "排序字段：price / averageMonthPv / show / click / pcPrice / mobilePrice 等",
+        "order": "asc / desc，默认 desc"
+      },
+      "verified": {
+        "at": "2026-11-11",
+        "level": "read",
+        "account": "baidu-YF电商-玛卡快消01",
+        "basis": "keywordList=[宠物益生菌(精确), 猫粮(短语)] 返回 logid + 两条词流量（price/pv/averageMonthPv/show/click/kwc 等齐全）"
+      }
     }
   }
 }

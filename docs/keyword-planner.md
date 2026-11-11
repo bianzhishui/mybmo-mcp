@@ -13,11 +13,11 @@
 | 异步种子词拓词·创建任务 | `KRService.getKRFileIdByWords` | ✅ 有 | ✅ |
 | 查询文件状态 | `KRService.getFileStatus` | ✅ 有 | ✅ |
 | 获取文件下载 URL | `KRService.getFilePath` | ✅ 有 | ✅ |
-| **查询关键词流量** | `PvSearchFunction.getPvSearch` | ❌ **没有** | — |
+| **查询关键词流量** | `PvSearchFunction.getPvSearch` | ✅ 有（**手写补入**） | ✅ |
 
-⚠️ **缺口：`PvSearchFunction.getPvSearch`（查关键词月均搜索量、指导价、竞价激烈程度）不在
-`baiduads-sdk` 的覆盖范围里**，所以本项目 389 条能力中**没有这条**。要用只能先扩展能力表
-（生成器加手工条目，或另建手写能力）。
+`PvSearchFunction.getPvSearch`（查关键词月均搜索量、指导价、竞价激烈程度）**不在 `baiduads-sdk`
+覆盖范围**里，已用 `scripts/handwritten_capabilities.json` 手写补入能力表（构建时与 SDK 内省结果
+合并，重名直接报错）。链路：`getPvSearch` → 6/6 覆盖。
 
 ## 二、公共参数 `seedFilter`（SeedFilter）
 
@@ -97,6 +97,33 @@
 | `getKRFileIdByWords` 100 / 200 / 500 / 1000 词 | 全部成功（200 首次失败是因为上一个任务未完成） |
 | 文件生成 → 下载 | 2→3 约 5 秒，`filePath` 为 `bj.bcebos.com/v1/papfc/krcsv/*.csv` |
 
+## 六点五、查关键词流量 `PvSearchFunction.getPvSearch`（手写补入）
+
+| 字段 | 说明 |
+|---|---|
+| `bidWordSource` | 必填，目前只有 `wordList` |
+| `keywordList` | 必填，1..1000 个；每项 `keywordName`（≤40 字节）、`matchType`、`phraseType` |
+| `matchType` + `phraseType` | `1+1` 精确；`2+1` 短语；`2+3` 智能 |
+| `orderBy` / `order` | 排序字段 / `asc|desc`（默认 desc） |
+
+✅ 实测（`宠物益生菌` 精确 + `猫粮` 短语）：返回
+
+```
+[{ "logid": 4846530380936607371,
+   "data": [ { "keywordName":"猫粮", "price":4.96, "matchType":2, "phraseType":1, "kwc":1,
+               "pv":5670, "averageMonthPv":24311, "averageMonthPvPc":914,
+               "averageMonthPvMobile":23397, "show":755, "click":132,
+               "pcPrice":4.96, "mobilePrice":0.4, "showReasons":["高频热搜词"], … } ] }]
+```
+
+与文档的差异：
+- 返回是**单元素数组**，外层还有 `logid` / `actualWordList` / `errorItems`
+- 实测字段**远超文档**：除 `averageMonthPv*` / `pcPrice` / `mobilePrice` / `kwc` / `show` / `click`
+  外，还有 `pv` / `pcPv` / `mobilePv` / `pcShow` / `mobileShow` / `pcClick` / `mobileClick` /
+  `pcShowRate` / `mobileShowRate` / `pcRank` / `mobileRank` / `recBid` / `wordid` 等
+- ⚠️ `kwc` 文档写 **1=高 2=中 3=低**，与拓词 `competition`（1=低）**方向相反**，别混用
+- `errorItems` 非空表示有词被跳过（黄反/次数限制），不是所有词都会预估
+
 ## 七、错误码
 
 | 码 | 文案 | 触发 |
@@ -109,7 +136,8 @@
 
 ## 八、还没确定的
 
-1. **`PvSearchFunction.getPvSearch`（关键词流量）** 不在能力表里 —— 最大缺口，要用得先扩能力表。
+1. ~~`PvSearchFunction.getPvSearch` 不在能力表~~ → 已手写补入并实测通过。`handwritten_capabilities.json`
+   里目前只有这一条，后续 SDK 未覆盖的接口都往这里加。
 2. `competition` 的取值方向（1 是高还是低）两份文档互相矛盾，未用真实数据交叉验证。
 3. `searchRegions` 地域码表未取；`regionExtend` / `removeCampaignDuplicate` 未单独验证效果。
 4. `similar` / `recBid` 的确切语义文档未给。

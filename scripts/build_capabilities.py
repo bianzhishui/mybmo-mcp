@@ -46,6 +46,8 @@ import baiduads
 ROOT = Path(__file__).resolve().parents[1]
 GROUPS = ROOT / "scripts" / "service_groups.json"
 OUTPUT = ROOT / "src" / "mybmo_mcp" / "baidu" / "capabilities.json"
+#: SDK 没覆盖、但官方文档存在的接口。手写维护，构建时与内省结果合并。
+HANDWRITTEN = ROOT / "scripts" / "handwritten_capabilities.json"
 
 #: 明确会改变投放或账户配置的动词
 MUTATING_VERBS = (
@@ -299,6 +301,18 @@ def _camel(snake: str) -> str:
     return parts[0] + "".join(p.title() for p in parts[1:])
 
 
+def load_handwritten(path: Path = HANDWRITTEN) -> tuple[dict[str, Any], dict[str, Any]]:
+    """读手写补充能力。与 SDK 产物冲突直接报错——静默覆盖会让两边都不可信。"""
+    if not path.is_file():
+        return {}, {}
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    caps = raw.get("capabilities") or {}
+    schemas = raw.get("schemas") or {}
+    if not isinstance(caps, dict) or not isinstance(schemas, dict):
+        raise SystemExit(f"{path} 的 capabilities / schemas 必须是对象")
+    return caps, schemas
+
+
 def main() -> int:
     # 能力域标签是人定的归类，SDK 里没有这个信息，只能单独维护。
     # 缺一个服务就是空分组，不影响生成，检索里只是少一层权重。
@@ -313,6 +327,17 @@ def main() -> int:
         capabilities.update(found)
         warnings.extend(warns)
 
+    # 手写补充：SDK 没覆盖、但官方文档存在的接口
+    hand_caps, hand_schemas = load_handwritten()
+    clashes = sorted(set(hand_caps) & set(capabilities))
+    if clashes:
+        raise SystemExit(f"手写能力与 SDK 产物重名：{clashes}——先确认哪一边才是对的")
+    schema_clashes = sorted(set(hand_schemas) & set(builder.schemas))
+    if schema_clashes:
+        raise SystemExit(f"手写模型与 SDK 产物重名：{schema_clashes}")
+    capabilities.update(hand_caps)
+    builder.schemas.update(hand_schemas)
+
     mutating = {
         v: sum(1 for c in capabilities.values() if c["mutating"] == v)
         for v in ("true", "false", "unknown")
@@ -325,6 +350,7 @@ def main() -> int:
             "note": "构建期从 SDK 内省生成；嵌套结构保持原样，input 可直接作为请求体",
             "capabilities": len(capabilities),
             "schemas": len(builder.schemas),
+            "handwritten": len(hand_caps),
             "mutating": mutating,
         },
         "schemas": dict(sorted(builder.schemas.items())),
