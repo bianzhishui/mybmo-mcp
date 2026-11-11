@@ -777,7 +777,8 @@
         "**词包绑定关系存在 `audience.fcKeywordWtpids`**：逗号分隔的关键词包 ID 列表（实测 \"1352096810890,1615571277581\" 对应两个包），解绑就是把这个 ID 从这里去掉",
         "风巢相关字段：`audience.fcKeywordWtpids`（关键词包 ID，fc=风巢）可读；`material.fengchaoTitle` / `fengchaoDescription` 读不回，只能写",
         "⚠️ **material 只有在请求里带上 `brand` 等核心素材字段时才会被组装**；且 `fengchaoTitle` 必须**显式列进 campaignShoppingFields** 才会返回。只请求 fengchaoTitle（不带 brand）会得到空 material",
-        "读 material 的完整字段组：`brand` + `userPortrait` + `title` + `fengchaoTitle` + `description` + `pictures` + `videos`（实测这一组能拿全，含 6 条风巢模板标题）"
+        "**读全字段请照抄后台的 52 字段表**（见 docs/campaign-shopping.md 第一节）：漏字段读不到，而写回时 material 整体替换 → 读不全就等于写坏",
+        "两条组装规则：① 不带 `brand` 时 `material` 整个为空；② `fengchaoTitle` 必须显式列进字段表才返回"
       ],
       "params": {
         "campaignShoppingFields": "需要返回的字段名列表，必填",
@@ -813,7 +814,8 @@
         "解绑词包已验证可行：getCampaignShopping 按扁平字段全量读 → 从 audience.fcKeywordWtpids 移除包 ID → 整体回传 campaignShoppingTypes。实测除该字段外零变化（38 关键词 / 367 地域 / 6 标题 / 6 描述 / 18 图 / 1 视频、budget/ocpcBid/pause 全部保持）",
         "material 里还有 **fengchaoTitle / fengchaoDescription**（风巢模板创意）：每条 {text} 含占位符，如 \"{关键词}{玉石怎么清洗表面污垢}喷一喷擦一擦，洁净又亮泽！\" —— {关键词} 由系统按搜索词动态替换。这两个字段**只在写接口提交**，getCampaignShopping 即使请求也读不回来（实测字段缺失）",
         "⚠️ **material 是整体替换**：传什么就是什么。而 `material.fengchaoTitle` / `fengchaoDescription` **读接口拿不到（只写）**，所以「读-改-写」会把它清空（2026-11-11 真实踩过，已用抓包原文恢复）。改 material 前必须有一份后台保存时的完整 payload 作模板，不能只靠 getCampaignShopping 重建",
-        "⚠️ **material 是整体替换**：传什么就是什么。所以「读-改-写」前必须把 material 字段读全——尤其是 `fengchaoTitle` / `fengchaoDescription`，漏读就会在写回时被清空（2026-11-11 真实踩过）"
+        "⚠️ **material 是整体替换**：传什么就是什么。所以「读-改-写」前必须把 material 字段读全——尤其是 `fengchaoTitle` / `fengchaoDescription`，漏读就会在写回时被清空（2026-11-11 真实踩过）",
+        "安全流程：按 52 字段表读全 → 断言 material 的 title/description/pictures/videos/fengchaoTitle 非空 → 只改目标字段 → 整体回传 → 回读逐字段比对（详见 docs/campaign-shopping.md）"
       ],
       "params": {
         "campaignShoppingTypes": "计划对象数组，每项含 campaignShoppingId 与要修改的字段（如 pause）"

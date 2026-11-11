@@ -50,6 +50,7 @@
 | [`docs/auth-contract.md`](../docs/auth-contract.md) | 与 infra 的鉴权契约（不变量、环境变量、端点、卷布局） |
 | [`docs/baidu-behavior.md`](../docs/baidu-behavior.md) | 百度接口行为实测结论（身份/分页/字段/错误码） |
 | [`docs/reports.md`](../docs/reports.md) | 推广报告速查：参数、reportType 总表、列字典 |
+| [`docs/campaign-shopping.md`](../docs/campaign-shopping.md) | 电商计划读写：标准字段表与写前校验 |
 | [`docs/keyword-packages.md`](../docs/keyword-packages.md) | 电商关键词包：读接口实测，写接口待文档 |
 | [`docs/keyword-planner.md`](../docs/keyword-planner.md) | 关键词规划师：接口实测、参数取值范围、异步串行限制 |
 | [`ADR 0002`](../docs/decisions/0002-tech-stack.md) | 技术栈与理由 |

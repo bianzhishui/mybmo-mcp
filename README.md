@@ -137,6 +137,7 @@ curl -fsS https://baiduads.pandabase.top/healthz
 | [`docs/auth-contract.md`](docs/auth-contract.md) | **与 infra 的唯一契约**：鉴权不变量、环境变量、端点、卷布局 |
 | [`docs/baidu-behavior.md`](docs/baidu-behavior.md) | 百度接口行为实测结论；未验证项不得写进能力说明 |
 | [`docs/reports.md`](docs/reports.md) | 推广报告速查：三个方法、通用参数、reportType 全表、列字典、实测对照 |
+| [`docs/campaign-shopping.md`](docs/campaign-shopping.md) | 电商计划读写：52 字段标准读法、material 整体替换风险、词包绑定/解绑、关键字段含义 |
 | [`docs/keyword-packages.md`](docs/keyword-packages.md) | 电商关键词包（KeyWordShoppingService）：读接口实测、写接口参数待文档、如何判断接口是否存在 |
 | [`docs/keyword-planner.md`](docs/keyword-planner.md) | 关键词规划师：5 个接口实测、SeedFilter 全字段、异步三步与串行限制、错误码（含 SDK 未覆盖的流量查询） |
 | [`ADR 0002`](docs/decisions/0002-tech-stack.md) | 技术栈与理由 |
