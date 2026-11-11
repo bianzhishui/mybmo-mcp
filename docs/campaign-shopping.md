@@ -44,10 +44,42 @@
 ```
 ① getCampaignShopping（用完整字段表）
 ② 断言：material.title / description / pictures / videos / fengchaoTitle 均非空
-③ 只改目标字段（如 audience.fcKeywordWtpids）
-④ updateCampaignShopping 回传完整对象
-⑤ 再读一次逐字段比对；对比不到的（创意审核态等）让用户在后台确认
+③ 只改目标字段（如 audience.fcKeywordWtpids / pictures 追加一张）
+④ **把读回来的对象"裁剪"成 schema 允许的字段**（见下）再回传
+⑤ 再读一次逐字段比对
 ```
+
+### ⚠️ 回传前必须裁剪字段
+
+`updateCampaignShopping` 只接受 schema 里声明的字段；而**读回来的对象带一堆只读字段**
+（`reAuditStatus` / `auditId` / `smallSize` / `largeSize` / `posterSource` …），
+直接原样回传会被参数校验拒绝，报 `xxx 不是该能力的参数`。
+
+各子对象的**可写字段**：
+
+| 子对象 | 可写字段 |
+|---|---|
+| `material` | `brand` / `userPortrait` / `title` / `fengchaoTitle` / `description` / `pictures` / `videos` / `broadcastCovers` / `ideaId` / `iType` / `astat` |
+| `Picture`（含 userPortrait / posters） | `imageId` / `url` / `width` / `height` / `astat` / `elementId` / `refuseReason` |
+| `Text`（title / description / fengchaoTitle） | `text` / `astat` / `elementId` / `refuseReason` |
+| `Video` | `videoId` / `url` / `width` / `height` / `duration` / `posters` / `astat` / `elementId` / `refuseReason` / `diagnosticInfos` |
+| 计划本体 | `campaignShoppingId` / `campaignShoppingName` / `campaignType` / `targetType` / `anchorId` / `budget` / `ocpcBid` / `ideaType` / `transType` / `startTime` / `endTime` / `eshopType` / `productId` / `productName` / `promotionUrl` / `schedule` / `audience` / `material` / `pause` / `status` / `adgroupShoppingId` / `customMaterials` / `diagnosticLabel` / `repayShowDesc` / `repayShowStatus` |
+
+> 实测踩坑：`useLiftBudget` / `liftBudget` / `liftMode` / `aiOptimizer` / `aiFix` / `campaignSource` /
+> `intelligentType` / `roi` 这些**读得到但不能写**（不在 schema 里），回传会报"不是该能力的参数"。
+
+### 往计划里加一张图（实测流程）
+
+```
+① ImageManageService.uploadImage（addImage=true）→ imageId / url / width / height
+② getCampaignShopping（52 字段）
+③ material.pictures 追加 {"imageId","url","width","height"}
+④ 裁剪字段后 updateCampaignShopping
+⑤ 回读：pictures +1，title/description/fengchaoTitle/videos 数量不变
+```
+
+实测（副本 2376038055）：pictures 17 → 18，新增那张 `imageId 24366508906`（1140×640），
+`elementId 1615755853062`、`astat 2`；其余素材与暂停状态均未变。
 
 ## 三、几个关键字段的含义
 
