@@ -168,3 +168,23 @@ async def test_await_propagates_api_errors() -> None:
 
     with pytest.raises(RuntimeError):
         await _await_async_task(task(), {"taskId": "t-4"}, Boom(), product_line="sms")
+
+
+async def test_list_wrapped_responses_are_unwrapped() -> None:
+    """百度把 taskId/taskStatus 放在单元素数组里（实测 createReportTask 就是这样）。"""
+    created = [{"taskId": "abc123", "taskStatus": "RUNNING"}]
+    running = [{"taskId": "abc123", "taskStatus": "RUNNING"}]
+    done = [{"taskId": "abc123", "taskStatus": "SUCCESS", "fileUrl": "https://x/y.csv"}]
+    transport = ScriptedTransport([running, done])
+
+    data, meta = await _await_async_task(
+        task(done_when=(("taskStatus", ("SUCCESS",)),)), created, transport, product_line="sms"
+    )
+
+    assert meta["task_id"] == "abc123"
+    assert meta["timed_out"] is False
+    assert data[0]["fileUrl"] == "https://x/y.csv"
+
+
+def test_lookup_returns_none_for_empty_list() -> None:
+    assert _lookup([], "taskId") is None

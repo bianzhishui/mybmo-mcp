@@ -424,11 +424,21 @@ def _apply_descriptions(
         if aliases:
             extra_aliases[key] = aliases
 
+        async_task = capability.async_task
+        if isinstance(entry.get("async_task"), dict):
+            async_task = AsyncTask.from_dict(entry["async_task"])
+            if async_task is None:
+                raise ValueError(
+                    f"{DESCRIPTIONS_FILENAME} 的 {key}.async_task 缺少合法的 "
+                    "status_capability（形如 Service.method）"
+                )
+
         updated[key] = replace(
             capability,
             description=str(entry.get("description") or ""),
             notes=tuple(str(note) for note in (entry.get("notes") or ())),
             mutating=str(entry.get("mutating") or capability.mutating),
+            async_task=async_task,
         )
     return updated, extra_aliases
 

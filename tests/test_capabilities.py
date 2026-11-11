@@ -76,3 +76,17 @@ def test_method_name_comes_from_endpoint_path(data: dict[str, Any]) -> None:
 def test_unknown_set_stays_small_and_reviewable(data: dict[str, Any]) -> None:
     unknown = [key for key, cap in data["capabilities"].items() if cap["mutating"] == "unknown"]
     assert len(unknown) <= 5, f"unknown 变多，需要复核判据：{unknown}"
+
+
+def test_async_task_metadata_is_merged_from_descriptions() -> None:
+    """``async_task`` 只能写在 descriptions.json（能力表由脚本生成，不许手改）。"""
+    from mybmo_mcp.baidu.capabilities import CapabilityRegistry
+
+    registry = CapabilityRegistry.load()
+    cap = registry.get("OpenApiReportService.createReportTask")
+
+    assert cap is not None
+    assert cap.async_task is not None
+    assert cap.async_task.status_capability == "OpenApiReportService.getTaskStatus"
+    assert cap.async_task.task_id_field == "taskId"
+    assert cap.async_task.done_when == (("taskStatus", ("SUCCESS",)),)

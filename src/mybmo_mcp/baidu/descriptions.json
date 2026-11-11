@@ -451,17 +451,29 @@
         "生成报表文件"
       ],
       "notes": [
-        "异步三步：本接口返回 taskId → getTaskStatus 轮询 → getFilePath 取下载地址",
+        "异步三步：本接口返回 taskId → getTaskStatus 轮询 → 状态 SUCCESS 后响应里直接给 fileUrl（CSV 下载地址）",
         "要直接拿数据不要用这个，用 getReportData 同步取",
         "日期格式 YYYY-MM-DD",
-        "reportType 枚举与 getReportData 同样未确定；先跑通 getReportData 再碰异步导出",
-        "这是目前唯一确认的异步形态（createReportTask → getTaskStatus → 取文件），async_task 元数据要等它跑通一次才补得实"
+        "reportType 必填；一站式多渠道账户报告实测取值 1783967（timeUnit: HOUR/DAY/WEEK/MONTH/SUMMARY，区间上限 824 天）",
+        "实测 createReportTask 与 getTaskStatus 的响应都是**单元素数组**，taskId/taskStatus/fileUrl 在 [0] 里",
+        "支持 execute_capability(wait=True)：元数据已声明，轮询到 taskStatus=SUCCESS 后返回终态（含 fileUrl、tableHeader、dataStartRow）"
       ],
       "params": {
         "startDate": "起始日期，格式 YYYY-MM-DD",
         "endDate": "结束日期，格式 YYYY-MM-DD",
         "columns": "报表列名列表，英文标识（如 impression / click / cost）；完整清单以官方文档为准",
-        "reportType": "报表类型枚举，取值以官方文档为准"
+        "reportType": "报表类型枚举，必填。一站式多渠道账户报告 = 1783967（实测）"
+      },
+      "async_task": {
+        "status_capability": "OpenApiReportService.getTaskStatus",
+        "task_id_field": "taskId",
+        "done_when": {
+          "taskStatus": [
+            "SUCCESS"
+          ]
+        },
+        "poll_interval": 2,
+        "timeout": 120
       }
     },
     "OpenApiReportService.getTaskStatus": {
@@ -485,17 +497,19 @@
         "报表取数"
       ],
       "notes": [
-        "分页用 startRow + rowCount：若返回条数等于 rowCount，很可能还有下一页",
+        "分页用 startRow + rowCount：返回里 rowCount 是本次行数，totalRowCount 是总行数；两者不等说明还有下一页",
         "列名是英文标识，不确定时传 withColumnMeta=true 让接口把列元数据一起返回",
-        "单次返回上限未实测（tasks 9.3），不要断言一次就取全",
-        "reportType 必填：不传报 901400「Reporttype could not be empty」；实测 1–12 全部「Unknow reportType」，真实枚举未确定，别凭猜测传值",
-        "timeUnit=day 会被判参数无效（1519），SUMMARY 能通过枚举校验"
+        "reportType 必填；一站式多渠道账户报告实测取值 1783967，timeUnit 用 HOUR/DAY/WEEK/MONTH/SUMMARY",
+        "时间区间上限 824 天，超了报 901606「时间区间不能超过824天」",
+        "默认排序不稳定（实测相邻两页日期不连续），分页取全量前务必用 sorts 指定排序字段"
       ],
       "params": {
         "startRow": "起始行号，从 0 开始",
         "rowCount": "本次取多少行",
         "columns": "报表列名列表，英文标识",
-        "withColumnMeta": "true 时返回列元数据，适合不确定列名时先探一次"
+        "withColumnMeta": "true 时返回列元数据，适合不确定列名时先探一次",
+        "reportType": "报表类型枚举，必填。一站式多渠道账户报告 = 1783967（实测）",
+        "timeUnit": "HOUR / DAY / WEEK / MONTH / SUMMARY（大写）"
       }
     },
     "CampaignFeedService.getCampaignFeed": {

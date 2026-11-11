@@ -204,9 +204,18 @@ async def execute_capability(
 
 
 def _lookup(data: Any, path: str) -> Any:
-    """按 ``a.b.c`` 取嵌套字段；取不到返回 ``None``。"""
+    """按 ``a.b.c`` 取嵌套字段；取不到返回 ``None``。
+
+    中途遇到数组时取**第一个元素**：百度不少接口把单条结果放在单元素数组里
+    （``createReportTask``、``getTaskStatus`` 都是），不展开的话拿不到 ``taskId``，
+    ``wait=True`` 会静默退化成"无法轮询"。
+    """
     current: Any = data
     for part in path.split("."):
+        if isinstance(current, list):
+            current = current[0] if current else None
+            if current is None:
+                return None
         if not isinstance(current, dict):
             return None
         current = current.get(part)
