@@ -6,8 +6,7 @@
 # 两阶段：builder 装依赖，运行镜像只留 venv，不带 pip 缓存与编译工具。
 # 两个 sync 参数都是刻意的：
 #   --no-dev      baiduads-sdk 只在生成 capabilities.json 时用，运行时不碰
-#   psycopg      多租户落库用。**必须显式 uv pip install**：`uv sync --extra db`
-#                实测没把 extra 装进 venv（80 个包独缺 psycopg），所以这里钉死版本单独装
+#   --extra db   装 psycopg（多租户落库用）
 
 FROM python:3.12-slim AS builder
 
@@ -22,15 +21,12 @@ WORKDIR /app
 # 先只拷依赖清单，让依赖层能命中缓存——改代码不会触发重新装包
 COPY pyproject.toml uv.lock README.md ./
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-dev --no-install-project
+    uv sync --frozen --no-dev --extra db --no-install-project
 
 COPY src ./src
 COPY migrations ./migrations
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-dev
-# psycopg 单独装：版本与 uv.lock 对齐（3.3.8），避免 --extra 不生效的坑
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv pip install --python /app/.venv/bin/python "psycopg[binary,pool]==3.3.8"
+    uv sync --frozen --no-dev --extra db
 
 
 FROM python:3.12-slim
