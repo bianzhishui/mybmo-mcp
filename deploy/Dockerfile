@@ -12,9 +12,16 @@ FROM python:3.12-slim AS builder
 
 RUN pip install --no-cache-dir uv
 
+# 依赖源用 build arg 传：默认官方 PyPI；国内服务器可传镜像
+# （实测 files.pythonhosted.org 在腾讯云只有 ~29 KB/s，清缓存后重建会卡住）。
+# 哈希仍按 uv.lock 校验，换源不降低完整性。
+#   docker compose build --build-arg UV_INDEX=https://mirrors.cloud.tencent.com/pypi/simple
+ARG UV_INDEX=https://pypi.org/simple
 ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
-    UV_PYTHON_DOWNLOADS=0
+    UV_PYTHON_DOWNLOADS=0 \
+    UV_DEFAULT_INDEX=${UV_INDEX} \
+    UV_INDEX_URL=${UV_INDEX}
 
 WORKDIR /app
 
