@@ -2,7 +2,7 @@
 
 # mybmo-mcp
 
-百度营销开放平台的 MCP 能力网关。**398 个接口收进 6 个工具**——用检索代替枚举，
+百度营销开放平台的 MCP 能力网关。**399 个接口收进 6 个工具**——用检索代替枚举，
 模型不必面对 390 个工具定义；百度令牌只活在服务端，客户端拿的是本服务自己的身份。
 
 > 非官方项目，与百度无隶属关系。需自行在 <https://dev2.baidu.com> 创建应用并完成授权。
@@ -137,6 +137,7 @@ curl -fsS https://baiduads.pandabase.top/healthz
 | [`docs/auth-contract.md`](docs/auth-contract.md) | **与 infra 的唯一契约**：鉴权不变量、环境变量、端点、卷布局 |
 | [`docs/baidu-behavior.md`](docs/baidu-behavior.md) | 百度接口行为实测结论；未验证项不得写进能力说明 |
 | [`docs/reports.md`](docs/reports.md) | 推广报告速查：三个方法、通用参数、reportType 全表、列字典、实测对照 |
+| [`docs/image-management.md`](docs/image-management.md) | 图片资产：上传（MD5 去重）/查询（最终一致）/改名/删除/裁剪/分享 |
 | [`docs/campaign-shopping.md`](docs/campaign-shopping.md) | 电商计划读写：52 字段标准读法、material 整体替换风险、词包绑定/解绑、关键字段含义 |
 | [`docs/keyword-packages.md`](docs/keyword-packages.md) | 电商关键词包（KeyWordShoppingService）：读接口实测、写接口参数待文档、如何判断接口是否存在 |
 | [`docs/keyword-planner.md`](docs/keyword-planner.md) | 关键词规划师：5 个接口实测、SeedFilter 全字段、异步三步与串行限制、错误码（含 SDK 未覆盖的流量查询） |

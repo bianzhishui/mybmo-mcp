@@ -169,7 +169,7 @@ class Runtime:
 
     @cached_property
     def capabilities(self) -> CapabilityRegistry:
-        """能力注册表。398 条能力 + 597 个模型，进程内只加载一次。"""
+        """能力注册表。399 条能力 + 598 个模型，进程内只加载一次。"""
         return CapabilityRegistry.load()
 
     @cached_property

@@ -1128,6 +1128,142 @@
         "account": "baidu-YF电商-玛卡快消01",
         "basis": "探测包先绑 2079251858 → bindPlanIdList=[2079251858]；改传 1924321849 → 列表被替换为 [1924321849]（证明替换非追加）；planIds=[] 报 901404；探测包已删除"
       }
+    },
+    "ImageManageService.uploadImage": {
+      "description": "上传图片到百度图库（base64），搜索推广与信息流共用",
+      "aliases": [
+        "上传图片",
+        "传图",
+        "图片入库"
+      ],
+      "notes": [
+        "items 最多 20 张/次，整体请求体 ≤10MB；content 是**纯 base64**，不要带 `data:image/jpg;base64,` 前缀",
+        "addImage=true 才进「我的图库」并生成 imageId；false 仅上传不留存（返回里没有 imageId）",
+        "**按内容 MD5 去重**：同一张图重复上传返回**同一个 imageId**（实测同一 1×1 PNG 两次上传 → 24365854069）",
+        "返回 imageId / url / width / height / size / signature；url 是 feed-image 域名，可直接预览"
+      ],
+      "params": {
+        "items": "图片数组（content 必填，imageName/imgmd5 选填）",
+        "items[].content": "纯 base64（不带 data: 前缀）",
+        "items[].imageName": "≤200 字符（1 汉字算 2）",
+        "addImage": "true=保存到我的图库并生成 imageId"
+      },
+      "verified": {
+        "at": "2026-11-11",
+        "level": "write",
+        "account": "baidu-YF电商-玛卡快消01",
+        "basis": "上传 1×1 PNG（70B）→ imageId 24365854069、url feed-image、size 70；同内容二次上传返回同一 imageId（去重）"
+      }
+    },
+    "ImageManageService.getImageList": {
+      "description": "查询图库图片（按 ID/尺寸/大小/格式/时间/收藏筛选，分页）",
+      "aliases": [
+        "查询图片",
+        "图库列表",
+        "找图",
+        "图片列表"
+      ],
+      "notes": [
+        "返回是**单元素数组包一层**：`[{listData:[...], totalCount, pageNo}]`，取数据要 `out[0].listData`",
+        "filters 形状 `{field, op, values}`，op 支持 eq/in/ge/gt/le/lt/bt；`imageId` 用 eq/in（values 传字符串或数字都可以）",
+        "可筛字段：imageId / width / height / size / format / resolution(\"960*640\") / addtime / isCollect",
+        "⚠️ **最终一致**：刚上传或刚改名后立即查，可能读到旧值甚至空列表（实测改名后立刻查仍是旧名）",
+        "`imageName` 只有上传时设置过才返回；没设名称的图不返回该字段"
+      ],
+      "params": {
+        "filters": "[{field, op, values}]",
+        "pageNo": "默认 1",
+        "pageSize": "默认 40，范围 (0, 1000)"
+      },
+      "verified": {
+        "at": "2026-11-11",
+        "level": "read",
+        "account": "baidu-YF电商-玛卡快消01",
+        "basis": "分页返回 5 条；filters imageId eq/in 均命中；观察到改名后立即查询返回旧名（最终一致）"
+      }
+    },
+    "ImageManageService.modImage": {
+      "description": "修改图片属性：改名、收藏/取消收藏",
+      "aliases": [
+        "改图片名",
+        "收藏图片",
+        "编辑图片"
+      ],
+      "notes": [
+        "items：`[{imageId, collect?, imageName?}]`，imageId 必填",
+        "collect=true 收藏 / false 取消收藏；imageName ≤200 字符",
+        "⚠️ 修改后**立即查列表可能读到旧值**（最终一致），别把回读结果当失败"
+      ],
+      "params": {
+        "items": "图片编辑数组",
+        "items[].imageId": "必填",
+        "items[].collect": "true 收藏",
+        "items[].imageName": "新名称"
+      },
+      "verified": {
+        "at": "2026-11-11",
+        "level": "write",
+        "account": "baidu-YF电商-玛卡快消01",
+        "basis": "对 24365854069 改名 mcp-probe-renamed，响应回显新名；列表回读受最终一致影响"
+      }
+    },
+    "ImageManageService.delImage": {
+      "description": "从图库删除图片（按 imageId）",
+      "aliases": [
+        "删除图片",
+        "删图"
+      ],
+      "notes": [
+        "imageIds 长度 [1,100]；返回被删的 imageId 数组",
+        "**无部分成功**：只要有一张删失败，整体算失败",
+        "schema 里还有 picIds / urlList 两个可选入口（按 picId 或 URL 删），未实测"
+      ],
+      "params": {
+        "imageIds": "要删除的图片 ID 数组，1..100"
+      },
+      "verified": {
+        "at": "2026-11-11",
+        "level": "write",
+        "account": "baidu-YF电商-玛卡快消01",
+        "basis": "删除 24365854069 返回 [24365854069]；再按 imageId 过滤查询为 0 条"
+      }
+    },
+    "ImageProcessingService.addCropImage": {
+      "description": "图片尺寸适配：按目标宽高等比例居中裁剪已有图片，并存入图库（feed 产品线）",
+      "aliases": [
+        "裁剪图片",
+        "图片尺寸适配",
+        "改图片尺寸"
+      ],
+      "notes": [
+        "走 **feed 产品线**：`/json/feed/v1/ImageProcessingService/addCropImage`（不是 /json/sms/）",
+        "srcUrl 必须是图库中已有图片；目标宽高**不得大于原图**，否则会失败",
+        "等比例居中裁剪缩放；desc ≤200 字符"
+      ],
+      "params": {
+        "srcUrl": "原图 URL（图库内已有）",
+        "width": "目标宽",
+        "height": "目标高",
+        "desc": "描述"
+      }
+    },
+    "ImageManagementService.shareImage": {
+      "description": "把图库图片/互动图分享给指定用户（跨账户共用素材）",
+      "aliases": [
+        "分享图片",
+        "图片共享",
+        "素材分享"
+      ],
+      "notes": [
+        "注意服务名是 **ImageManagementService**（带 ment），与上传/查询用的 ImageManageService 不是一个服务",
+        "shareType：IMAGE=图库图片、HUDONG=互动图；images[] 每项至少给 imageId 或 url，targetUserId 指定接收方",
+        "该接口**不在 baiduads-sdk 覆盖范围**，由手写通道补入；参数来自官方文档，尚未实测"
+      ],
+      "params": {
+        "images": "图片数组（imageId / url / imageName / targetUserId…）",
+        "shareType": "IMAGE 或 HUDONG",
+        "productLine": "产品线"
+      }
     }
   }
 }

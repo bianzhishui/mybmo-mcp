@@ -3,11 +3,11 @@
     "version": 1,
     "source": "baiduads-sdk 1.0.0",
     "note": "构建期从 SDK 内省生成；嵌套结构保持原样，input 可直接作为请求体",
-    "capabilities": 398,
-    "schemas": 597,
-    "handwritten": 9,
+    "capabilities": 399,
+    "schemas": 598,
+    "handwritten": 10,
     "mutating": {
-      "true": 213,
+      "true": 214,
       "false": 184,
       "unknown": 1
     }
@@ -12729,6 +12729,76 @@
         }
       }
     },
+    "ShareImageRequest": {
+      "type": "object",
+      "properties": {
+        "images": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "imageId": {
+                "type": "integer",
+                "description": "图片 ID"
+              },
+              "url": {
+                "type": "string",
+                "description": "图片 URL"
+              },
+              "imageName": {
+                "type": "string",
+                "description": "图片名称"
+              },
+              "content": {
+                "type": "string",
+                "description": "互动图详细（shareType=HUDONG 时用）"
+              },
+              "hdImageType": {
+                "type": "integer",
+                "description": "互动图 mt"
+              },
+              "hdImageName": {
+                "type": "string",
+                "description": "互动图名称"
+              },
+              "targetUserId": {
+                "type": "string",
+                "description": "分享目标用户 ID"
+              }
+            }
+          },
+          "description": "要分享的图片列表"
+        },
+        "shareType": {
+          "type": "string",
+          "enum": [
+            "IMAGE",
+            "HUDONG"
+          ],
+          "description": "分享类型：IMAGE=图库图片，HUDONG=互动图"
+        },
+        "productLine": {
+          "type": "string",
+          "description": "产品线"
+        },
+        "sortField": {
+          "type": "string"
+        },
+        "sortOrder": {
+          "type": "string"
+        },
+        "pageNo": {
+          "type": "integer"
+        },
+        "pageSize": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "images",
+        "shareType"
+      ]
+    },
     "ShareRepertoryDelRequest": {
       "type": "object",
       "properties": {
@@ -17867,6 +17937,18 @@
       "body": "VideoExtractRequest",
       "input_schema": {
         "$ref": "#/schemas/VideoExtractRequest"
+      }
+    },
+    "ImageManagementService.shareImage": {
+      "service": "ImageManagementService",
+      "method": "shareImage",
+      "endpoint": "/json/sms/service/ImageManagementService/shareImage",
+      "product_line": "sms",
+      "mutating": "true",
+      "group": "资产与素材",
+      "body": "ShareImageRequest",
+      "input_schema": {
+        "$ref": "#/schemas/ShareImageRequest"
       }
     },
     "ImageManagementService.uploadImage": {

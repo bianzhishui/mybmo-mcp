@@ -109,6 +109,18 @@
       "input_schema": {
         "$ref": "#/schemas/KWShopBindPlanRequest"
       }
+    },
+    "ImageManagementService.shareImage": {
+      "service": "ImageManagementService",
+      "method": "shareImage",
+      "endpoint": "/json/sms/service/ImageManagementService/shareImage",
+      "product_line": "sms",
+      "mutating": "true",
+      "group": "资产与素材",
+      "body": "ShareImageRequest",
+      "input_schema": {
+        "$ref": "#/schemas/ShareImageRequest"
+      }
     }
   },
   "schemas": {
@@ -425,6 +437,76 @@
       },
       "required": [
         "bindPlanKeywordTypes"
+      ]
+    },
+    "ShareImageRequest": {
+      "type": "object",
+      "properties": {
+        "images": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "imageId": {
+                "type": "integer",
+                "description": "图片 ID"
+              },
+              "url": {
+                "type": "string",
+                "description": "图片 URL"
+              },
+              "imageName": {
+                "type": "string",
+                "description": "图片名称"
+              },
+              "content": {
+                "type": "string",
+                "description": "互动图详细（shareType=HUDONG 时用）"
+              },
+              "hdImageType": {
+                "type": "integer",
+                "description": "互动图 mt"
+              },
+              "hdImageName": {
+                "type": "string",
+                "description": "互动图名称"
+              },
+              "targetUserId": {
+                "type": "string",
+                "description": "分享目标用户 ID"
+              }
+            }
+          },
+          "description": "要分享的图片列表"
+        },
+        "shareType": {
+          "type": "string",
+          "enum": [
+            "IMAGE",
+            "HUDONG"
+          ],
+          "description": "分享类型：IMAGE=图库图片，HUDONG=互动图"
+        },
+        "productLine": {
+          "type": "string",
+          "description": "产品线"
+        },
+        "sortField": {
+          "type": "string"
+        },
+        "sortOrder": {
+          "type": "string"
+        },
+        "pageNo": {
+          "type": "integer"
+        },
+        "pageSize": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "images",
+        "shareType"
       ]
     }
   }
