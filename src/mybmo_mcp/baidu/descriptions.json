@@ -809,7 +809,8 @@
         "改 audience / material 时先用 getCampaignShopping **按扁平字段名**读回完整配置（见该能力说明），改完再整体回传，避免把素材或定向覆盖成空",
         "解绑关键词包没有独立接口：后台是走本接口改 audience（keywords / fcKeywordWtpids）实现的",
         "解绑词包已验证可行：getCampaignShopping 按扁平字段全量读 → 从 audience.fcKeywordWtpids 移除包 ID → 整体回传 campaignShoppingTypes。实测除该字段外零变化（38 关键词 / 367 地域 / 6 标题 / 6 描述 / 18 图 / 1 视频、budget/ocpcBid/pause 全部保持）",
-        "material 里还有 **fengchaoTitle / fengchaoDescription**（风巢模板创意）：每条 {text} 含占位符，如 \"{关键词}{玉石怎么清洗表面污垢}喷一喷擦一擦，洁净又亮泽！\" —— {关键词} 由系统按搜索词动态替换。这两个字段**只在写接口提交**，getCampaignShopping 即使请求也读不回来（实测字段缺失）"
+        "material 里还有 **fengchaoTitle / fengchaoDescription**（风巢模板创意）：每条 {text} 含占位符，如 \"{关键词}{玉石怎么清洗表面污垢}喷一喷擦一擦，洁净又亮泽！\" —— {关键词} 由系统按搜索词动态替换。这两个字段**只在写接口提交**，getCampaignShopping 即使请求也读不回来（实测字段缺失）",
+        "⚠️ **material 是整体替换**：传什么就是什么。而 `material.fengchaoTitle` / `fengchaoDescription` **读接口拿不到（只写）**，所以「读-改-写」会把它清空（2026-11-11 真实踩过，已用抓包原文恢复）。改 material 前必须有一份后台保存时的完整 payload 作模板，不能只靠 getCampaignShopping 重建"
       ],
       "params": {
         "campaignShoppingTypes": "计划对象数组，每项含 campaignShoppingId 与要修改的字段（如 pause）"
