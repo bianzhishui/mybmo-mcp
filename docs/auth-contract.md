@@ -16,10 +16,13 @@ Caddy）的部署与运维在 infra 仓库，这里只记录**本仓库代码依
 4. **scope 在 Casdoor 里是对象数组**（`[{"name":"baidu:read",...}]`），写成字符串数组会
    被拒。本服务只认 `baidu:read` / `baidu:write` / `baidu:admin`。
 5. **多用户模式下不得回退成本地身份。** 拿不到身份就报错，绝不把「本机」当管理员。
-6. **授权按组织隔离，不跨组织关联。** Casdoor 有两个组织：`built-in` 只服务
-   `dbx-mcp` / `casdoor-mcp`，`pandabase` 只服务 `mybmo-mcp`。授权表 v2 的
-   `grants[].org` 必须等于令牌的 `owner`（组织），跨组织的 grant 一律不可见；
-   同一组织内可用 `grants[].app`（client_id）再收窄到具体应用。
+6. **组织边界由鉴权层保证，授权表不重复表达。** 本服务只对应 Casdoor 的
+   `pandabase` 组织下的 `mybmo-mcp` 应用；`built-in` 只服务 `dbx-mcp` / `casdoor-mcp`。
+   两道闸：`MYBMO_OIDC_AUDIENCE` 只放行本服务的 client_id，`MYBMO_OIDC_ORGS`
+   再校验令牌的 `owner` 必须是 `pandabase`。**授权表里没有 org / app 字段。**
+7. **账户私有，owner 隐式管理员。** `tenancy.json` 的 `accounts[].owner` 是绑定时
+   的 `sub`；owner 自动拥有 admin，别人要用必须显式 `grants`（只能 read/write）。
+   没登记在 `accounts` 里的 alias 一律不可见。
 
 ## 二、环境变量（值由 infra 提供，变量名由本仓库决定）
 
@@ -28,6 +31,7 @@ Caddy）的部署与运维在 infra 仓库，这里只记录**本仓库代码依
 | `MYBMO_AUTH_MODE` | `local`（stdio 单用户）/ `oidc`（校验 JWT） | 默认 `local` |
 | `CASDOOR_ISSUER` | 令牌 `iss`，必须精确匹配 | oidc 模式拒绝启动 |
 | `MYBMO_OIDC_AUDIENCE` | 允许的 client_id 白名单，逗号分隔 | oidc 模式拒绝启动 |
+| `MYBMO_OIDC_ORGS` | 允许的 Casdoor 组织白名单（生产为 `pandabase`） | 留空则不校验组织 |
 | `MYBMO_JWKS_URL` | JWKS 地址 | 回落到 `{issuer}/.well-known/jwks`（不推荐） |
 | `MYBMO_RESOURCE_URL` | 元数据里的 `resource` 字段 | oidc 模式拒绝启动 |
 | `MYBMO_BAIDU_CALLBACK_URL` | 百度 OAuth 授权回调（`auth bind` 用） | 只影响绑定；缺失时报错，不影响检索与执行 |
@@ -53,7 +57,7 @@ Caddy）的部署与运维在 infra 仓库，这里只记录**本仓库代码依
 挂载点是 `/data`，由 infra 提供卷；里面放什么都由本仓库决定：
 
 ```
-/data/tenancy.json     授权表 v2（按 org + sub 定位，可选 app；尚未落库）
+/data/tenancy.json     授权表 v2（accounts 归属 + grants 分享；尚未落库）
 /data/audit/*.jsonl    按天分文件的审计
 /data/subscribe/*.jsonl 百度事件推送的原始样本（脱敏后），只供人工分析
 /data/locks/           凭据刷新的文件锁

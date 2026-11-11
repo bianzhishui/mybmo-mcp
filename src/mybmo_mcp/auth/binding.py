@@ -29,6 +29,7 @@ from mybmo_mcp.auth.models import (
     validate_alias,
 )
 from mybmo_mcp.auth.oauth import PLATFORM_ID, BaiduOAuth, build_authorize_url
+from mybmo_mcp.auth.tenancy import TenancyStore
 from mybmo_mcp.auth.vault import FileVault
 from mybmo_mcp.baidu.errors import CredentialError
 
@@ -139,6 +140,7 @@ class BindingManager:
         secret_key: str,
         redirect_uri: str,
         platform_id: str = PLATFORM_ID,
+        tenancy: TenancyStore | None = None,
     ) -> None:
         self._oauth = oauth
         self._vault = vault
@@ -147,6 +149,8 @@ class BindingManager:
         self._secret_key = secret_key
         self._redirect_uri = redirect_uri
         self._platform_id = platform_id
+        #: 有它就在绑定成功后自动登记账户归属（账户私有，没 owner 等于谁都看不见）
+        self._tenancy = tenancy
 
     def authorize_url(self, *, subject: str, tenant: str, alias: str) -> tuple[str, BindingState]:
         state = self._states.issue(subject=subject, tenant=tenant, alias=alias)
@@ -158,8 +162,14 @@ class BindingManager:
         )
         return url, state
 
-    async def complete(self, *, auth_code: str, state: str, user_id: int) -> Credential:
-        """处理回调。换令牌失败时不回显 authCode。"""
+    async def complete(
+        self, *, auth_code: str, state: str, user_id: int
+    ) -> tuple[Credential, BindingState | None]:
+        """处理回调。换令牌失败时不回显 authCode。
+
+        返回 ``(凭据, 命中的 state)``——调用方要用 state 里的 ``subject`` 把账户归属
+        写进授权表（账户是私有的，没有 owner 等于谁都看不见）。
+        """
         resolved_state = self._states.consume(state) if state else None
 
         bundle = await self._oauth.exchange(auth_code, user_id)
@@ -198,4 +208,10 @@ class BindingManager:
             note=note,
         )
         self._vault.save(credential)
-        return credential
+        if resolved_state is not None and self._tenancy is not None:
+            # 归属登记失败不能吞掉：凭据已经落库，但账户会因此对所有人不可见，
+            # 必须在回调页面上让操作者看到（由调用方把状态回显出去）。
+            self._tenancy.register_account(
+                credential.alias, owner=resolved_state.subject, user_name=credential.user_name
+            )
+        return credential, resolved_state

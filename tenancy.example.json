@@ -1,33 +1,14 @@
 {
-  "_note": "复制为 data/tenancy.json 使用。仅在 MYBMO_AUTH_MODE=oidc 时生效。v2 起必须写 org：授权只在同一组织内生效，built-in（dbx-mcp/casdoor-mcp）与 pandabase（mybmo-mcp）互不关联。可选 app 字段用于同一组织内多应用再隔离（填 client_id）。permission 只能是 read / write / admin，缺失按 read 处理。alias 必须与 list_accounts 里的一致。",
+  "_note": "复制为 data/tenancy.json 使用。仅在 MYBMO_AUTH_MODE=oidc 时生效。模型只有三要素：用户(sub) × 百度账户(alias) × 档位。账户归绑它的用户私有——owner 隐式拥有 admin，别人要用必须显式 grants（只能 read/write，admin 不能转授）。没在 accounts 里登记的 alias 一律不可见。组织/应用维度不在这里：本服务只对应 Casdoor 的 pandabase/mybmo-mcp 应用，跨组织由鉴权层（aud 白名单 + MYBMO_OIDC_ORGS）挡住。",
   "version": 2,
   "users": [
-    {
-      "sub": "u_zhang",
-      "org": "pandabase",
-      "tenant_id": "t_default",
-      "display_name": "张三"
-    },
-    {
-      "sub": "u_li",
-      "org": "pandabase",
-      "tenant_id": "t_default",
-      "display_name": "李四"
-    }
+    { "sub": "u_zhang", "display_name": "张三" },
+    { "sub": "u_li", "display_name": "李四" }
+  ],
+  "accounts": [
+    { "alias": "main", "owner": "u_zhang", "user_name": "示例账户·中文名", "note": "" }
   ],
   "grants": [
-    {
-      "org": "pandabase",
-      "sub": "u_zhang",
-      "alias": "main",
-      "permission": "read"
-    },
-    {
-      "org": "pandabase",
-      "sub": "u_li",
-      "alias": "main",
-      "permission": "write",
-      "app": "709a8e16656a223a1ab7"
-    }
+    { "sub": "u_li", "alias": "main", "permission": "write" }
   ]
 }

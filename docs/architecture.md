@@ -14,7 +14,7 @@
 | 百度按**根域**比对回调地址 | 百度 OAuth（`redirect_uri_mismatch`） | 回调路径可换，域名不能换 |
 | MCP 规范要求校验 token audience | MCP 2026-07-28 | 不能把百度令牌当接入令牌 |
 | 令牌由外部 IdP 签发，`aud` 是 client_id | 实测（infra 仓库 ADR 0003） | 本服务把 audience 当白名单用 |
-| IdP 里按组织隔离应用归属 | Casdoor 行为（应用只能登录同组织用户） | `built-in` 只服务 dbx-mcp/casdoor-mcp，`pandabase` 只服务本服务；授权表按 `org` 隔离，不跨组织关联 |
+| IdP 里按组织隔离应用归属 | Casdoor 行为（应用只能登录同组织用户） | `built-in` 只服务 dbx-mcp/casdoor-mcp，`pandabase` 只服务本服务；组织在鉴权层校验（aud + owner），授权表不表达组织 |
 
 ## 二、三层信任边界
 

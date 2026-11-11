@@ -164,6 +164,7 @@ class Runtime:
             app_id=self.settings.baidu_app_id,
             secret_key=self.settings.baidu_secret_key,
             redirect_uri=callback,
+            tenancy=self.tenancy,
         )
 
     @cached_property
@@ -224,6 +225,7 @@ class Runtime:
             issuer=self.settings.casdoor_issuer,
             audience=self.settings.mybmo_oidc_audience,
             jwks_url=self.settings.mybmo_jwks_url or None,
+            organizations=self.settings.mybmo_oidc_orgs,
         )
 
     def auth_settings(self) -> AuthSettings | None:

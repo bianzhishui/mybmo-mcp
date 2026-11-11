@@ -28,7 +28,8 @@
 | MCP 规范要求校验 audience | 不能把百度令牌当接入令牌；`aud` 是 client_id，按白名单处理 |
 | 反代不做鉴权 | `/mcp` 的令牌校验必须在进程内完成 |
 | 单机、单人维护 | 不引需要专职运维的组件；不追求 HA |
-| IdP 组织之间有边界（built-in / pandabase） | 授权表 v2 按 `org` 隔离，跨组织不关联；同组织内可用 `app` 再收窄 |
+| IdP 组织之间有边界（built-in / pandabase） | 在鉴权层校验（aud 白名单 + `MYBMO_OIDC_ORGS`）；授权表只表达"用户 × 账户 × 档位" |
+| 百度账户归绑定者私有 | `tenancy.json` 的 `accounts[].owner`；owner 隐式 admin，分享只能 read/write |
 
 ## 边界
 

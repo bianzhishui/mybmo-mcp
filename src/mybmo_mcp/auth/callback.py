@@ -99,7 +99,9 @@ async def complete_binding(
     state = _first(params, ("state",))
 
     try:
-        credential = await manager.complete(auth_code=auth_code, state=state, user_id=user_id)
+        credential, binding = await manager.complete(
+            auth_code=auth_code, state=state, user_id=user_id
+        )
     except CredentialError as exc:
         # CredentialError 的文案由 auth/oauth.py 保证不含授权码与任何令牌
         return CallbackOutcome(
@@ -116,7 +118,14 @@ async def complete_binding(
             hints=("这是上游问题，先重试一次 auth bind；连续失败再查 docs/baidu-behavior.md",),
         )
 
+    owner = binding.subject if binding is not None else ""
+
     hints: list[str] = []
+    if not owner:
+        hints.append(
+            "state 缺失，无法确定账户归属（owner）；账户现在对任何人不可见，"
+            "需在 tenancy.json 的 accounts 里补 {alias, owner}"
+        )
     if credential.status != STATUS_ACTIVE:
         hints.append(
             "state 缺失或不匹配，账户按 userId 命名并标记为 unconfirmed；"
@@ -133,6 +142,7 @@ async def complete_binding(
         data={
             "alias": credential.alias,
             "user_name": credential.user_name,
+            "owner": owner,
             "status": credential.status,
             "expires_at": credential.expires_at,
         },

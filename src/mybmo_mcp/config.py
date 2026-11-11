@@ -51,6 +51,11 @@ class Settings(BaseSettings):
     #: 多个客户端用逗号分隔；每个都必须先在 IdP 里显式注册（不开 DCR）。
     #: 不设就拒绝启动——猜一个默认值比报错更危险。
     mybmo_oidc_audience: str = ""
+    #: 允许的 **Casdoor 组织**白名单（逗号分隔）。本服务只对应 pandabase 组织下的
+    #: mybmo-mcp 应用，所以这里通常只有一个值。留空 = 不校验（仅靠 aud 白名单）。
+    #: 校验发生在鉴权层：令牌的 ``owner`` 声明不在列表里直接 401，
+    #: 授权表里**不再**重复表达组织维度。
+    mybmo_oidc_orgs: str = ""
     mybmo_jwks_url: str = ""
     mybmo_database_url: str = ""
 

@@ -137,6 +137,7 @@ class JwtVerifier:
         audience: str | Sequence[str],
         jwks_url: str | None = None,
         clock_skew: int = CLOCK_SKEW_SECONDS,
+        organizations: str | Sequence[str] = (),
     ) -> None:
         if not issuer:
             raise ValueError("issuer 不能为空：多用户模式下必须配置 CASDOOR_ISSUER")
@@ -145,6 +146,9 @@ class JwtVerifier:
             raise ValueError("audience 不能为空：必须配置 MYBMO_OIDC_AUDIENCE")
         self._issuer = issuer.rstrip("/")
         self._audiences = audiences
+        # 组织白名单：本服务只服务一个 Casdoor 组织（pandabase），
+        # 令牌的 owner 声明不在列表里直接拒。空 = 不校验。
+        self._organizations = _normalize_audiences(organizations)
         self._clock_skew = clock_skew
         # 默认值只是兜底：实测 issuer 给的是 /.well-known/jwks，不是这里推导的路径。
         # 部署时必须显式设 MYBMO_JWKS_URL，见 docs/auth-contract.md。
@@ -208,6 +212,15 @@ class JwtVerifier:
             raise TokenError(f"令牌的 issuer 不受信任（期望 {self._issuer}）") from exc
         except jwt.InvalidTokenError as exc:
             raise TokenError(f"令牌无效：{exc}") from exc
+
+        if self._organizations:
+            owner = str(claims.get("owner") or claims.get("organization") or "").strip()
+            if owner not in self._organizations:
+                allowed = "、".join(self._organizations)
+                raise TokenError(
+                    f"令牌所属组织为 {owner or '未标注'}，而本服务只接受 {allowed} 组织的令牌。"
+                    "组织与服务的对应关系见 docs/auth-contract.md"
+                )
 
         scope_text = str(claims.get("scope") or claims.get("scp") or "")
         scopes = tuple(sorted({s for s in scope_text.replace(",", " ").split() if s}))

@@ -68,6 +68,7 @@ async def test_success_returns_alias_and_chinese_name_only(tmp_path: Path) -> No
     assert outcome.data == {
         "alias": "main",
         "user_name": "示例账户",
+        "owner": "sub-1",
         "status": STATUS_ACTIVE,
         "expires_at": outcome.data["expires_at"],
     }
