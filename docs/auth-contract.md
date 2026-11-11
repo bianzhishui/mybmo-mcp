@@ -16,11 +16,15 @@ Caddy）的部署与运维在 infra 仓库，这里只记录**本仓库代码依
 4. **scope 在 Casdoor 里是对象数组**（`[{"name":"baidu:read",...}]`），写成字符串数组会
    被拒。本服务只认 `baidu:read` / `baidu:write` / `baidu:admin`。
 5. **多用户模式下不得回退成本地身份。** 拿不到身份就报错，绝不把「本机」当管理员。
-6. **组织边界由鉴权层保证，授权表不重复表达。** 本服务只对应 Casdoor 的
+6. **只有一个应用、一个组织。** 本服务只接受 Casdoor 的 `pandabase` 组织下
+   `mybmo-mcp` 应用（client_id `709a8e16656a223a1ab7`）签出的令牌：`MYBMO_OIDC_AUDIENCE`
+   里只放这一个 client_id，`MYBMO_OIDC_ORGS=pandabase`。多出来的客户端应用一律删除，
+   见[第二层](#二环境变量值由-infra-提供变量名由本仓库决定)那两条变量。
+7. **组织边界由鉴权层保证，授权表不重复表达。** 本服务只对应 Casdoor 的
    `pandabase` 组织下的 `mybmo-mcp` 应用；`built-in` 只服务 `dbx-mcp` / `casdoor-mcp`。
    两道闸：`MYBMO_OIDC_AUDIENCE` 只放行本服务的 client_id，`MYBMO_OIDC_ORGS`
    再校验令牌的 `owner` 必须是 `pandabase`。**授权表里没有 org / app 字段。**
-7. **账户私有，owner 隐式管理员。** `tenancy.json` 的 `accounts[].owner` 是绑定时
+8. **账户私有，owner 隐式管理员。** `tenancy.json` 的 `accounts[].owner` 是绑定时
    的 `sub`；owner 自动拥有 admin，别人要用必须显式 `grants`（只能 read/write）。
    没登记在 `accounts` 里的 alias 一律不可见。
 
@@ -30,7 +34,7 @@ Caddy）的部署与运维在 infra 仓库，这里只记录**本仓库代码依
 |---|---|---|
 | `MYBMO_AUTH_MODE` | `local`（stdio 单用户）/ `oidc`（校验 JWT） | 默认 `local` |
 | `CASDOOR_ISSUER` | 令牌 `iss`，必须精确匹配 | oidc 模式拒绝启动 |
-| `MYBMO_OIDC_AUDIENCE` | 允许的 client_id 白名单，逗号分隔 | oidc 模式拒绝启动 |
+| `MYBMO_OIDC_AUDIENCE` | 允许的 client_id 白名单。**生产只有 `709a8e16656a223a1ab7`（mybmo-mcp）** | oidc 模式拒绝启动 |
 | `MYBMO_OIDC_ORGS` | 允许的 Casdoor 组织白名单（生产为 `pandabase`） | 留空则不校验组织 |
 | `MYBMO_JWKS_URL` | JWKS 地址 | 回落到 `{issuer}/.well-known/jwks`（不推荐） |
 | `MYBMO_RESOURCE_URL` | 元数据里的 `resource` 字段 | oidc 模式拒绝启动 |
@@ -72,9 +76,8 @@ jwks     https://auth.pandabase.top/.well-known/jwks
 resource https://baiduads.pandabase.top
 callback https://baiduads.pandabase.top/oauth/baidu/callback
 
-# OAuth 客户端（每个 client_id 都必须进 MYBMO_OIDC_AUDIENCE 白名单）
-mybmo-mcp    / 709a8e16656a223a1ab7   Casdoor 控制台登录 + 客户端验证（TTL 168h，无 refresh 到期）
-mybmo-client / 06fa59d425b54981e537   备用客户端应用（TTL 1h + refresh 30 天），回调 127.0.0.1:33418
+# OAuth 客户端：**只允许 mybmo-mcp 这一个应用**
+mybmo-mcp / 709a8e16656a223a1ab7   本服务唯一入口（TTL 168h）
 ```
 
 **Casdoor 的两个约束（都实测踩过）**：
