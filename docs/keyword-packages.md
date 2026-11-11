@@ -11,7 +11,7 @@
 | `KeyWordShoppingService.getKeywordPackages` | `/json/sms/service/KeyWordShoppingService/getKeywordPackages` | ✅ **读实测通过** |
 | `KeyWordShoppingService.addKeywordPackages` | `…/addKeywordPackages` | ✅ **写实测通过** |
 | `KeyWordShoppingService.updateKeywordPackages` | `…/updateKeywordPackages` | ✅ **写实测通过** |
-| `KeyWordShoppingService.delKeywordPackages` | `…/delKeywordPackages` | ◐ 同上（注意是 **del**，不是 delete） |
+| `KeyWordShoppingService.delKeywordPackages` | `…/delKeywordPackages` | ✅ **写实测通过**（注意是 **del**，不是 delete） |
 
 ## 二、怎么确认一个"SDK 里没有的接口"到底存不存在
 
@@ -62,8 +62,12 @@ status=0  succ=39  oprs=39  → 39 个关键词包
 | `planCount` | 绑定的计划数量 |
 | `bindPlanIdList` | 绑定的计划 ID 列表 |
 
-⚠️ **没有任何可用的过滤参数**：`packageIds` / `keywordPackageIds` / `keywordPackageTypes` /
-`keywordPackageFields` 实测全部被**忽略**，永远返回全部包（恒为汇总视图）。
+**分页实测可用**：`pageNo` + `pageSize`（从 1 开始）。`pageSize=5` 时第 1、2 页各 5 条，
+第 8 页 3 条 → 该账户共 **38 个包**。
+
+⚠️ **过滤没打通**：照后台 URL 的 `filters=[{field, operatorValue, value}]` 形状传，
+`like` / `LIKE` / `contains` / `eq` / 按 `packageId` 全都返回 **0 条**。要按包名筛，暂时先翻页自己过滤。
+
 想看包内具体词，目前没有对应接口（`getKeywordPackageDetail` 报 87091）。
 
 ## 四、写接口：字段名从后台抓包得到（已实测）
@@ -102,10 +106,20 @@ status=0  succ=39  oprs=39  → 39 个关键词包
 
 实测 `succ=1`，响应回显新包名；⚠️ `keywordTypes` 是**整组替换**，不是追加。
 
-### `delKeywordPackages` ◐ 仍然缺参数
+### `delKeywordPackages` ✅
 
-试过的形状全部 `9015 参数异常`：`keywordPackageTypes[{packageId}]`、`keywordPackageIds[]`、
-`packageIds[]`、`ids[]`、`packageId` 传字符串。**需要后台"删除词包"的一次抓包**。
+后台抓包得到的形状：
+
+```jsonc
+{"delKeywordPackageIds": [1615547902470], "deleteAll": false, "excludeIds": []}
+```
+
+实测：删掉探测包 → `succ=1`，响应回显 `delKeywordPackageIds`，回读包数 39 → 38。
+
+`deleteAll=true` 时按 `excludeIds` 排除；日常用 `false` + `delKeywordPackageIds` 精确删除。
+
+> 教训：字段名靠猜是猜不出来的——`keywordPackageTypes` / `delKeywordPackageIds` 都不是直觉名字，
+> 而错误码只说「参数异常」不给 position。**有后台抓包就别猜。**
 
 ## 五、与其他"包"的区别（容易混）
 

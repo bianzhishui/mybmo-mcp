@@ -149,8 +149,34 @@
     },
     "KWShopPackageQuery": {
       "type": "object",
-      "properties": {},
-      "description": "实测无过滤参数：不传即返回该账户全部关键词包（汇总视图）"
+      "properties": {
+        "pageNo": {
+          "type": "integer",
+          "description": "页码，从 1 开始；实测生效"
+        },
+        "pageSize": {
+          "type": "integer",
+          "description": "每页条数；实测生效"
+        },
+        "filters": {
+          "type": "array",
+          "description": "⚠ 过滤条件：照后台 URL 的 {field, operatorValue, value} 形状传实测**全部返回 0 条**（like/LIKE/contains/eq 与 packageId 都试过），暂时不要依赖",
+          "items": {
+            "type": "object",
+            "properties": {
+              "field": {
+                "type": "string"
+              },
+              "operatorValue": {
+                "type": "string"
+              },
+              "value": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
     },
     "KWShopPackageItem": {
       "type": "object",
@@ -199,15 +225,29 @@
     "KWShopPackageDelRequest": {
       "type": "object",
       "properties": {
-        "keywordPackageTypes": {
+        "delKeywordPackageIds": {
           "type": "array",
           "items": {
-            "$ref": "#/schemas/KWShopPackageItem"
+            "type": "integer"
           },
-          "description": "关键词包数组（实测字段名就是 keywordPackageTypes）"
+          "description": "要删除的关键词包 ID 列表"
+        },
+        "deleteAll": {
+          "type": "boolean",
+          "description": "是否删除全部；实测 false 时按 IDs 删"
+        },
+        "excludeIds": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          },
+          "description": "deleteAll=true 时排除的 ID"
         }
       },
-      "description": "⚠ 删除的参数结构仍未确认：keywordPackageTypes[{packageId}] / keywordPackageIds / packageIds / ids 都返回 9015"
+      "required": [
+        "delKeywordPackageIds"
+      ],
+      "description": "实测形状（来自后台抓包）：{delKeywordPackageIds:[...], deleteAll:false, excludeIds:[]}"
     },
     "KWShopPackageKeyword": {
       "type": "object",

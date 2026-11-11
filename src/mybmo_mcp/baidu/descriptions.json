@@ -922,17 +922,22 @@
         "关键词包"
       ],
       "notes": [
-        "返回的是**汇总视图**：packageId / packageName / keywordCount / planCount / bindPlanIdList",
-        "**没有可用的过滤参数**：packageIds / keywordPackageIds / keywordPackageTypes / keywordPackageFields 实测全部被忽略，总是返回全部包",
-        "想看包内关键词明细目前没有对应接口（getKeywordPackageDetail 报 87091 不存在）",
+        "返回**汇总视图**：packageId / packageName / keywordCount / planCount / bindPlanIdList（看不到包内具体词）",
+        "分页用 pageNo + pageSize（从 1 开始）；实测 pageSize=5：第 1、2 页各 5 条，第 8 页 3 条 → 共 38 个包",
+        "⚠️ filters 过滤**没打通**：照后台 URL 的 {field, operatorValue, value} 形状传（like / LIKE / contains / eq / packageId）实测全部返回 0 条，先只用分页 + 自己筛",
+        "想看包内关键词明细目前没有接口（getKeywordPackageDetail 报 87091 不存在）",
         "这是电商推广线的关键词包，与搜索推广的 OCPC 定向包（OcpcService.*TargetPackage）无关"
       ],
-      "params": {},
+      "params": {
+        "pageNo": "页码，从 1 开始",
+        "pageSize": "每页条数",
+        "filters": "⚠ 过滤条件未打通（实测恒返回 0 条），先别用"
+      },
       "verified": {
         "at": "2026-11-11",
         "level": "read",
         "account": "baidu-YF电商-玛卡快消01",
-        "basis": "不传参数返回 status=0 succ=40（测试建包后从 39 变 40）；四种过滤参数逐一生效性验证均为忽略"
+        "basis": "pageSize=5 时第 1/2 页各 5 条、第 8 页 3 条，合计 38 个包；filters 五种形状均返回 0"
       }
     },
     "KeyWordShoppingService.addKeywordPackages": {
@@ -990,11 +995,20 @@
       ],
       "notes": [
         "方法名是 **delKeywordPackages**（deleteKeywordPackages 报 87091 不存在）",
-        "接口存在，但**参数结构未确认**：keywordPackageTypes[{packageId}] / keywordPackageIds / packageIds / ids 全部 9015 参数异常",
-        "写操作不可回滚，删前先 getKeywordPackages 确认 packageId 与词数；删除前建议先在后台试一次并抓包"
+        "请求体（来自后台抓包）：{delKeywordPackageIds:[包ID...], deleteAll:false, excludeIds:[]}",
+        "deleteAll=true 时按 excludeIds 排除；一般用 false + delKeywordPackageIds 精确删",
+        "写操作不可回滚：删前先 getKeywordPackages 确认 packageId 与 keywordCount"
       ],
       "params": {
-        "keywordPackageTypes": "⚠ 结构未知；已知尝试过的形状都不对"
+        "delKeywordPackageIds": "要删除的包 ID 列表",
+        "deleteAll": "true 表示删全部（配合 excludeIds）",
+        "excludeIds": "deleteAll=true 时排除的包 ID"
+      },
+      "verified": {
+        "at": "2026-11-11",
+        "level": "write",
+        "account": "baidu-YF电商-玛卡快消01",
+        "basis": "删除探测包 1615561300505：succ=1，响应回显 delKeywordPackageIds，回读包数 39→38 且该包消失"
       }
     }
   }

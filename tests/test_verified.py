@@ -73,7 +73,7 @@ def test_unverified_capability_has_no_marker() -> None:
 def test_stats_counts_verified() -> None:
     stats = CapabilityRegistry.load().stats
 
-    assert stats["verified"] == 16
+    assert stats["verified"] == 17
     assert stats["verified"] <= stats["capabilities"]
 
 
