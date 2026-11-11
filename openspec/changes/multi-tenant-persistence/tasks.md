@@ -27,7 +27,7 @@
 - [x] 3.2 现有文件实现改名为 `FileTenancyStore`，只用于 `local`
 - [x] 3.3 新增 `PgTenancyStore`：所有查询带 `tenant_id`，不暴露裸 SQL 给上层
 - [x] 3.4 `Runtime.tenancy` 按 `MYBMO_AUTH_MODE` 选择实现
-- [ ] 3.5 单测：默认拒绝、档位顺序（`read < write < admin`）、跨租户不可见、`sub` 不存在时拒绝
+- [x] 3.5 单测：默认拒绝、档位顺序（`read < write < admin`）、跨租户不可见、`sub` 不存在时拒绝
 
 **出口**：`oidc` 模式下越权调用在取凭据前被拒；`local` 模式不依赖数据库。
 
@@ -42,8 +42,8 @@
 
 ## 5. 隔离约束
 
-- [ ] 5.1 审计日志与工具调用的 `tenant_id` 来源统一为 `Principal`
-- [ ] 5.2 不许业务代码直接拼 `tenant_id` 条件：只经仓储层
+- [x] 5.1 审计日志与工具调用的 `tenant_id` 来源统一为 `Principal`
+- [x] 5.2 不许业务代码直接拼 `tenant_id` 条件：只经仓储层
 - [ ] 5.3 加一条静态检查或测试：`SELECT` 语句必须出现 `tenant_id`
 
 **出口**：代码里找不到"忘了带租户条件"的查询。
@@ -78,4 +78,13 @@
   test02 读放行、写被拒（AccessDenied）
 - 回滚方式：删掉该环境变量并重启，即回文件版
 
-未完成：3.5（PG 仓储层单测，需临时 schema）、第 5 节隔离约束的静态检查、第 6 节 MCC 子账户。
+补充完成（2026-11-11）：
+
+- 3.5 PG 仓储层单测：`tests/test_pg_tenancy.py` 7 例（临时 schema，跑完即删）
+  覆盖 owner=admin、share/revoke、admin 不可转授、陌生人拒绝、档位不足、跨租户隔离、describe 形状
+- 第 5 节隔离约束：`tests/test_isolation.py` 静态扫描 pg_tenancy.py，
+  断言每条 SELECT 都带 tenant_id、每条 INSERT/UPDATE/DELETE 都落在本租户；
+  顺带把 grant 写入改成 `INSERT ... SELECT ... WHERE a.tenant_id = %s`（更严）
+- 跑法：`MYBMO_TEST_DATABASE_URL=postgresql://... pytest tests/test_pg_tenancy.py`
+
+未完成：第 6 节 MCC 子账户（需真实子账户）。

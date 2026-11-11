@@ -130,6 +130,7 @@ POST /mcp   Authorization: Bearer <JWT>
 | `MYBMO_AUTH_MODE` | `local`（stdio 单用户）/ `oidc`（校验 JWT） | 默认 `local` |
 | `CASDOOR_ISSUER` | 令牌 `iss`，必须精确匹配 | oidc 模式拒绝启动 |
 | `MYBMO_OIDC_AUDIENCE` | 允许的 client_id 白名单。**生产只有 `709a8e16656a223a1ab7`（mybmo-mcp）** | oidc 模式拒绝启动 |
+| `MYBMO_TEST_DATABASE_URL` | 仅测试用：设了才会跑 PG 仓储层集成测试 |
 | `MYBMO_TENANCY_BACKEND` | `file`（默认）/ `pg`；`pg` 时授权表读 PostgreSQL |
 | `MYBMO_DATABASE_URL` | `pg` 后端必填，`postgresql://...` |
 | `MYBMO_OIDC_ORGS` | 允许的 Casdoor 组织白名单（生产为 `pandabase`） | 留空则不校验组织 |

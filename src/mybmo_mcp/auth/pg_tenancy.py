@@ -242,11 +242,14 @@ class PgTenancyStore:
             if row is None:
                 raise TenancyError(f"账户 {alias} 未登记，不能分享")
             user_id = self._user_id(cur, sub)
+            # 用 INSERT ... SELECT 把 tenant_id 条件写进语句本身：
+            # 即使上层传错 account_id，也不会跨租户写 grant
             cur.execute(
                 "INSERT INTO account_grants (user_id, account_id, permission)"
-                " VALUES (%s, %s, %s)"
+                " SELECT %s, a.id, %s FROM baidu_accounts a"
+                " WHERE a.id = %s AND a.tenant_id = %s"
                 " ON CONFLICT (user_id, account_id) DO UPDATE SET permission = EXCLUDED.permission",
-                (user_id, row["id"], permission),
+                (user_id, permission, row["id"], self._tenant_id),
             )
             conn.commit()
 
