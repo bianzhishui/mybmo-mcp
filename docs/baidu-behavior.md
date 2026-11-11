@@ -53,6 +53,7 @@
 | 暂停/恢复是否可回滚 | **可以，且净效果为零**：`pause=false` → `status` 0；`pause=true` → `status` 2；两次往返后与原状态完全一致 | 2026-11-11 计划 2079251858：原 `pause=true/status=2` → 恢复 `false/0` → 复原 `true/2` |
 | `budget=0` 的语义 | **不限预算**（该账户 35 条计划全是 `0.0`） | 运营确认，非接口实测；写验证时不改动此字段 |
 | 计划配置能否完整读回 | **能，但字段名是扁平的**：要 `audience` 就传 `sex/age/customAge/regionType/region/interests/keywords/keywordsExtend/crowd/etradecrowds/fcKeywordWtpids/intelligentWeight`；要 `material` 就传 `brand/userPortrait/title/description/pictures/videos`。传 `material`/`audience` 这类顶层名会被**静默忽略**（返回空） | 2026-11-11 实测：扁平字段读回 38 关键词 / 367 地域 / 6 标题 / 6 描述 / 18 图 / 1 视频 |
+| 词包与计划的绑定关系存在哪 | **`audience.fcKeywordWtpids`**：逗号分隔的关键词包 ID 列表。解绑=从该列表移除 ID 后整体回传 `updateCampaignShopping`，实测除该字段外零变化 | 2026-11-11 计划 2079251858 解绑实测 |
 | 计划的名称字段 | 电商计划是 **`campaignShoppingName`**；`campaignName` / `name` 不合法（静默忽略，不报错但也不返回） | 2026-11-11 三个候选字段各试一次 |
 | 异步任务如何查终态（能力名 + 判定字段） | **已验证**：`OpenApiReportService.createReportTask` 返回 `taskId` + `taskStatus=RUNNING` → `getTaskStatus(taskId)` 轮询到 `taskStatus=SUCCESS`，终态响应**直接带** `fileUrl`（CSV）、`tableHeader`、`dataStartRow`。两个接口的响应都是单元素数组。实测 ~0.7 秒完成，`wait=True` 轮询 2 次命中 | 2026-11-11 实测 |
 

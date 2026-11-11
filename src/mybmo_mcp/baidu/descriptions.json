@@ -773,7 +773,8 @@
         "计划暂停字段是 pause（布尔），与 status 一致：status=0 启用、status=2 暂停",
         "**能读回完整配置**，但字段名是**扁平的**：要 audience 就传 sex/age/customAge/regionType/region/interests/keywords/keywordsExtend/crowd/etradecrowds/fcKeywordWtpids/intelligentWeight；要 material 就传 brand/userPortrait/title/description/pictures/videos。传 material / audience 这种顶层名会被忽略（返回空）",
         "实测读回：38 个关键词、367 段地域、fcKeywordWtpids、6 标题 + 6 描述 + 18 图 + 1 视频",
-        "返回的 adgroupShoppingId / creativeShoppingIds 只是少量 ID，不是完整单元/创意树"
+        "返回的 adgroupShoppingId / creativeShoppingIds 只是少量 ID，不是完整单元/创意树",
+        "**词包绑定关系存在 `audience.fcKeywordWtpids`**：逗号分隔的关键词包 ID 列表（实测 \"1352096810890,1615571277581\" 对应两个包），解绑就是把这个 ID 从这里去掉"
       ],
       "params": {
         "campaignShoppingFields": "需要返回的字段名列表，必填",
@@ -805,7 +806,8 @@
         "缺 campaignShoppingTypes 统一报 8602（position=_sys），百度不指出具体字段",
         "budget=0 表示不限预算，不要以为 0 就是停投",
         "改 audience / material 时先用 getCampaignShopping **按扁平字段名**读回完整配置（见该能力说明），改完再整体回传，避免把素材或定向覆盖成空",
-        "解绑关键词包没有独立接口：后台是走本接口改 audience（keywords / fcKeywordWtpids）实现的"
+        "解绑关键词包没有独立接口：后台是走本接口改 audience（keywords / fcKeywordWtpids）实现的",
+        "解绑词包已验证可行：getCampaignShopping 按扁平字段全量读 → 从 audience.fcKeywordWtpids 移除包 ID → 整体回传 campaignShoppingTypes。实测除该字段外零变化（38 关键词 / 367 地域 / 6 标题 / 6 描述 / 18 图 / 1 视频、budget/ocpcBid/pause 全部保持）"
       ],
       "params": {
         "campaignShoppingTypes": "计划对象数组，每项含 campaignShoppingId 与要修改的字段（如 pause）"
@@ -814,7 +816,7 @@
         "at": "2026-11-11",
         "level": "write",
         "account": "baidu-YF电商-玛卡快消01",
-        "basis": "计划 2079251858 暂停→恢复→复原，succ=1/oprs=1，回读状态一致"
+        "basis": "计划 2079251858：暂停→恢复→复原，succ=1/oprs=1，回读状态一致；同计划词包解绑：fcKeywordWtpids 从 \"1352096810890,1615571277581\" 改为 \"1352096810890\"，其余字段（38 关键词/367 地域/6 标题/6 描述/18 图/1 视频）完全不变"
       }
     },
     "KRService.getKRFileIdByWords": {
