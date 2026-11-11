@@ -14,6 +14,7 @@
 | `KeyWordShoppingService.updateKeywordPackages` | `…/updateKeywordPackages` | ✅ **写实测通过** |
 | `KeyWordShoppingService.delKeywordPackages` | `…/delKeywordPackages` | ✅ **写实测通过**（注意是 **del**，不是 delete） |
 | `KeyWordShoppingService.delKeyword` | `…/delKeyword` | ✅ **写实测通过**（删包内单个词） |
+| `KeyWordShoppingService.downloadKeyword` | `…/downloadKeyword` | ✅ **读实测通过**（导出 CSV） |
 
 ## 二、怎么确认一个"SDK 里没有的接口"到底存不存在
 
@@ -119,6 +120,28 @@ status=0  succ=39  oprs=39  → 39 个关键词包
 
 > 与 `getKeywordPackages` 的分工：**汇总用 getKeywordPackages**（包名/词数/绑定计划 + 分页过滤），
 > **看包里到底有哪些词用 getKeyword**。
+
+## 三点六、导出关键词包 `downloadKeyword`
+
+```jsonc
+{"packageIds": [1615622617439]}
+```
+
+返回（实测是 **data 数组**；后台页面拿到过对象形状，解析时两种都兼容）：
+
+```jsonc
+{"data": [{"downloadUrl": "https://papfeed.cdn.bcebos.com/webresource/portrait/20261111/…/闭环电商平台关键词信息+20261111+baidu-YF电商-玛卡快消01.csv"}]}
+```
+
+| 要点 | 说明 |
+|---|---|
+| 参数 | 只有 `packageIds`（必填，可多个包）；空 body → `9015` |
+| 下载地址 | bcebos CDN **直链、无需鉴权**；URL 含中文与空格，请求前要 **URL 编码** |
+| 文件编码 | ⚠️ **GB18030 / GBK**（按 UTF-8 解码会乱码） |
+| 列 | `词包名称, 关键词, 审核状态` |
+| 内容 | 即时快照；包内词变了要重新导出 |
+
+实测：3 词包 → `succ=1` → 下载 HTTP 200、121 字节、4 行（表头 + 3 个词，均"审核中"）。
 
 ## 四、写接口：字段名从后台抓包得到（已实测）
 

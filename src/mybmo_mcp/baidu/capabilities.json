@@ -3,12 +3,12 @@
     "version": 1,
     "source": "baiduads-sdk 1.0.0",
     "note": "构建期从 SDK 内省生成；嵌套结构保持原样，input 可直接作为请求体",
-    "capabilities": 396,
-    "schemas": 595,
-    "handwritten": 7,
+    "capabilities": 397,
+    "schemas": 596,
+    "handwritten": 8,
     "mutating": {
       "true": 212,
-      "false": 183,
+      "false": 184,
       "unknown": 1
     }
   },
@@ -7455,6 +7455,21 @@
       },
       "required": [
         "delKeyWordDataIdList"
+      ]
+    },
+    "KWShopDownloadQuery": {
+      "type": "object",
+      "properties": {
+        "packageIds": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          },
+          "description": "要导出的关键词包 ID 列表，必填"
+        }
+      },
+      "required": [
+        "packageIds"
       ]
     },
     "KWShopKeywordQuery": {
@@ -18158,6 +18173,18 @@
       "body": "KWShopPackageDelRequest",
       "input_schema": {
         "$ref": "#/schemas/KWShopPackageDelRequest"
+      }
+    },
+    "KeyWordShoppingService.downloadKeyword": {
+      "service": "KeyWordShoppingService",
+      "method": "downloadKeyword",
+      "endpoint": "/json/sms/service/KeyWordShoppingService/downloadKeyword",
+      "product_line": "sms",
+      "mutating": "false",
+      "group": "电商推广投放",
+      "body": "KWShopDownloadQuery",
+      "input_schema": {
+        "$ref": "#/schemas/KWShopDownloadQuery"
       }
     },
     "KeyWordShoppingService.getKeyword": {

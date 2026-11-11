@@ -85,6 +85,18 @@
       "input_schema": {
         "$ref": "#/schemas/KWShopDelKeywordRequest"
       }
+    },
+    "KeyWordShoppingService.downloadKeyword": {
+      "service": "KeyWordShoppingService",
+      "method": "downloadKeyword",
+      "endpoint": "/json/sms/service/KeyWordShoppingService/downloadKeyword",
+      "product_line": "sms",
+      "mutating": "false",
+      "group": "电商推广投放",
+      "body": "KWShopDownloadQuery",
+      "input_schema": {
+        "$ref": "#/schemas/KWShopDownloadQuery"
+      }
     }
   },
   "schemas": {
@@ -354,6 +366,21 @@
       },
       "required": [
         "delKeyWordDataIdList"
+      ]
+    },
+    "KWShopDownloadQuery": {
+      "type": "object",
+      "properties": {
+        "packageIds": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          },
+          "description": "要导出的关键词包 ID 列表，必填"
+        }
+      },
+      "required": [
+        "packageIds"
       ]
     }
   }

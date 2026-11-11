@@ -1065,6 +1065,31 @@
         "account": "baidu-YF电商-玛卡快消01",
         "basis": "建 2 词探测包 → getKeyword 取 wordDataId → delKeyword 删其中一个 → 回读只剩 1 词；探测包随后已删除"
       }
+    },
+    "KeyWordShoppingService.downloadKeyword": {
+      "description": "导出关键词包里的词为 CSV（返回下载地址）",
+      "aliases": [
+        "导出关键词包",
+        "下载词包",
+        "词包导出 CSV",
+        "关键词包导出"
+      ],
+      "notes": [
+        "参数只有 **packageIds**（必填，可多个包）；空 body 报 9015",
+        "返回 **downloadUrl**：实测是 data 数组里的 [{downloadUrl}]（后台页面拿到过对象形状，两种都兼容着解析）",
+        "⚠️ CSV 是 **GB18030/GBK 编码**（不是 UTF-8），按 utf-8 解码会乱码；列固定为：词包名称, 关键词, 审核状态",
+        "下载地址是 bcebos CDN 直链、**不需要鉴权**，文件名含日期与账户中文名（含中文，请求时要 URL 编码）",
+        "文件内容是即时生成的快照；包内词改了要重新导出"
+      ],
+      "params": {
+        "packageIds": "要导出的包 ID 列表，必填"
+      },
+      "verified": {
+        "at": "2026-11-11",
+        "level": "read",
+        "account": "baidu-YF电商-玛卡快消01",
+        "basis": "导出 3 词包 → succ=1 返回 downloadUrl → 下载 HTTP 200/121 字节/4 行，GB18030 解码得到表头「词包名称,关键词,审核状态」与 3 行词"
+      }
     }
   }
 }

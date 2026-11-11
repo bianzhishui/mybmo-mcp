@@ -6,8 +6,8 @@ from mybmo_mcp.baidu.capabilities import CapabilityRegistry
 def test_registry_stats() -> None:
     registry = CapabilityRegistry.load()
 
-    assert registry.stats["capabilities"] == 396
-    assert registry.stats["schemas"] == 595
+    assert registry.stats["capabilities"] == 397
+    assert registry.stats["schemas"] == 596
     assert registry.stats["services"] == 131
 
 
