@@ -24,7 +24,7 @@ from mybmo_mcp.auth.callback import CallbackOutcome, complete_binding
 from mybmo_mcp.auth.tenancy import MODE_LOCAL, Principal
 from mybmo_mcp.baidu.errors import BaiduError
 from mybmo_mcp.health import health_payload
-from mybmo_mcp.subscribe import append_record, build_record, check_key
+from mybmo_mcp.subscribe import append_record, build_record, check_key, looks_like_baidu_key
 from mybmo_mcp.tools import register_all
 from mybmo_mcp.tools.runtime import get_runtime
 
@@ -140,6 +140,14 @@ def _register_baidu_subscribe(server: MCPServer) -> None:
     这里**故意不解析成业务动作**——能力层不编排（ADR 0003），
     推送只当样本采集，攒够真实报文再写解析器。
     """
+
+    secret = get_runtime().settings.mybmo_baidu_subscribe_secret.strip()
+    if secret and not looks_like_baidu_key(secret):
+        _logger.warning(
+            "MYBMO_BAIDU_SUBSCRIBE_SECRET 不符合百度要求的格式（32 位、仅小写字母与数字），"
+            "控制台会拒绝保存：len=%s",
+            len(secret),
+        )
 
     @server.custom_route(
         BAIDU_SUBSCRIBE_PATH,

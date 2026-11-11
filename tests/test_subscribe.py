@@ -13,6 +13,7 @@ from mybmo_mcp.subscribe import (
     build_record,
     check_key,
     extract_key,
+    looks_like_baidu_key,
     redact,
 )
 
@@ -133,3 +134,21 @@ def test_append_record_writes_one_line_per_push(tmp_path: Path) -> None:
     assert len(lines) == 2
     assert json.loads(lines[0])["method"] == "POST"
     assert path.stat().st_mode & 0o777 == 0o600
+
+
+def test_looks_like_baidu_key_accepts_32_lowercase_alnum() -> None:
+    assert looks_like_baidu_key("0123456789abcdefghijklmnopqrstuv") is True
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "0123456789ABCDEFGHIJKLMNOPQRSTUV",  # 含大写
+        "0123456789abcdefghijklmnopqrstu",  # 31 位
+        "0123456789abcdefghijklmnopqrstuvw",  # 33 位
+        "0123456789abcdefghijklmnopqrstu-",  # 含符号
+        "",
+    ],
+)
+def test_looks_like_baidu_key_rejects_other_shapes(value: str) -> None:
+    assert looks_like_baidu_key(value) is False

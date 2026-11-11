@@ -44,6 +44,20 @@ KEY_QUERY_KEYS: tuple[str, ...] = ("token", "key", "secret", "signature")
 
 _REDACTED = "***"
 
+#: 百度控制台对订阅密钥的格式要求：**32 位，仅小写字母与数字**。
+#: 填别的格式在控制台就过不去，所以这里做一次形状校验，配错了在启动日志里就能看到。
+KEY_LEN = 32
+KEY_ALPHABET = frozenset("abcdefghijklmnopqrstuvwxyz0123456789")
+
+
+def looks_like_baidu_key(value: str) -> bool:
+    """是否符合百度订阅密钥的形状（32 位小写字母/数字）。
+
+    只用来提前告警，**不用来收紧校验**：万一百度放宽或换规则，
+    我们不该因此把真实推送拒掉。
+    """
+    return len(value) == KEY_LEN and set(value) <= KEY_ALPHABET
+
 
 def extract_key(
     headers: Mapping[str, str], params: Mapping[str, str]
