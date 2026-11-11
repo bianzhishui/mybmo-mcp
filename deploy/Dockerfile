@@ -6,8 +6,7 @@
 # 两阶段：builder 装依赖，运行镜像只留 venv，不带 pip 缓存与编译工具。
 # 两个 sync 参数都是刻意的：
 #   --no-dev      baiduads-sdk 只在生成 capabilities.json 时用，运行时不碰
-#   不带 --extra  psycopg 只在多租户落库时才需要，现在不装（省 ~5 MB 二进制与几分钟）
-# 落库时在两条 uv sync 后追加 --extra db 即可。
+#   --extra db   装 psycopg（多租户落库用）。不用数据库时可以去掉，省 ~5 MB 与几分钟构建
 
 FROM python:3.12-slim AS builder
 
@@ -22,11 +21,11 @@ WORKDIR /app
 # 先只拷依赖清单，让依赖层能命中缓存——改代码不会触发重新装包
 COPY pyproject.toml uv.lock README.md ./
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-dev --no-install-project
+    uv sync --frozen --no-dev --extra db --no-install-project
 
 COPY src ./src
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-dev
+    uv sync --frozen --no-dev --extra db
 
 
 FROM python:3.12-slim
