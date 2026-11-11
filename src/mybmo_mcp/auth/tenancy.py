@@ -206,6 +206,9 @@ class TenancyStore:
         self._users: dict[str, Principal] = {}
         self._accounts: dict[str, Account] = {}
         self._grants: list[Grant] = []
+        #: 上次加载时的 (mtime_ns, size)。文件被改过就重新加载——
+        #: 否则"改了 tenancy.json 不重启不生效"会变成一个很难查的坑（实测踩过）。
+        self._stamp: tuple[int, int] | None = None
 
     @property
     def path(self) -> Path:
@@ -439,9 +442,20 @@ class TenancyStore:
 
     # ---------- 加载 ----------
 
+    def _file_stamp(self) -> tuple[int, int] | None:
+        try:
+            st = self._path.stat()
+        except OSError:
+            return None
+        return (st.st_mtime_ns, st.st_size)
+
     def _ensure_loaded(self) -> None:
-        if self._loaded:
+        stamp = self._file_stamp()
+        if self._loaded and stamp == self._stamp:
             return
+        if self._loaded:
+            # 文件在运行期被改过：丢弃缓存重新解析
+            self._loaded = False
 
         if not self._path.exists():
             if self._mode != MODE_LOCAL:
@@ -450,6 +464,7 @@ class TenancyStore:
                     "不创建它就拒绝一切账户调用是有意为之——回退成「人人可用」的代价远大于停机。"
                 )
             self._unrestricted = True
+            self._stamp = stamp
             self._loaded = True
             return
 
@@ -472,6 +487,7 @@ class TenancyStore:
         self._accounts = self._parse_accounts(raw.get("accounts") or [])
         self._grants = self._parse_grants(raw.get("grants") or [])
         self._unrestricted = False
+        self._stamp = stamp
         self._loaded = True
 
     def _parse_users(self, items: Any) -> dict[str, Principal]:

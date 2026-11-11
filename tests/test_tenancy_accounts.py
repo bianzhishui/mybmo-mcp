@@ -205,3 +205,24 @@ def test_stats_counts_without_leaking_identities(tmp_path: Path) -> None:
 
     assert stats == {"tenants": 1, "users": 2, "accounts": 1, "grants": 1}
     assert "alice-sub" not in str(stats)
+
+
+def test_file_change_is_picked_up_without_reload(tmp_path: Path) -> None:
+    """改了 tenancy.json 不重启也要生效——否则线上改授权等于白改。"""
+    import os
+    import time
+
+    path = write(tmp_path / "t.json", accounts=[{"alias": "main", "owner": ALICE}])
+    tenancy = store(path)
+    assert tenancy.permission_for(Principal(sub=BOB), "main") is None
+
+    write(
+        tmp_path / "t.json",
+        accounts=[{"alias": "main", "owner": ALICE}],
+        grants=[{"sub": BOB, "alias": "main", "permission": "read"}],
+    )
+    # 保证 mtime 变化（某些文件系统精度较粗）
+    stamp = time.time() + 1
+    os.utime(path, (stamp, stamp))
+
+    assert tenancy.permission_for(Principal(sub=BOB), "main") == "read"
