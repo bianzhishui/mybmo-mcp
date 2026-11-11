@@ -358,43 +358,55 @@
         "挖词"
       ],
       "notes": [
-        "query 是**字符串**不是数组，传数组会报 99912",
-        "返回条数由 seedFilter.maxNum 控制：**不传默认 300**，最大 **1000**（传 2000 报 901720「The maximum return number is not valid」）",
-        "返回的词是按搜索量排序的候选，不是可以直接投放的词表——落地前要人工或规则筛一遍",
-        "词对象里 wordPackage 字段通常是空串（词包标记），不要当成可写字段"
+        "query 是**单个**种子词字符串（≤64 字节），传数组报 99912",
+        "返回条数由 seedFilter.maxNum 控制：不传默认 300，范围 [1,1000]，传 2000 报 901720",
+        "seedFilter 常用过滤：device(0全部/1计算机/2移动)、negativeWords(最多10个，排除词)、positiveWord(必须包含)、removeDuplicate(不推荐账户已购词)、removeCampaignDuplicate(不推荐计划已购词)、regionExtend(不推荐未选地域词)",
+        "返回字段比文档多：实测有 recBid(推荐出价) 与 similar(相似度)；月均搜索量字段是小写 pv（文档写 PV）；wordPackage/businessPoints 实测恒空",
+        "competition 的方向两份官方文档矛盾（一说 1 低、一说 1 高），未交叉验证，别当结论用",
+        "返回词按相关性排序，不是可直接投放的词表——落地前要人工或规则筛"
       ],
       "params": {
         "query": "种子词，字符串",
         "seedFilter.maxNum": "返回条数上限：默认 300，最大 1000，超过报 901720",
-        "seedFilter.negativeWords": "排除词，用来剔掉不相关行业"
+        "seedFilter.negativeWords": "排除词，最多 10 个，每词 ≤64 字节",
+        "seedFilter.device": "0 全部 / 1 计算机 / 2 移动，默认 0",
+        "seedFilter.positiveWord": "必须包含的词，仅一个，≤64 字节",
+        "seedFilter.removeDuplicate": "true = 不推荐账户内已购词",
+        "seedFilter.removeCampaignDuplicate": "true = 不推荐计划内已购词",
+        "seedFilter.regionExtend": "true = 不推荐未选地域词",
+        "seedFilter.searchRegions": "地域代码数组，默认全部地域"
       },
       "verified": {
         "at": "2026-11-11",
         "account": "baidu-YF电商-玛卡快消01",
         "level": "read",
-        "basis": "query=益生菌：默认返回 300、maxNum=500→500、maxNum=1000→1000、maxNum=2000 报 901720；query=跨境电商 返回 300 条扁平词对象"
+        "basis": "默认→300、maxNum=500→500、1000→1000、2000→901720；query 传数组→99912；device/negativeWords/positiveWord/removeDuplicate 均生效"
       }
     },
     "KRService.getKRCustom": {
-      "description": "按账户里已有的投放结构（计划/单元等）取推荐词，种子来自现有结构而非手写种子词",
+      "description": "账户主动推词：按现有计划/单元取推荐词（种子来自投放结构，不用手写种子词）",
       "aliases": [
         "自定义拓词",
         "按单元扩词",
-        "按计划拓词"
+        "按计划拓词",
+        "主动推词"
       ],
       "notes": [
-        "idType + id 指定取词范围；**idType 的合法值文档未给全**：实测 3 与 5 可用（该账户返回空列表），0/1/2/4/6/7/8 报 901743「idType is not valid to get KR results」",
-        "返回结构与 getKRByQuery 相同（扁平词对象数组）"
+        "idType 官方枚举：**3 = 计划 ID，5 = 单元 ID**；实测只有这两个合法，0/1/2/4/6/7/8 报 901743",
+        "id 可省略（文档：为 null 时 idType 填 3 或 5 均可）",
+        "返回结构与 getKRByQuery 一致；电商推广账户没有搜索计划/单元，实测返回空列表属正常",
+        "seedFilter 与 getKRByQuery 完全相同"
       ],
       "params": {
-        "id": "取词依据的 ID，配合 idType 使用",
-        "idType": "id 的类型，实测 3/5 可用，语义待查文档"
+        "idType": "3 = 计划 ID，5 = 单元 ID",
+        "id": "对应的计划/单元 ID，可省略",
+        "seedFilter.maxNum": "默认 300，范围 [1,1000]"
       },
       "verified": {
         "at": "2026-11-11",
-        "level": "partial",
+        "level": "read",
         "account": "baidu-YF电商-玛卡快消01",
-        "basis": "idType 0-8 逐个试探：3/5 返回 []，其余报 901743；有效语义与对应 id 未确定"
+        "basis": "idType=3 + 电商计划 ID、idType=5 + 单元 ID 均返回 200 与空列表；0/1/2/4/6/7/8 报 901743"
       }
     },
     "NegativeWordService.updateAdgroupNegativeWordsSync": {
@@ -812,19 +824,20 @@
         "词包导出"
       ],
       "notes": [
-        "三步用法：getKRFileIdByWords → getFileStatus(fileId) 轮询 → getFilePath(fileId) 取下载地址",
-        "响应是单元素数组：[{\"fileId\": \"…\"}]",
-        "生成是异步的：getFileStatus 的 isGenerated 实测 2=处理中、3=完成；未完成时 getFilePath 报 901726"
+        "三步用法：getKRFileIdByWords → getFileStatus 轮询(isGenerated=3) → getFilePath 取下载地址",
+        "seedWords 官方范围 [1,1000]；**实测 1000 个也提交成功**（服务简介里「单次 100 个」是过时说法）",
+        "⚠️ 同一账户**同一时间只能有一个文件任务**：上一个没结束就提交会报 901755 Last file task is not finish，必须等 isGenerated=3 再提交",
+        "响应是单元素数组：[{\"fileId\": \"…\"}]"
       ],
       "params": {
-        "seedWords": "种子词数组",
+        "seedWords": "种子词数组，1..1000 个，每词 ≤64 字节",
         "seedFilter.maxNum": "每词返回条数上限（默认 300，最大 1000）"
       },
       "verified": {
         "at": "2026-11-11",
         "level": "read",
         "account": "baidu-YF电商-玛卡快消01",
-        "basis": "seedWords=[猫粮,狗粮] 返回 fileId cd9fe925…；随后 getFileStatus 2→3、getFilePath 成功"
+        "basis": "seedWords 100/200/500/1000 全部提交成功（200 首次失败是上一任务未完成，报 901755）"
       }
     },
     "KRService.getFileStatus": {
@@ -833,7 +846,7 @@
         "词表文件状态"
       ],
       "notes": [
-        "isGenerated 实测：2=处理中、3=已生成；轮询间隔 5 秒左右即可",
+        "isGenerated：1 等待中 / 2 处理中 / 3 生成成功 / 4 生成失败；实测 2→3 约 5 秒，轮询 5 秒足够",
         "响应是单元素数组：[{\"isGenerated\": 3}]"
       ],
       "params": {
@@ -853,9 +866,9 @@
         "词包下载"
       ],
       "notes": [
-        "文件未生成完就调用会报 901726「The request KR File is still in processing」——先用 getFileStatus 等到 isGenerated=3",
-        "返回的 URL 带临时签名，实测有效期 3600 秒；过期需重新取",
-        "文件是 CSV，列结构与拓词返回的字段一致"
+        "必须等 isGenerated=3 再调，否则报 901726 The request KR File is still in processing",
+        "返回 BCE 对象存储 CSV 直链，签名有效期 **3600 秒**；过期需重新获取",
+        "CSV 列与拓词返回字段一致"
       ],
       "params": {
         "fileId": "getKRFileIdByWords 返回的 fileId"
@@ -864,7 +877,7 @@
         "at": "2026-11-11",
         "level": "read",
         "account": "baidu-YF电商-玛卡快消01",
-        "basis": "isGenerated=3 后调用成功，返回 bcebos krcsv/*.csv 签名直链"
+        "basis": "isGenerated=3 后调用成功，返回 bj.bcebos.com/v1/papfc/krcsv/*.csv 签名直链（3600s）"
       }
     }
   }

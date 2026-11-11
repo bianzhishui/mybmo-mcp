@@ -38,7 +38,11 @@
 | 问题 | 结论 | 依据 |
 |---|---|---|
 | 关键词规划师（拓词）全链路 | **已验证**：① `getKRByQuery` 拓词（默认 300/最大 1000 条）② `getKRFileIdByWords` 词表→`fileId` ③ `getFileStatus` 轮询（`isGenerated` 2=处理中、3=已生成）④ `getFilePath` 取 CSV 签名直链（有效期 3600s，未生成完报 `901726`） | 2026-11-11 全流程实跑：fileId `cd9fe925…`，2→3 约 5 秒，下载地址为 `bj.bcebos.com/v1/papfc/krcsv/*.csv` |
-| `getKRCustom` 的 `idType` | **部分已知**：实测 `3` / `5` 可用（该账户返回空列表），`0/1/2/4/6/7/8` 报 `901743 idType is not valid to get KR results`；语义仍待文档 | 2026-11-11 逐个试探 |
+| `getKRCustom` 的 `idType` | **已验证**：官方枚举 `3 = 计划 ID`、`5 = 单元 ID`（实测只有这两个合法，`0/1/2/4/6/7/8` 报 `901743`）；`id` 可省略 | 2026-11-11 逐个试探 + 官方文档 |
+| 异步词表任务的并发限制 | **单账户同一时间只能有一个任务**：上一个未结束就提交报 `901755 Last file task is not finish` | 2026-11-11 连续提交 100→200 词时实测（先等 `isGenerated=3` 后 200/500/1000 全部成功） |
+| `getKRFileIdByWords` 的 `seedWords` 上限 | **1000 个实测通过**（文档字段范围 [1,1000]；服务简介里「单次 100 个」是过时说法） | 2026-11-11 提交 1000 个种子词成功 |
+| 拓词返回字段与文档的差异 | 实测多出 `recBid`（推荐出价）、`similar`（相似度）；月均搜索量是**小写 `pv`**（文档写 `PV`）；`wordPackage`/`businessPoints` 恒为空 | 2026-11-11 多次拓词返回样本 |
+| `competition` 的取值方向 | **文档自相矛盾**：`getKRByQuery` 页写「1-低 2-中 3-高」，`getKRCustom` 页写「1-高 2-中 3-低」，未交叉验证 | — |
 | 计划的暂停字段名 | **已验证（电商推广）：`pause` 布尔值**，`false` 启用 / `true` 暂停；与 `status` 一致（`status=0` 启用 24 条、`status=2` 暂停 11 条） | 2026-11-11 `CampaignShoppingService.getCampaignShopping` 全量 35 条取样 |
 | 搜索推广计划的暂停字段名 | **范围外**：本项目只做电商推广线；搜索侧 `getCampaign` 在该账户返回 `[]`，也不打算验 | — |
 | 单元 / 关键词 / 创意的暂停字段名 | **无接口可验**：SDK 里没有电商单元/创意的**读**接口（只有 campaign 级），搜索侧又在范围外 | — |
@@ -60,7 +64,8 @@
 | 8602 | `We are unable to serve your request, please try again later.` | `getCampaignShopping` **不传 `limit`**（不是网络问题，重试无用） | 已验证：2026-11-11 缺省 `limit` 时必现，加上即正常 |
 | 901720 | `The maximum return number is not valid` | `getKRByQuery` 的 `seedFilter.maxNum` 超过 1000 | 已验证：2026-11-11 传 2000 实测 |
 | 901726 | `The request KR File is still in processing` | 词表文件未生成完就调 `getFilePath` | 已验证：2026-11-11 实测（`isGenerated=2` 时） |
-| 901743 | `idType is not valid to get KR results` | `getKRCustom` 传了不支持的 `idType` | 已验证：2026-11-11 0-8 逐个试探 |
+| 901743 | `idType is not valid to get KR results` | `getKRCustom` 的 `idType` 不是 3（计划）/ 5（单元） | 已验证：2026-11-11 0-8 逐个试探 |
+| 901755 | `Last file task is not finish` | 上一个异步词表任务未完成就提交新任务 | 已验证：2026-11-11 实测 |
 | 901400 | `Reporttype could not be empty` / `Unknow reportType: N` | `getReportData` 不传 `reportType`，或传了不存在的值。**实测 1–12 全部 `Unknow`，真实枚举未知** | 已验证：2026-11-11 reportType 1–12 扫描 |
 | 30002 | `应用不存在`（OAuth 层，AppID 无效） | 用不存在的 `appId=app-demo` 调 `oauth/accessToken` | 已验证：2026-11-10 本地回调路由实测，返回 `code=30002 message=应用不存在`（说明授权回调 → 换令牌这条链路本身是通的，只差真实 AppID） |
 
