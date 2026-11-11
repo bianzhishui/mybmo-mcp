@@ -121,7 +121,8 @@ curl -fsS https://baiduads.pandabase.top/healthz
 
 - **搜索推广侧**：单元 / 关键词 / 创意的暂停字段、搜索与信息流的 `reportType`
 - **智投项目维度**的 5 个报表（`600028/600030/600032/600034/600038`）
-- **真实 MCP 客户端**（Claude Desktop / Cursor）的授权码登录与工具调用 —— 目前只用 Python SDK 验过
+- **Claude Desktop / Cursor 本体**：已用 DSH 同款 `mcp-remote` 走通授权码 + PKCE + `tools/list`
+  （6 个工具、不弹浏览器），但那两个客户端 UI 未实连
 
 细节：行为结论见 [`docs/baidu-behavior.md`](docs/baidu-behavior.md)，
 报表见 [`docs/reports.md`](docs/reports.md)。

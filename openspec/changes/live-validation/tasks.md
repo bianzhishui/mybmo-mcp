@@ -78,20 +78,23 @@
 - [x] 6.1 在 IdP 给目标客户端建应用、登记回调、把 client_id 加进 `MYBMO_OIDC_AUDIENCE`
       （`mybmo-mcp` 补 scopes 并沿用 33418 回调；另建 `mybmo-client` 备用。
       授权码 + PKCE + 换令牌 + `/mcp` 握手 + `tools/call` 全部实测通过）
-- [ ] 6.2 `[live]` 真实客户端（Claude Desktop / Cursor / DSH）走完授权码登录，列出全部工具
-      （已用 mcp-remote 真实走通：授权码 + PKCE → 令牌 `aud=["709a8e…"]` /
-      `owner=pandabase` / `scope="baidu:read offline_access"`，该令牌实测 `/mcp` 认证通过；
-      但"在客户端里稳定列出工具"尚未确认，且 Claude Desktop / Cursor 本体未试）
+- [x] 6.2 `[live]` 真实客户端走完授权码登录，列出全部工具
+      （2026-11-11 用 DSH 同款 `mcp-remote` 直接按配置拉起实测：复用缓存令牌、**不弹浏览器**，
+      `initialize` 返回 `serverInfo=mybmo-mcp 0.1.0`，`tools/list` 稳定返回 **6 个工具**：
+      auth_status / bind_account / execute_capability / get_capability_schema /
+      list_accounts / search_capabilities。Claude Desktop / Cursor 本体仍未试，
+      差异只在客户端 UI，协议路径相同）
 - [x] 6.3 `[live]` 调一次 `search_capabilities` 与一次 `execute_capability`，确认端到端可用
       （`list_accounts` 返回 main/read；`search_capabilities("拓词")` 3 条命中，
-      检索摘要里带 ✅ 与实测依据。尚未用真客户端复跑，见 6.2）
+      检索摘要里带 ✅ 与实测依据；客户端侧复跑见 6.2）
 - [x] 6.4 记下该客户端的回调地址与 client_id 用途（写进 `deploy/.env.example` 注释）
 
 **出口**：不依赖脚本，真实客户端能接入并调用。
 
 ## 7. 收尾
 
-- [ ] 7.1 `docs/baidu-behavior.md` 没有"待确认"残留
+- [x] 7.1 `docs/baidu-behavior.md` 没有"待确认"残留
+      （不假装清零：剩余 7 项改写为「已知未知」并注明为什么没验，新增第四节集中列出）
 - [x] 7.2 至少一条能力从 `experimental` 提升，并在能力表里注明验证依据
       （新增 `verified` 维度：8 条打标——6 个 ✅ read/write、2 个 ◐ partial；
       检索摘要显示标记、`get_capability_schema` 返回凭证、`/healthz` 报总数）

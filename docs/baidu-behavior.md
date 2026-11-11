@@ -3,7 +3,11 @@
 只记**结论与依据**，不记尝试过程。验证方法见
 [`openspec/changes/live-validation/design.md`](../openspec/changes/live-validation/design.md)。
 
-**状态标记**：`未验证` 表示仍是推断、不能写进能力说明；`已验证` 必须附依据（响应片段或命令）。
+**状态标记**：
+
+- `已验证` —— 必须附依据（响应片段或命令）
+- `已知未知` —— 明确知道没验、也知道**为什么没验**（缺账户/缺接口/缺文档），集中列在第四节
+- `范围外` —— 本项目不覆盖的推广线（只做电商推广），不再追
 
 ## 一、身份与令牌
 
@@ -13,9 +17,9 @@
 | 回调带回哪些参数 | **已验证：带回授权码、`state` 与 `userId`**（`userId` 有值才可能换到令牌，`userId=0` 时百度报 `code=3`） | 2026-11-11 真实授权一次，凭据以 state 里的别名 `main` 落地、`status=active`；字段名仍按多候选兼容 |
 | 81020 的触发条件 | **已验证：请求头 `userName` 不是令牌所属账户中文名**。返回 `code=81020, position=_user, message="The username information in the request is incorrect."`，`header.status=2`、`succ=0` | 2026-11-11 用 `userName=绝对不存在的账户名` 调 `AccountService.getAccountInfo` |
 | 自定义 `state` 是否原样回传 | **已验证：原样回传**（绑定按 state 里的别名落库，未退化成 `acct_<userId>`） | 2026-11-11 真实授权一次，`/data/accounts/main.json` 生成、`binding_state/` 被消费 |
-| `refreshToken` 刷新后是否立即轮换 | 未验证（决定刷新失败能否重试旧值） | — |
+| `refreshToken` 刷新后是否立即轮换 | **已知未知**：刷新本身可用（Casdoor 侧实测能换到新令牌），但「旧 refresh 是否立即失效」未验 | — |
 | `accessToken` 有效期 | **已验证：1 天**（`expiresIn=86400`），`refreshToken` 30 天。与「文档称 30 天」不符 | 2026-11-11 落库凭据：access 剩 1.0 天、refresh 剩 30.0 天 |
-| 应用级凭据能否跨账户使用 | 未验证（推断：同一 AppID 下多账户各自授权） | — |
+| 应用级凭据能否跨账户使用 | **已知未知**：只有一个账户可测；推断同一 AppID 下多账户各自授权 | — |
 
 ## 二、分页与上限
 
@@ -36,9 +40,7 @@
 | 计划的暂停字段名 | **已验证（电商推广）：`pause` 布尔值**，`false` 启用 / `true` 暂停；与 `status` 一致（`status=0` 启用 24 条、`status=2` 暂停 11 条） | 2026-11-11 `CampaignShoppingService.getCampaignShopping` 全量 35 条取样 |
 | 搜索推广计划的暂停字段名 | **范围外**：本项目只做电商推广线；搜索侧 `getCampaign` 在该账户返回 `[]`，也不打算验 | — |
 | 单元 / 关键词 / 创意的暂停字段名 | **无接口可验**：SDK 里没有电商单元/创意的**读**接口（只有 campaign 级），搜索侧又在范围外 | — |
-| 关键词的暂停字段名 | 未验证 | — |
-| 创意的暂停字段名 | 未验证 | — |
-| 写接口必填字段清单 | 未验证（已知缺 `campaignShoppingTypes` 时统一报 8602 `_sys`，百度不指出缺哪个字段） | — |
+| 写接口必填字段清单 | **已知未知**：缺 `campaignShoppingTypes` 统一报 8602 `_sys`，百度不指出缺哪个字段，只能逐个试 | — |
 | 写操作是否幂等 | **已验证幂等**：对已暂停的计划再次 `pause=true`，返回 `succ=1 oprs=1 status=0 failures=[]`，回读 `pause` 仍为 `true`、`status` 仍为 `2` | 2026-11-11 `updateCampaignShopping` 对 2079251858（珠宝专用清洗剂9.7）实测 |
 | 写请求的成功判定字段 | **`header.status==0` 且 `failures==[]` 且 `succ==oprs>=1`**；失败时 `status=2`、`succ=0`、`failures[{code,position,message}]`。响应头恒带 `quota`（本次消耗）与 `rquota`（剩余配额，实测 200000000）、`traceid` | 2026-11-11 成功（updateCampaignShopping）与失败（81020）各一次对照 |
 | 写操作的生效时延 | **同步生效**：`updateCampaignShopping` 返回后 1 秒回读即是新状态（`pause`/`status` 同时翻转），没有异步等待 | 2026-11-11 恢复→复原各一次，中间态与终态均回读确认 |
@@ -56,9 +58,22 @@
 | 8602 | `We are unable to serve your request, please try again later.` | `getCampaignShopping` **不传 `limit`**（不是网络问题，重试无用） | 已验证：2026-11-11 缺省 `limit` 时必现，加上即正常 |
 | 901400 | `Reporttype could not be empty` / `Unknow reportType: N` | `getReportData` 不传 `reportType`，或传了不存在的值。**实测 1–12 全部 `Unknow`，真实枚举未知** | 已验证：2026-11-11 reportType 1–12 扫描 |
 | 30002 | `应用不存在`（OAuth 层，AppID 无效） | 用不存在的 `appId=app-demo` 调 `oauth/accessToken` | 已验证：2026-11-10 本地回调路由实测，返回 `code=30002 message=应用不存在`（说明授权回调 → 换令牌这条链路本身是通的，只差真实 AppID） |
-| 其他 | 未验证 | — | — |
 
-## 五、维护约定
+## 五、已知未知（明确记录，不是遗漏）
+
+下面这些**明确没验**，理由也写清楚。它们不进能力说明，也不对外承诺。
+
+| 项 | 为什么没验 | 影响 |
+|---|---|---|
+| `refreshToken` 轮换语义 | 只在 Casdoor（接入令牌）侧验过刷新可用，百度侧的 refresh 还没真刷过一次 | 决定刷新失败能否重试旧值 |
+| 同一 AppID 下多账户 | 只有一个账户 | MCC / 多账户绑定的推断 |
+| 写接口必填字段白名单 | 百度只回笼统 8602，不指出字段 | 新建类写接口只能逐个试 |
+| 报表单次返回行数上限 | `rowCount=10000` 也只返回 `totalRowCount` 那么多行，没触顶 | 大账户取全量的分页策略 |
+| 异步任务的 `FAIL` 形态 | 现有任务都是秒级成功 | 失败时 `fileUrl` 是否为空、错误怎么表达 |
+| 智投项目维度 5 个报表（600028/600030/600032/600034/600038） | 账户没有智投项目 | 只能按文档推断 |
+| Casdoor 是否真校验 `client_secret` | 需要一次真实授权码 + 错误 secret 才能区分 | 决定「公共客户端」结论是否彻底 |
+
+## 六、维护约定
 
 1. 每条结论必须能指到依据：一次响应片段、一条命令、或 `tests/fixtures/` 里的样本。
 2. 结论变了就改这一行，不追加"补充说明"——保持每次读到的是当前事实。
