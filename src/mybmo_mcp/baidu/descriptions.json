@@ -820,8 +820,7 @@
       "description": "把一批种子词提交成 KR 文件任务，返回 fileId（之后用 getFileStatus 查生成、getFilePath 取下载地址）",
       "aliases": [
         "词表导出",
-        "批量拓词文件",
-        "词包导出"
+        "批量拓词文件"
       ],
       "notes": [
         "三步用法：getKRFileIdByWords → getFileStatus 轮询(isGenerated=3) → getFilePath 取下载地址",
@@ -863,7 +862,7 @@
       "description": "取 KR 词表文件的下载地址（CSV，BCE 对象存储直链）",
       "aliases": [
         "词表下载地址",
-        "词包下载"
+        "词表文件地址"
       ],
       "notes": [
         "必须等 isGenerated=3 再调，否则报 901726 The request KR File is still in processing",
@@ -912,6 +911,74 @@
         "level": "read",
         "account": "baidu-YF电商-玛卡快消01",
         "basis": "keywordList=[宠物益生菌(精确), 猫粮(短语)] 返回 logid + 两条词流量（price/pv/averageMonthPv/show/click/kwc 等齐全）"
+      }
+    },
+    "KeyWordShoppingService.getKeywordPackages": {
+      "description": "查电商推广的关键词包（词包名称、包内词数、绑定计划）",
+      "aliases": [
+        "关键词包列表",
+        "查词包",
+        "词包",
+        "关键词包"
+      ],
+      "notes": [
+        "返回字段：packageName / packageId / keywordCount / planCount / bindPlanIdList（实测 39 个包）",
+        "不传参数返回该账户全部关键词包；packageIds 可按包 ID 过滤（未单独验证）",
+        "这是**电商推广线的关键词包**，与搜索推广的 OCPC 定向包（OcpcService.*TargetPackage）不是一回事"
+      ],
+      "params": {
+        "packageIds": "关键词包 ID 列表；不传返回全部",
+        "keywordPackageFields": "要返回的字段名列表；不传也能拿到默认字段"
+      },
+      "verified": {
+        "at": "2026-11-11",
+        "level": "read",
+        "account": "baidu-YF电商-玛卡快消01",
+        "basis": "不传参数调用成功：status=0 succ=39，返回 39 个包（含 packageName/keywordCount/planCount/bindPlanIdList）"
+      }
+    },
+    "KeyWordShoppingService.addKeywordPackages": {
+      "description": "新建电商推广的关键词包（⚠ 参数结构未经官方文档确认）",
+      "aliases": [
+        "新建关键词包",
+        "创建词包"
+      ],
+      "notes": [
+        "**接口确实存在**：实测返回 9015「参数异常」而非 87091「请求 URL 无效」，说明路径有效",
+        "但请求体结构未确认：以 keywordPackages 数组试过 packageName / keywordList / bindPlanIdList 都被判参数异常，没有 position 提示",
+        "建包前先 getKeywordPackages 看清现有包结构；字段确认后请回填本条与 handwritten_capabilities.json"
+      ],
+      "params": {
+        "keywordPackages": "词包对象数组（字段待确认：packageName / keywordList / bindPlanIdList？）"
+      }
+    },
+    "KeyWordShoppingService.updateKeywordPackages": {
+      "description": "修改电商推广的关键词包（⚠ 参数结构未经官方文档确认）",
+      "aliases": [
+        "改词包",
+        "更新关键词包"
+      ],
+      "notes": [
+        "接口存在（9015 而非 87091），请求体结构未确认",
+        "改包前先用 getKeywordPackages 取到 packageId"
+      ],
+      "params": {
+        "keywordPackages": "词包对象数组（字段待确认，至少需要 packageId）"
+      }
+    },
+    "KeyWordShoppingService.delKeywordPackages": {
+      "description": "删除电商推广的关键词包（⚠ 注意方法是 del 不是 delete；参数结构未确认）",
+      "aliases": [
+        "删词包",
+        "删除关键词包"
+      ],
+      "notes": [
+        "方法名是 **delKeywordPackages**；deleteKeywordPackages 报 87091 不存在",
+        "接口存在（9015 而非 87091），请求体结构未确认",
+        "写操作不可回滚，删前先用 getKeywordPackages 确认 packageId 与 keywordCount"
+      ],
+      "params": {
+        "keywordPackages": "词包对象数组（字段待确认，至少需要 packageId）"
       }
     }
   }

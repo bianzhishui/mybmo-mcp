@@ -2,7 +2,7 @@
 
 文件由 ``scripts/build_capabilities.py`` 在构建期生成，运行时不依赖 SDK。
 
-检索是这套网关的关键：390 条能力里，模型只会用自然语言说"帮我拓词"，
+检索是这套网关的关键：394 条能力里，模型只会用自然语言说"帮我拓词"，
 不会说 ``KRService.getKRByQuery``。所以索引里除了 key / 服务名 / 方法名，
 还要有**中文别名**——否则子串匹配在中文上几乎无效。
 
@@ -337,7 +337,9 @@ class CapabilityRegistry:
             if score > 0:
                 scored.append((score, cap))
 
-        scored.sort(key=lambda item: (-item[0], item[1].key))
+        # 同分时**只读优先**：模型检索"词包"该先看到"查词包"而不是"新建词包"。
+        # 这不是美观问题——先给写能力，模型很容易在没看清现状前就动手。
+        scored.sort(key=lambda item: (-item[0], item[1].mutating != "false", item[1].key))
         return [cap for _, cap in scored[:limit]]
 
     # ---------- 内部 ----------

@@ -2,7 +2,7 @@
 
 ## 是什么
 
-百度营销开放平台的 MCP 能力网关。390 个接口收进 6 个工具，用检索代替枚举；百度令牌只活在
+百度营销开放平台的 MCP 能力网关。394 个接口收进 6 个工具，用检索代替枚举；百度令牌只活在
 服务端，客户端拿的是本服务自己的身份。
 
 部署、身份与数据库在 [`pandabase-infra`](https://github.com/bianzhishui/pandabase-infra)，
@@ -50,6 +50,7 @@
 | [`docs/auth-contract.md`](../docs/auth-contract.md) | 与 infra 的鉴权契约（不变量、环境变量、端点、卷布局） |
 | [`docs/baidu-behavior.md`](../docs/baidu-behavior.md) | 百度接口行为实测结论（身份/分页/字段/错误码） |
 | [`docs/reports.md`](../docs/reports.md) | 推广报告速查：参数、reportType 总表、列字典 |
+| [`docs/keyword-packages.md`](../docs/keyword-packages.md) | 电商关键词包：读接口实测，写接口待文档 |
 | [`docs/keyword-planner.md`](../docs/keyword-planner.md) | 关键词规划师：接口实测、参数取值范围、异步串行限制 |
 | [`ADR 0002`](../docs/decisions/0002-tech-stack.md) | 技术栈与理由 |
 | [`ADR 0003`](../docs/decisions/0003-capability-only.md) | 只做能力层 |
@@ -58,7 +59,7 @@
 
 ## 当前状态
 
-- 390 个能力、55 条精写说明、587 个模型；测试全绿（离线）
+- 394 个能力、60 条精写说明、592 个模型；测试全绿（离线）
 - `oidc` 模式已跑通授权码 + PKCE（真实令牌换发与 `/mcp` 鉴权已验）
 - 已绑定 1 个真实百度账户，只读能力实测通过（`getCampaign`、`getKRByQuery` 上限 300），
   六项未知行为里已有 5 项拿到结论；写操作与报表分页仍待有数据的账户，见

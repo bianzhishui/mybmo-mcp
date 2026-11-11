@@ -167,7 +167,9 @@ def test_unsupported_version_raises() -> None:
 @pytest.mark.parametrize(
     ("query", "expected"),
     [
-        ("报表", "OpenApiReportService.createReportTask"),
+        # 同分时只读优先：查报表 -> 同步取数；导出才 -> 建任务
+        ("报表", "OpenApiReportService.getReportData"),
+        ("导出报表", "OpenApiReportService.createReportTask"),
         ("拉报表", "OpenApiReportService.getReportData"),
         ("拓词", "KRService.getKRByQuery"),
         ("余额", "BalanceService.getBalanceInfo"),

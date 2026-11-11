@@ -3,12 +3,12 @@
     "version": 1,
     "source": "baiduads-sdk 1.0.0",
     "note": "构建期从 SDK 内省生成；嵌套结构保持原样，input 可直接作为请求体",
-    "capabilities": 390,
-    "schemas": 587,
-    "handwritten": 1,
+    "capabilities": 394,
+    "schemas": 592,
+    "handwritten": 5,
     "mutating": {
-      "true": 208,
-      "false": 181,
+      "true": 211,
+      "false": 182,
       "unknown": 1
     }
   },
@@ -7441,6 +7441,88 @@
           }
         }
       }
+    },
+    "KWShopPackageAddRequest": {
+      "type": "object",
+      "properties": {
+        "keywordPackages": {
+          "type": "array",
+          "items": {
+            "$ref": "#/schemas/KWShopPackageItem"
+          }
+        }
+      },
+      "description": "⚠ 参数结构未经官方文档确认：实测传空对象/只带 packageName 都返回 9015 参数异常，具体必填字段待查"
+    },
+    "KWShopPackageDelRequest": {
+      "type": "object",
+      "properties": {
+        "keywordPackages": {
+          "type": "array",
+          "items": {
+            "$ref": "#/schemas/KWShopPackageItem"
+          }
+        }
+      },
+      "description": "⚠ 参数结构未经官方文档确认"
+    },
+    "KWShopPackageItem": {
+      "type": "object",
+      "properties": {
+        "packageId": {
+          "type": "integer",
+          "description": "关键词包 ID（更新/删除时必需）"
+        },
+        "packageName": {
+          "type": "string",
+          "description": "关键词包名称"
+        },
+        "keywordList": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "包内关键词"
+        },
+        "bindPlanIdList": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          },
+          "description": "绑定的计划 ID 列表"
+        }
+      }
+    },
+    "KWShopPackageQuery": {
+      "type": "object",
+      "properties": {
+        "packageIds": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          },
+          "description": "关键词包 ID 列表；不传返回全部"
+        },
+        "keywordPackageFields": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "要返回的字段名；实测不传也能拿到默认字段"
+        }
+      }
+    },
+    "KWShopPackageUpdateRequest": {
+      "type": "object",
+      "properties": {
+        "keywordPackages": {
+          "type": "array",
+          "items": {
+            "$ref": "#/schemas/KWShopPackageItem"
+          }
+        }
+      },
+      "description": "⚠ 参数结构未经官方文档确认"
     },
     "KeyWordType": {
       "type": "object",
@@ -17937,6 +18019,54 @@
       "body": "GetKRFileIdByWordsParams",
       "input_schema": {
         "$ref": "#/schemas/GetKRFileIdByWordsParams"
+      }
+    },
+    "KeyWordShoppingService.addKeywordPackages": {
+      "service": "KeyWordShoppingService",
+      "method": "addKeywordPackages",
+      "endpoint": "/json/sms/service/KeyWordShoppingService/addKeywordPackages",
+      "product_line": "sms",
+      "mutating": "true",
+      "group": "电商推广投放",
+      "body": "KWShopPackageAddRequest",
+      "input_schema": {
+        "$ref": "#/schemas/KWShopPackageAddRequest"
+      }
+    },
+    "KeyWordShoppingService.delKeywordPackages": {
+      "service": "KeyWordShoppingService",
+      "method": "delKeywordPackages",
+      "endpoint": "/json/sms/service/KeyWordShoppingService/delKeywordPackages",
+      "product_line": "sms",
+      "mutating": "true",
+      "group": "电商推广投放",
+      "body": "KWShopPackageDelRequest",
+      "input_schema": {
+        "$ref": "#/schemas/KWShopPackageDelRequest"
+      }
+    },
+    "KeyWordShoppingService.getKeywordPackages": {
+      "service": "KeyWordShoppingService",
+      "method": "getKeywordPackages",
+      "endpoint": "/json/sms/service/KeyWordShoppingService/getKeywordPackages",
+      "product_line": "sms",
+      "mutating": "false",
+      "group": "电商推广投放",
+      "body": "KWShopPackageQuery",
+      "input_schema": {
+        "$ref": "#/schemas/KWShopPackageQuery"
+      }
+    },
+    "KeyWordShoppingService.updateKeywordPackages": {
+      "service": "KeyWordShoppingService",
+      "method": "updateKeywordPackages",
+      "endpoint": "/json/sms/service/KeyWordShoppingService/updateKeywordPackages",
+      "product_line": "sms",
+      "mutating": "true",
+      "group": "电商推广投放",
+      "body": "KWShopPackageUpdateRequest",
+      "input_schema": {
+        "$ref": "#/schemas/KWShopPackageUpdateRequest"
       }
     },
     "KeywordService.addWord": {

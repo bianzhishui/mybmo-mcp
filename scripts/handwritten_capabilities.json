@@ -10,7 +10,57 @@
       "mutating": "false",
       "group": "检索与工具",
       "body": "PvSearchRequest",
-      "input_schema": { "$ref": "#/schemas/PvSearchRequest" }
+      "input_schema": {
+        "$ref": "#/schemas/PvSearchRequest"
+      }
+    },
+    "KeyWordShoppingService.getKeywordPackages": {
+      "service": "KeyWordShoppingService",
+      "method": "getKeywordPackages",
+      "endpoint": "/json/sms/service/KeyWordShoppingService/getKeywordPackages",
+      "product_line": "sms",
+      "mutating": "false",
+      "group": "电商推广投放",
+      "body": "KWShopPackageQuery",
+      "input_schema": {
+        "$ref": "#/schemas/KWShopPackageQuery"
+      }
+    },
+    "KeyWordShoppingService.addKeywordPackages": {
+      "service": "KeyWordShoppingService",
+      "method": "addKeywordPackages",
+      "endpoint": "/json/sms/service/KeyWordShoppingService/addKeywordPackages",
+      "product_line": "sms",
+      "mutating": "true",
+      "group": "电商推广投放",
+      "body": "KWShopPackageAddRequest",
+      "input_schema": {
+        "$ref": "#/schemas/KWShopPackageAddRequest"
+      }
+    },
+    "KeyWordShoppingService.updateKeywordPackages": {
+      "service": "KeyWordShoppingService",
+      "method": "updateKeywordPackages",
+      "endpoint": "/json/sms/service/KeyWordShoppingService/updateKeywordPackages",
+      "product_line": "sms",
+      "mutating": "true",
+      "group": "电商推广投放",
+      "body": "KWShopPackageUpdateRequest",
+      "input_schema": {
+        "$ref": "#/schemas/KWShopPackageUpdateRequest"
+      }
+    },
+    "KeyWordShoppingService.delKeywordPackages": {
+      "service": "KeyWordShoppingService",
+      "method": "delKeywordPackages",
+      "endpoint": "/json/sms/service/KeyWordShoppingService/delKeywordPackages",
+      "product_line": "sms",
+      "mutating": "true",
+      "group": "电商推广投放",
+      "body": "KWShopPackageDelRequest",
+      "input_schema": {
+        "$ref": "#/schemas/KWShopPackageDelRequest"
+      }
     }
   },
   "schemas": {
@@ -19,12 +69,18 @@
       "properties": {
         "bidWordSource": {
           "type": "string",
-          "enum": ["wordList"],
+          "enum": [
+            "wordList"
+          ],
           "description": "估算词的来源，目前只有 wordList"
         },
         "device": {
           "type": "integer",
-          "enum": [0, 1, 2],
+          "enum": [
+            0,
+            1,
+            2
+          ],
           "description": "0 全部 / 1 仅移动 / 2 仅计算机"
         },
         "orderBy": {
@@ -44,16 +100,24 @@
         },
         "order": {
           "type": "string",
-          "enum": ["asc", "desc"],
+          "enum": [
+            "asc",
+            "desc"
+          ],
           "description": "排序方向，默认 desc"
         },
         "keywordList": {
           "type": "array",
-          "items": { "$ref": "#/schemas/PvSearchRequestWordItem" },
+          "items": {
+            "$ref": "#/schemas/PvSearchRequestWordItem"
+          },
           "description": "要估算的关键词列表，1..1000 个"
         }
       },
-      "required": ["bidWordSource", "keywordList"]
+      "required": [
+        "bidWordSource",
+        "keywordList"
+      ]
     },
     "PvSearchRequestWordItem": {
       "type": "object",
@@ -64,16 +128,106 @@
         },
         "matchType": {
           "type": "integer",
-          "enum": [1, 2],
+          "enum": [
+            1,
+            2
+          ],
           "description": "1 精确 / 2 短语或智能，需与 phraseType 配合"
         },
         "phraseType": {
           "type": "integer",
-          "enum": [1, 3],
+          "enum": [
+            1,
+            3
+          ],
           "description": "matchType=1 时只能是 1；matchType=2 时 1=短语、3=智能"
         }
       },
-      "required": ["keywordName"]
+      "required": [
+        "keywordName"
+      ]
+    },
+    "KWShopPackageQuery": {
+      "type": "object",
+      "properties": {
+        "packageIds": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          },
+          "description": "关键词包 ID 列表；不传返回全部"
+        },
+        "keywordPackageFields": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "要返回的字段名；实测不传也能拿到默认字段"
+        }
+      }
+    },
+    "KWShopPackageItem": {
+      "type": "object",
+      "properties": {
+        "packageId": {
+          "type": "integer",
+          "description": "关键词包 ID（更新/删除时必需）"
+        },
+        "packageName": {
+          "type": "string",
+          "description": "关键词包名称"
+        },
+        "keywordList": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "包内关键词"
+        },
+        "bindPlanIdList": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          },
+          "description": "绑定的计划 ID 列表"
+        }
+      }
+    },
+    "KWShopPackageAddRequest": {
+      "type": "object",
+      "properties": {
+        "keywordPackages": {
+          "type": "array",
+          "items": {
+            "$ref": "#/schemas/KWShopPackageItem"
+          }
+        }
+      },
+      "description": "⚠ 参数结构未经官方文档确认：实测传空对象/只带 packageName 都返回 9015 参数异常，具体必填字段待查"
+    },
+    "KWShopPackageUpdateRequest": {
+      "type": "object",
+      "properties": {
+        "keywordPackages": {
+          "type": "array",
+          "items": {
+            "$ref": "#/schemas/KWShopPackageItem"
+          }
+        }
+      },
+      "description": "⚠ 参数结构未经官方文档确认"
+    },
+    "KWShopPackageDelRequest": {
+      "type": "object",
+      "properties": {
+        "keywordPackages": {
+          "type": "array",
+          "items": {
+            "$ref": "#/schemas/KWShopPackageItem"
+          }
+        }
+      },
+      "description": "⚠ 参数结构未经官方文档确认"
     }
   }
 }
