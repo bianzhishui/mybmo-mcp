@@ -160,21 +160,31 @@ status=0  succ=39  oprs=39  → 39 个关键词包
 
 要绑多个计划就**一次全传**。
 
-### 解绑：没有独立接口，但当前也**做不了安全的自动化**
+### 解绑：走计划更新接口，**可以自动化**（前提是读对字段名）
 
-后台的解绑动作走的是**计划更新接口** `CampaignShoppingService.updateCampaignShopping`——
-改计划 `audience` 里的关键词（`keywords` / `fcKeywordWtpids`）。听起来可行，但实测卡在读接口：
+后台的解绑动作是 `CampaignShoppingService.updateCampaignShopping`——改计划 `audience` 里的
+`keywords` / `fcKeywordWtpids`。做"读-改-写"要注意一个坑：
 
-| 尝试 | 结果 |
+⚠️ `getCampaignShopping` 的字段名是**扁平的**，不能传 `audience` / `material` 这种顶层名
+（会被静默忽略，返回空对象）。正确写法：
+
+| 想读什么 | 要传的字段名 |
 |---|---|
-| `getCampaignShopping` 请求 `material` | **字段缺失**（`material` / `materialInfo` / `campaignMaterial` 都试过） |
-| `getCampaignShopping` 请求 `audience` | 返回**空对象** `{}` |
+| 定向（audience） | `sex`, `age`, `customAge`, `regionType`, `region`, `interests`, `keywords`, `keywordsExtend`, `crowd`, `etradecrowds`, `fcKeywordWtpids`, `intelligentWeight` |
+| 素材（material） | `brand`, `userPortrait`, `title`, `description`, `pictures`, `videos` |
+| 其他 | `campaignShoppingName`, `pause`, `status`, `budget`, `ocpcBid`, `startTime`, `endTime`, `schedule`, `productId`, `productName`, `promotionUrl` … |
 
-也就是说**拿不到计划当前的完整配置**，做不到"读全量 → 改一个字段 → 整体回传"。
-如果直接传一个不完整的对象去 update，有把素材/定向清空的风险（素材是几十张图 + 视频，重建成本极高）。
+实测按这套字段读回 2079251858：**38 个关键词、367 段地域、6 标题 + 6 描述 + 18 图 + 1 视频**，
+全部完整。所以解绑流程是可行的：
 
-**当前结论：解绑在后台操作**。若将来要自动化，需要先解决"能完整读回计划配置"这件事
-（找能返回 material 的读接口，或确认 update 是字段级合并而非整体覆盖）。
+```
+① getCampaignShopping（扁平字段全量读）
+② 从 audience.keywords 去掉该词包的词 / 清空 fcKeywordWtpids
+③ updateCampaignShopping 回传完整 campaignShoppingTypes（含 material）
+④ 回读核对
+```
+
+⚠️ 仍然建议先在**已暂停**的计划上试，且第 ③ 步必须回传完整对象（素材一漏就没了）。
 
 ## 四、写接口：字段名从后台抓包得到（已实测）
 

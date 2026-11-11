@@ -768,13 +768,12 @@
         "电商推广计划列表"
       ],
       "notes": [
-        "campaignShoppingFields 必传，不传或字段名不合法报 1519/9011519",
+        "campaignShoppingFields 必传，不传或传错字段名报 1519/9011519",
         "limit 是 [offset, size] 且必传，不传报 8602（不是网络问题，重试无用）",
         "计划暂停字段是 pause（布尔），与 status 一致：status=0 启用、status=2 暂停",
-        "返回的 adgroupShoppingId / creativeShoppingIds 只是少量 ID，不是完整单元/创意树；SDK 里没有电商单元/创意的读接口",
-        "名称字段是 campaignShoppingName；campaignName / name 不合法（不报错，只是不返回）",
-        "budget=0 表示不限预算（该账户所有计划都是 0）",
-        "写接口 updateCampaignShopping 幂等：对已暂停的计划再设 pause=true，返回 succ=1、回读状态不变"
+        "**能读回完整配置**，但字段名是**扁平的**：要 audience 就传 sex/age/customAge/regionType/region/interests/keywords/keywordsExtend/crowd/etradecrowds/fcKeywordWtpids/intelligentWeight；要 material 就传 brand/userPortrait/title/description/pictures/videos。传 material / audience 这种顶层名会被忽略（返回空）",
+        "实测读回：38 个关键词、367 段地域、fcKeywordWtpids、6 标题 + 6 描述 + 18 图 + 1 视频",
+        "返回的 adgroupShoppingId / creativeShoppingIds 只是少量 ID，不是完整单元/创意树"
       ],
       "params": {
         "campaignShoppingFields": "需要返回的字段名列表，必填",
@@ -785,9 +784,9 @@
       },
       "verified": {
         "at": "2026-11-11",
-        "account": "baidu-YF电商-玛卡快消01",
         "level": "read",
-        "basis": "35 条计划全量取样；limit=[0,5] 与 [5,5] 不重叠证明分页"
+        "account": "baidu-YF电商-玛卡快消01",
+        "basis": "用扁平字段名读 2079251858：audience 12 个键（keywords 38 词、region 367 段）、material 6 标题/6 描述/18 图/1 视频全部返回"
       }
     },
     "CampaignShoppingService.updateCampaignShopping": {
@@ -805,7 +804,7 @@
         "成功判定 header.status==0 且 failures==[] 且 succ==oprs；失败时 status=2、succ=0",
         "缺 campaignShoppingTypes 统一报 8602（position=_sys），百度不指出具体字段",
         "budget=0 表示不限预算，不要以为 0 就是停投",
-        "⚠️ 部分更新可行（只传 campaignShoppingId + pause 实测 OK），但**涉及 audience/material 的改动要先读全量**——而 getCampaignShopping **读不回 material**（material/materialInfo/campaignMaterial 均缺失）、audience 返回空对象，所以「解绑词包」这类改动无法安全做读-改-写，建议在后台操作",
+        "改 audience / material 时先用 getCampaignShopping **按扁平字段名**读回完整配置（见该能力说明），改完再整体回传，避免把素材或定向覆盖成空",
         "解绑关键词包没有独立接口：后台是走本接口改 audience（keywords / fcKeywordWtpids）实现的"
       ],
       "params": {
