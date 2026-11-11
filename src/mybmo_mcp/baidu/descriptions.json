@@ -774,7 +774,8 @@
         "**能读回完整配置**，但字段名是**扁平的**：要 audience 就传 sex/age/customAge/regionType/region/interests/keywords/keywordsExtend/crowd/etradecrowds/fcKeywordWtpids/intelligentWeight；要 material 就传 brand/userPortrait/title/description/pictures/videos。传 material / audience 这种顶层名会被忽略（返回空）",
         "实测读回：38 个关键词、367 段地域、fcKeywordWtpids、6 标题 + 6 描述 + 18 图 + 1 视频",
         "返回的 adgroupShoppingId / creativeShoppingIds 只是少量 ID，不是完整单元/创意树",
-        "**词包绑定关系存在 `audience.fcKeywordWtpids`**：逗号分隔的关键词包 ID 列表（实测 \"1352096810890,1615571277581\" 对应两个包），解绑就是把这个 ID 从这里去掉"
+        "**词包绑定关系存在 `audience.fcKeywordWtpids`**：逗号分隔的关键词包 ID 列表（实测 \"1352096810890,1615571277581\" 对应两个包），解绑就是把这个 ID 从这里去掉",
+        "风巢相关字段：`audience.fcKeywordWtpids`（关键词包 ID，fc=风巢）可读；`material.fengchaoTitle` / `fengchaoDescription` 读不回，只能写"
       ],
       "params": {
         "campaignShoppingFields": "需要返回的字段名列表，必填",
@@ -807,7 +808,8 @@
         "budget=0 表示不限预算，不要以为 0 就是停投",
         "改 audience / material 时先用 getCampaignShopping **按扁平字段名**读回完整配置（见该能力说明），改完再整体回传，避免把素材或定向覆盖成空",
         "解绑关键词包没有独立接口：后台是走本接口改 audience（keywords / fcKeywordWtpids）实现的",
-        "解绑词包已验证可行：getCampaignShopping 按扁平字段全量读 → 从 audience.fcKeywordWtpids 移除包 ID → 整体回传 campaignShoppingTypes。实测除该字段外零变化（38 关键词 / 367 地域 / 6 标题 / 6 描述 / 18 图 / 1 视频、budget/ocpcBid/pause 全部保持）"
+        "解绑词包已验证可行：getCampaignShopping 按扁平字段全量读 → 从 audience.fcKeywordWtpids 移除包 ID → 整体回传 campaignShoppingTypes。实测除该字段外零变化（38 关键词 / 367 地域 / 6 标题 / 6 描述 / 18 图 / 1 视频、budget/ocpcBid/pause 全部保持）",
+        "material 里还有 **fengchaoTitle / fengchaoDescription**（风巢模板创意）：每条 {text} 含占位符，如 \"{关键词}{玉石怎么清洗表面污垢}喷一喷擦一擦，洁净又亮泽！\" —— {关键词} 由系统按搜索词动态替换。这两个字段**只在写接口提交**，getCampaignShopping 即使请求也读不回来（实测字段缺失）"
       ],
       "params": {
         "campaignShoppingTypes": "计划对象数组，每项含 campaignShoppingId 与要修改的字段（如 pause）"
