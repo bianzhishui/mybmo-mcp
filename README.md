@@ -2,7 +2,7 @@
 
 # mybmo-mcp
 
-百度营销开放平台的 MCP 能力网关。**399 个接口收进 6 个工具**——用检索代替枚举，
+百度营销开放平台的 MCP 能力网关。**399 个接口收进 9 个工具**——用检索代替枚举，
 模型不必面对 390 个工具定义；百度令牌只活在服务端，客户端拿的是本服务自己的身份。
 
 > 非官方项目，与百度无隶属关系。需自行在 <https://dev2.baidu.com> 创建应用并完成授权。
@@ -125,7 +125,7 @@ curl -fsS https://baiduads.pandabase.top/healthz
 - **搜索推广侧**：单元 / 关键词 / 创意的暂停字段、搜索与信息流的 `reportType`
 - **智投项目维度**的 5 个报表（`600028/600030/600032/600034/600038`）
 - **Claude Desktop / Cursor 本体**：已用 DSH 同款 `mcp-remote` 走通授权码 + PKCE + `tools/list`
-  （6 个工具、不弹浏览器），但那两个客户端 UI 未实连
+  （9 个工具、不弹浏览器），但那两个客户端 UI 未实连
 
 细节：行为结论见 [`docs/baidu-behavior.md`](docs/baidu-behavior.md)，
 报表见 [`docs/reports.md`](docs/reports.md)。
@@ -142,7 +142,7 @@ curl -fsS https://baiduads.pandabase.top/healthz
 | [`docs/reports.md`](docs/reports.md) | 推广报告速查：三个方法、通用参数、reportType 全表、列字典、实测对照 |
 | [`docs/image-management.md`](docs/image-management.md) | 图片资产：上传（MD5 去重）/查询（最终一致）/改名/删除/裁剪/分享 |
 | [`docs/campaign-shopping.md`](docs/campaign-shopping.md) | 电商计划读写：52 字段标准读法、material 整体替换风险、词包绑定/解绑、关键字段含义 |
-| [`docs/keyword-packages.md`](docs/keyword-packages.md) | 电商关键词包（KeyWordShoppingService）：读接口实测、写接口参数待文档、如何判断接口是否存在 |
+| [`docs/keyword-packages.md`](docs/keyword-packages.md) | 电商关键词包（KeyWordShoppingService）：8 个接口实测（含导出 CSV、绑定计划、删词） |
 | [`docs/keyword-planner.md`](docs/keyword-planner.md) | 关键词规划师：5 个接口实测、SeedFilter 全字段、异步三步与串行限制、错误码（含 SDK 未覆盖的流量查询） |
 | [`ADR 0002`](docs/decisions/0002-tech-stack.md) | 技术栈与理由 |
 | [`ADR 0003`](docs/decisions/0003-capability-only.md) | 只做能力层，不做业务编排与写审批 |

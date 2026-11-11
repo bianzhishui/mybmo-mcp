@@ -1,5 +1,9 @@
 # 变更：真实链路验证（live-validation）
 
+> **状态**：✅ 已完成（32/32 任务，2026-11-11）。结论沉淀在 `docs/baidu-behavior.md`、
+> `docs/reports.md`、`docs/keyword-planner.md`、`docs/keyword-packages.md`；
+> 实测能力以 `descriptions.json` 的 `verified` 标记为准（线上 25 条）。
+
 ## 为什么
 
 390 个能力目前只有元数据，**没有任何一次真实调用**。由此带来三个具体问题：

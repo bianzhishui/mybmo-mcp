@@ -15,7 +15,8 @@
 | `local` | 本机 stdio，单用户 | 进程即身份，不校验令牌 |
 | `oidc` | 公网 HTTP，多客户端 | 校验 Bearer JWT，身份来自 `sub` |
 
-线上以 `oidc` 运行。多租户的**授权**目前是文件式 `data/tenancy.json`，落库见
+线上以 `oidc` 运行。授权表**双后端**：默认文件式 `data/tenancy.json`；
+`MYBMO_TENANCY_BACKEND=pg` 时读 PostgreSQL（线上已切 PG），见
 [`multi-tenant-persistence`](changes/multi-tenant-persistence/proposal.md)。
 
 ## 约束
@@ -52,7 +53,7 @@
 | [`docs/reports.md`](../docs/reports.md) | 推广报告速查：参数、reportType 总表、列字典 |
 | [`docs/image-management.md`](../docs/image-management.md) | 图片资产管理：接口、去重、最终一致 |
 | [`docs/campaign-shopping.md`](../docs/campaign-shopping.md) | 电商计划读写：标准字段表与写前校验 |
-| [`docs/keyword-packages.md`](../docs/keyword-packages.md) | 电商关键词包：读接口实测，写接口待文档 |
+| [`docs/keyword-packages.md`](../docs/keyword-packages.md) | 电商关键词包：8 个接口（含导出、绑定计划、删词）全部实测 |
 | [`docs/keyword-planner.md`](../docs/keyword-planner.md) | 关键词规划师：接口实测、参数取值范围、异步串行限制 |
 | [`ADR 0002`](../docs/decisions/0002-tech-stack.md) | 技术栈与理由 |
 | [`ADR 0003`](../docs/decisions/0003-capability-only.md) | 只做能力层 |
@@ -61,15 +62,15 @@
 
 ## 当前状态
 
-- 399 个能力、69 条精写说明、598 个模型；测试全绿（离线）
-- `oidc` 模式已跑通授权码 + PKCE（真实令牌换发与 `/mcp` 鉴权已验）
-- 已绑定 1 个真实百度账户，只读能力实测通过（`getCampaign`、`getKRByQuery` 上限 300），
-  六项未知行为里已有 5 项拿到结论；写操作与报表分页仍待有数据的账户，见
-  [`live-validation`](changes/live-validation/proposal.md)
+- 399 个能力、70 条精写说明、598 个模型；**25 条已实测**（`verified` 标记）；测试 295 passed
+- `oidc` 模式跑通授权码 + PKCE；9 个 MCP 工具（含 `bind_account` / `share_account`）
+- 已绑定 1 个真实百度账户；电商推广线**写操作**（计划暂停/复制/加图、词包增删改绑）与
+  报表异步任务均已实测，见 [`live-validation`](changes/live-validation/proposal.md)（32/32 完成）
+- 授权表已切 PostgreSQL：users 2 / accounts 1 / grants 1，判权实测（owner=admin、write 拒绝）
 
-## 进行中的变更
+## 变更状态
 
-| 变更 | 状态 | 触发条件 |
+| 变更 | 状态 | 备注 |
 |---|---|---|
-| [`live-validation`](changes/live-validation/proposal.md) | 待开始 | 有可用的百度账号 |
-| [`multi-tenant-persistence`](changes/multi-tenant-persistence/proposal.md) | 未开工 | 出现第二个真实用户 |
+| [`live-validation`](changes/live-validation/proposal.md) | ✅ 已完成 | 32/32 任务；结论进 `docs/baidu-behavior.md` 等 |
+| [`multi-tenant-persistence`](changes/multi-tenant-persistence/proposal.md) | ✅ 已完成（MCC 暂缓） | PG 后端已上线，文件后端可回滚 |
