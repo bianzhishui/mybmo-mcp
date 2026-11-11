@@ -48,7 +48,10 @@
 
 **出口**：代码里找不到"忘了带租户条件"的查询。
 
-## 6. MCC 子账户
+## 6. MCC 子账户（**暂缓**，2026-11-11 决定先不做）
+
+> 需要真实的 MCC 管家子账户才能验证；表结构已留好 `kind` / `parent_account_id`，
+> 取令牌时沿父账户上溯的逻辑等有子账户了再实现与验证。
 
 - [ ] 6.1 账户模型支持 `kind=mcc_child` 与 `parent_account_id`
 - [ ] 6.2 取凭据时上溯一层父账户令牌，但 `userName` 用子账户名
@@ -87,4 +90,4 @@
   顺带把 grant 写入改成 `INSERT ... SELECT ... WHERE a.tenant_id = %s`（更严）
 - 跑法：`MYBMO_TEST_DATABASE_URL=postgresql://... pytest tests/test_pg_tenancy.py`
 
-未完成：第 6 节 MCC 子账户（需真实子账户）。
+未完成：第 6 节 MCC 子账户——**暂缓**（需真实子账户，2026-11-11 决定先不做；字段已预留）。

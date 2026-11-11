@@ -169,3 +169,20 @@ UNIQUE (tenant_id, idp_subject)   -- 一个 IdP 身份在一个租户内只对�
 | 百度接口限流 | `rquota` 异常 | 读取配额头，退避；写操作不自动重试 |
 | 网络超时（写） | 结果未知 | 先查后写，禁止重发 |
 | 凭据文件损坏 | 账户不可用 | 明确报错，不静默忽略 |
+
+
+## 附：Docker 构建的两个排查动作
+
+"改了 Dockerfile 但镜像里没变化"多半是**构建缓存**，不是写法错。按顺序验证，比换方案快：
+
+```bash
+# ① 单独构建依赖层，直接看 venv 里有没有目标包
+docker build --target builder -t app-builder:test -f deploy/Dockerfile .
+docker run --rm app-builder:test sh -c "ls /app/.venv/lib/python3.12/site-packages | grep -i <包名>"
+
+# ② 确认不是缓存：强制无缓存重建（慢，但确定性高）
+docker compose build --no-cache <service>
+```
+
+实例（2026-11-11）：`uv sync --extra db` 一度被误判为"不装 psycopg"，
+实际是复用了旧缓存层；`--target builder` 一验就发现 psycopg 本来就在。
