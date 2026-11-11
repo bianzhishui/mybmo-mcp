@@ -453,7 +453,9 @@
       "notes": [
         "异步三步：本接口返回 taskId → getTaskStatus 轮询 → getFilePath 取下载地址",
         "要直接拿数据不要用这个，用 getReportData 同步取",
-        "日期格式 YYYY-MM-DD"
+        "日期格式 YYYY-MM-DD",
+        "reportType 枚举与 getReportData 同样未确定；先跑通 getReportData 再碰异步导出",
+        "这是目前唯一确认的异步形态（createReportTask → getTaskStatus → 取文件），async_task 元数据要等它跑通一次才补得实"
       ],
       "params": {
         "startDate": "起始日期，格式 YYYY-MM-DD",
@@ -485,7 +487,9 @@
       "notes": [
         "分页用 startRow + rowCount：若返回条数等于 rowCount，很可能还有下一页",
         "列名是英文标识，不确定时传 withColumnMeta=true 让接口把列元数据一起返回",
-        "单次返回上限未实测（tasks 9.3），不要断言一次就取全"
+        "单次返回上限未实测（tasks 9.3），不要断言一次就取全",
+        "reportType 必填：不传报 901400「Reporttype could not be empty」；实测 1–12 全部「Unknow reportType」，真实枚举未确定，别凭猜测传值",
+        "timeUnit=day 会被判参数无效（1519），SUMMARY 能通过枚举校验"
       ],
       "params": {
         "startRow": "起始行号，从 0 开始",
@@ -681,6 +685,27 @@
         "fileUrl": "BOS 上的视频地址",
         "fileMd5": "视频文件的 MD5，用于校验",
         "videoName": "视频名称"
+      }
+    },
+    "CampaignShoppingService.getCampaignShopping": {
+      "description": "查电商推广计划（电商/购物推广线，与搜索推广的 getCampaign 是两套）",
+      "aliases": [
+        "查电商计划",
+        "购物推广计划",
+        "电商推广计划列表"
+      ],
+      "notes": [
+        "campaignShoppingFields 必传，不传或字段名不合法报 1519/9011519",
+        "limit 是 [offset, size] 且必传，不传报 8602（不是网络问题，重试无用）",
+        "计划暂停字段是 pause（布尔），与 status 一致：status=0 启用、status=2 暂停",
+        "返回的 adgroupShoppingId / creativeShoppingIds 只是少量 ID，不是完整单元/创意树；SDK 里没有电商单元/创意的读接口"
+      ],
+      "params": {
+        "campaignShoppingFields": "需要返回的字段名列表，必填",
+        "limit": "[offset, size]，必填",
+        "campaignShoppingIds": "计划 ID 列表；不传返回账户下全部",
+        "sortField": "排序字段名，配合 isDesc 使用",
+        "filters": "过滤条件数组"
       }
     }
   }

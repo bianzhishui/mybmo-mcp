@@ -21,17 +21,18 @@
 
 | 问题 | 结论 | 依据 |
 |---|---|---|
-| 报表单次返回行数上限 | 未验证 | — |
-| 报表是否支持分页（字段名） | 未验证 | — |
+| 报表单次返回行数上限 | 未验证（`reportType` 枚举未定，见错误码基线 901400） | — |
+| 报表是否支持分页（字段名） | 未验证；`getReportData` 有 `startRow`/`rowCount` 两个字段，未跑通 | — |
 | `getKRByQuery` 单次返回上限 | **已验证：300 条**，`data` 是扁平词对象数组 | 2026-11-11 `query=跨境电商` 正好返回 300 条，字段含 `word/competition/recBid/pcPV/mobilePV/show/click/recommendPricePc/recommendPriceMobile/pv/groupName...` |
-| 计划/单元列表是否分页 | **已验证：`getCampaign` 没有分页参数**（`ApiCampaignQueryRequest` 仅 `campaignFields/campaignIds/mobileExtend/adType`）；空结果返回 `[]` 而非 `null` | 2026-11-11 实测该账户 `getCampaign` 返回 `[]` |
+| 计划列表是否分页 | **分两套，不一样**：搜索 `getCampaign` 无分页参数（`campaignFields/campaignIds/mobileExtend/adType`），空结果 `[]`；电商 `getCampaignShopping` 用 **`limit: [offset, size]`**，且**必传**（不传报 8602） | 2026-11-11 实测：`limit=[0,5]` 与 `[5,5]` 返回不重叠；电商计划共 35 条 |
 
 ## 三、字段与写接口
 
 | 问题 | 结论 | 依据 |
 |---|---|---|
-| 计划的暂停字段名 | 未验证（账户内暂无计划，`getCampaign` 返回 `[]`，无法取样） | — |
-| 单元的暂停字段名 | 未验证 | — |
+| 计划的暂停字段名 | **已验证（电商推广）：`pause` 布尔值**，`false` 启用 / `true` 暂停；与 `status` 一致（`status=0` 启用 24 条、`status=2` 暂停 11 条） | 2026-11-11 `CampaignShoppingService.getCampaignShopping` 全量 35 条取样 |
+| 搜索推广计划的暂停字段名 | 未验证（该账户搜索侧 `getCampaign` 返回 `[]`，无计划可取样） | — |
+| 单元的暂停字段名 | 未验证（SDK 里没有 shopping 的单元/创意**读**接口，只有 campaign 级） | — |
 | 关键词的暂停字段名 | 未验证 | — |
 | 创意的暂停字段名 | 未验证 | — |
 | 写接口必填字段清单 | 未验证 | — |
@@ -43,7 +44,9 @@
 | 错误码 | 含义 | 触发条件 | 来源 |
 |---|---|---|---|
 | 81020 | `The username information in the request is incorrect.`（`position=_user`） | 请求头 `userName` 不是令牌所属账户的中文名 | 已验证：2026-11-11 错误 `userName` 实测 |
-| 9011519 | `Request field is invalid`，`position` 指到具体字段 | 字段名不在接口白名单；`AccountService.getAccountInfo` 不传 `accountFields` 也报此码 | 已验证：2026-11-11 四种 `accountFields` 组合实测（仅 `userId` 通过） |
+| 9011519 / 1519 | `Request field is invalid`，`position` 指到具体字段 | 字段名不在接口白名单；`AccountService.getAccountInfo` 不传 `accountFields` 也报此码 | 已验证：2026-11-11 四种 `accountFields` 组合实测（仅 `userId` 通过）；报表接口里 `position=_user` 是笼统提示，不代表真跟用户有关 |
+| 8602 | `We are unable to serve your request, please try again later.` | `getCampaignShopping` **不传 `limit`**（不是网络问题，重试无用） | 已验证：2026-11-11 缺省 `limit` 时必现，加上即正常 |
+| 901400 | `Reporttype could not be empty` / `Unknow reportType: N` | `getReportData` 不传 `reportType`，或传了不存在的值。**实测 1–12 全部 `Unknow`，真实枚举未知** | 已验证：2026-11-11 reportType 1–12 扫描 |
 | 30002 | `应用不存在`（OAuth 层，AppID 无效） | 用不存在的 `appId=app-demo` 调 `oauth/accessToken` | 已验证：2026-11-10 本地回调路由实测，返回 `code=30002 message=应用不存在`（说明授权回调 → 换令牌这条链路本身是通的，只差真实 AppID） |
 | 其他 | 未验证 | — | — |
 
