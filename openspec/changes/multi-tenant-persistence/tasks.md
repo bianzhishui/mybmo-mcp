@@ -5,28 +5,28 @@
 
 ## 1. 准备
 
-- [ ] 1.1 向 infra 申请库与角色：`pg-provision.sh <app>`，拿 DSN
-- [ ] 1.2 把 `MYBMO_DATABASE_URL` 填进 `deploy/.env`，确认连接可用
-- [ ] 1.3 `pyproject.toml` 的 `db` extra 装进镜像（Dockerfile 两条 `uv sync` 加 `--extra db`）
+- [x] 1.1 向 infra 申请库与角色：`pg-provision.sh <app>`，拿 DSN
+- [x] 1.2 把 `MYBMO_DATABASE_URL` 填进 `deploy/.env`，确认连接可用
+- [x] 1.3 `pyproject.toml` 的 `db` extra 装进镜像（Dockerfile 两条 `uv sync` 加 `--extra db`）
 
 **出口**：容器内能连上库，`select 1` 成功。
 
 ## 2. 迁移机制
 
-- [ ] 2.1 `migrations/001_init.sql`：`tenants` / `users` / `account_grants` + `schema_version`
-- [ ] 2.2 `migrations/run.py`：按文件名顺序执行未应用的迁移，单事务
-- [ ] 2.3 重复执行幂等；失败时不留半套表
+- [x] 2.1 `migrations/001_init.sql`：`tenants` / `users` / `account_grants` + `schema_version`
+- [x] 2.2 `migrations/run.py`：按文件名顺序执行未应用的迁移，单事务
+- [x] 2.3 重复执行幂等；失败时不留半套表
 - [ ] 2.4 单测：用临时 schema 跑一次迁移，断言表与版本记录
 
 **出口**：空库跑一次得到完整结构；再跑一次无事发生。
 
 ## 3. 仓储层
 
-- [ ] 3.1 抽出 `TenancyStore` 协议：`resolve_principal(sub)` / `grants_for(principal)` / `grant(...)`
+- [x] 3.1 抽出 `TenancyStore` 协议：`resolve_principal(sub)` / `grants_for(principal)` / `grant(...)`
       以及账户归属三件套 `owner_of(alias)` / `register_account(...)` / `share(...)`（账户私有模型）
-- [ ] 3.2 现有文件实现改名为 `FileTenancyStore`，只用于 `local`
-- [ ] 3.3 新增 `PgTenancyStore`：所有查询带 `tenant_id`，不暴露裸 SQL 给上层
-- [ ] 3.4 `Runtime.tenancy` 按 `MYBMO_AUTH_MODE` 选择实现
+- [x] 3.2 现有文件实现改名为 `FileTenancyStore`，只用于 `local`
+- [x] 3.3 新增 `PgTenancyStore`：所有查询带 `tenant_id`，不暴露裸 SQL 给上层
+- [x] 3.4 `Runtime.tenancy` 按 `MYBMO_AUTH_MODE` 选择实现
 - [ ] 3.5 单测：默认拒绝、档位顺序（`read < write < admin`）、跨租户不可见、`sub` 不存在时拒绝
 
 **出口**：`oidc` 模式下越权调用在取凭据前被拒；`local` 模式不依赖数据库。
@@ -65,3 +65,17 @@
 - [ ] 7.4 全量测试 + `ruff` 绿
 
 **出口**：切换窗口内可 5 分钟回滚。
+
+## 进展记录（2026-11-11）
+
+已完成并线上验证：
+
+- 库 `mybmo` 建好，DSN 在 `deploy/.env`（`MYBMO_DATABASE_URL`）
+- `migrations/001_init.sql` 应用成功（5 张表），重复执行幂等
+- `PgTenancyStore` 与文件版**双读一致**：test01 owner=admin、test02 grant=read、陌生人 None
+- `tenancy.json` 导入 PG：1 账户 / 1 owner / 1 grant，owner 完整性自检通过
+- 切换 `MYBMO_TENANCY_BACKEND=pg` 后：`/healthz` users 1→2、grants=1；
+  test02 读放行、写被拒（AccessDenied）
+- 回滚方式：删掉该环境变量并重启，即回文件版
+
+未完成：3.5（PG 仓储层单测，需临时 schema）、第 5 节隔离约束的静态检查、第 6 节 MCC 子账户。

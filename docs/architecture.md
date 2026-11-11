@@ -111,8 +111,9 @@ JWKS 拉取失败时拒绝而非放行——故障期间"先信旧密钥"等于�
 
 详见 [ADR 0004](decisions/0004-multi-tenant-accounts.md)。
 
-> **当前实现**：账户授权是文件式 `data/tenancy.json`；`psycopg` 仍是
-> `optional-dependencies.db` 里未启用的依赖。下面的表是目标模型，尚未建库。
+> **当前实现**：授权表**双后端**——默认文件式 `data/tenancy.json`；
+> 设 `MYBMO_TENANCY_BACKEND=pg` 则走 PostgreSQL（库 `mybmo`，表见 `migrations/001_init.sql`）。
+> 两个实现同接口（`TenancyStore` / `PgTenancyStore`），调用方零改动。
 
 ```sql
 tenants          (id, name, plan, status, created_at)
