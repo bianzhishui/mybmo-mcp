@@ -11,8 +11,11 @@ Caddy）的部署与运维在 infra 仓库，这里只记录**本仓库代码依
    当**白名单**用：每个允许调用它的客户端，把 client_id 加进去。
 2. **JWKS 路径必须显式配置。** 实测在 `/.well-known/jwks`，不是常见的
    `{issuer}/api/v1/jwks`。推导值恰好能用是巧合，不是契约。
-3. **不开启 DCR。** 客户端逐个在 Casdoor 显式注册。DCR 没有回调白名单与限流，
-   且它签出的令牌 `aud` 是新 client_id，本来也进不了白名单。
+3. **DCR 已关闭（组织级 `dcrPolicy` 置空 = disabled）。** 实测证据：向
+   `/api/oauth/register` 发注册请求返回 `400 invalid_client_metadata`
+   「dynamic client registration is disabled for this organization」。
+   DCR 没有回调白名单与限流，且它签出的令牌 `aud` 是新 client_id，本来也进不了白名单
+   ——所以它只会在 Casdoor 里堆垃圾应用（历史上堆过 4 个 `dcr_*`，已清理）。
 4. **scope 在 Casdoor 里是对象数组**（`[{"name":"baidu:read",...}]`），写成字符串数组会
    被拒。本服务只认 `baidu:read` / `baidu:write` / `baidu:admin`。
 5. **多用户模式下不得回退成本地身份。** 拿不到身份就报错，绝不把「本机」当管理员。
