@@ -186,7 +186,6 @@ class Runtime:
         return CapabilityRegistry.load()
 
     @cached_property
-    @cached_property
     def audit(self) -> FileAuditSink | PgAuditSink:
         """审计写入器。``MYBMO_AUDIT_BACKEND=pg`` 时写 ``audit_log`` 表。
 

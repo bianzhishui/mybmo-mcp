@@ -162,3 +162,16 @@ def test_tool_is_registered() -> None:
 
     assert callable(module.query_audit)
     assert time.time() > 0
+
+
+def test_runtime_audit_is_accessible(tmp_path: Path) -> None:
+    """回归：audit 曾被双重装饰，取属性时报 'cached_property not callable'。"""
+    from mybmo_mcp.audit.log import FileAuditSink
+
+    runtime, _ = make_runtime(tmp_path, Principal(sub=OWNER, tenant_id="t_default"))
+    runtime.__dict__.pop("audit", None)  # 去掉测试注入，走真实属性
+    runtime.settings.mybmo_audit_backend = "file"
+
+    sink = runtime.audit
+
+    assert isinstance(sink, FileAuditSink)
