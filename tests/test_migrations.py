@@ -70,7 +70,7 @@ def test_apply_is_idempotent_in_temp_schema() -> None:
     with psycopg.connect(dsn, autocommit=True) as conn:
         conn.execute(f"CREATE SCHEMA {schema}")
     try:
-        assert runner.apply(dsn, schema=schema) == [1, 2]
+        assert runner.apply(dsn, schema=schema) == list(range(1, 9))
         assert runner.apply(dsn, schema=schema) == []
 
         with psycopg.connect(dsn, autocommit=True, options=f"-c search_path={schema}") as conn:
@@ -89,7 +89,7 @@ def test_apply_is_idempotent_in_temp_schema() -> None:
             "audit_log",
             "schema_version",
         } <= tables
-        assert versions == [1, 2]
+        assert sorted(versions) == list(range(1, 9))
     finally:
         with psycopg.connect(dsn, autocommit=True) as conn:
             conn.execute(f"DROP SCHEMA {schema} CASCADE")

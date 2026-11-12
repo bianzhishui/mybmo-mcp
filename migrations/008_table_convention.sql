@@ -221,20 +221,20 @@ CREATE TEMP TABLE _map_user (old_id text PRIMARY KEY, new_id bigint NOT NULL);
 CREATE TEMP TABLE _map_account (old_id text PRIMARY KEY, new_id bigint NOT NULL);
 
 DO $$
-DECLARE r record; new_id bigint;
+DECLARE r record; v_new_id bigint;
 BEGIN
     FOR r IN SELECT * FROM _bak_users LOOP
         INSERT INTO users (tenant_id, idp_subject, email, display_name, status,
                            created_at, updated_at)
         VALUES (r.tenant_id, r.idp_subject, r.email, r.display_name, r.status,
                 r.created_at, r.created_at)
-        RETURNING id INTO new_id;
-        INSERT INTO _map_user (old_id, new_id) VALUES (r.id, new_id);
+        RETURNING id INTO v_new_id;
+        INSERT INTO _map_user (old_id, new_id) VALUES (r.id, v_new_id);
     END LOOP;
 END $$;
 
 DO $$
-DECLARE r record; new_id bigint;
+DECLARE r record; v_new_id bigint;
 BEGIN
     FOR r IN SELECT * FROM _bak_baidu_accounts LOOP
         INSERT INTO baidu_accounts (tenant_id, alias, owner_user_id, kind,
@@ -245,8 +245,8 @@ BEGIN
                 (SELECT new_id FROM _map_user WHERE old_id = r.owner_user_id),
                 r.kind, r.baidu_user_id, r.user_name, r.app_id,
                 r.access_token_expires_at, r.status, r.created_at, r.updated_at)
-        RETURNING id INTO new_id;
-        INSERT INTO _map_account (old_id, new_id) VALUES (r.id, new_id);
+        RETURNING id INTO v_new_id;
+        INSERT INTO _map_account (old_id, new_id) VALUES (r.id, v_new_id);
     END LOOP;
 END $$;
 
@@ -297,7 +297,7 @@ SELECT id, call_id, started_at, finished_at, duration_ms, tenant_id,
 FROM _bak_audit_log;
 
 SELECT setval(pg_get_serial_sequence('audit_log', 'id'),
-              coalesce((SELECT max(id) FROM audit_log), 1));
+              coalesce((SELECT max(id) FROM audit_log), 0) + 1, false);
 
 -- received_at 并入 created_at
 INSERT INTO subscribe_events (id, method, path, client, key_source, query, headers,
@@ -308,7 +308,7 @@ SELECT id, method, path, client, key_source, query, headers,
 FROM _bak_subscribe_events;
 
 SELECT setval(pg_get_serial_sequence('subscribe_events', 'id'),
-              coalesce((SELECT max(id) FROM subscribe_events), 1));
+              coalesce((SELECT max(id) FROM subscribe_events), 0) + 1, false);
 
 -- ---------------------------------------------------------------- updated_at 触发器
 
