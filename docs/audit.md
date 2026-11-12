@@ -129,7 +129,23 @@ FROM audit_log WHERE state <> 'succeeded' ORDER BY started_at DESC LIMIT 50;
 SELECT request_params, response_body FROM audit_log WHERE call_id = 'c098c3ee7852';
 ```
 
-## 七、已知限制
+## 七、当前线上状态（2026-11-12）
+
+```
+MYBMO_AUDIT_BACKEND=pg        audit_log 表已建（migrations 002）
+MYBMO_AUDIT_STORE_PAYLOAD=true 入参/出参完整入库
+```
+
+实测（生产库）：
+
+| 场景 | state | http_status | user_name | account_name | 备注 |
+|---|---|---|---|---|---|
+| test01 读计划成功 | `succeeded` | `200` | `test01` | `baidu-YF电商-玛卡快消01` | 出参含 header+body，`request_bytes/response_bytes` 有值 |
+| test03 无可用账户 | `failed` | `NULL` | `test03` | 空 | 请求没发出去，所以没有 account_name / http_status |
+
+隔离实测：test03 调 `query_audit` 只看到自己的 2 条，**看不到** test01 那条成功记录。
+
+## 八、已知限制
 
 1. **不清理、不分区**：按需求保留全部记录，长期需要人工关注体积
 2. **`params_match` 是 jsonb 包含匹配**：已建 `GIN (request_params jsonb_path_ops)` 索引
