@@ -273,7 +273,8 @@ class PgAuditSink:
                 cur.execute(sql, (*tuple(args), limit, offset))
                 rows = cur.fetchall()
             conn.commit()
-        return total, [dict(row) for row in rows]
+        # row_factory 可能是 dict_row（生产）或默认元组（测试注入），两种都归一成 dict
+        return total, [row if isinstance(row, dict) else dict(row) for row in rows]
 
 
 def _scalar(row: Any) -> int:
