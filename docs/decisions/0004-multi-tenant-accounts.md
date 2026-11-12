@@ -145,6 +145,15 @@ Casdoor 侧的 org 主要用于管理台分组与登录页展示。
 | `mutating=unknown` 收紧 | 权限不足的用户可能被误拒 | 先标 unknown 的接口做人工核查，逐步收敛 |
 | `wait` 超时不报错 | 调用方可能以为完成 | 返回 `timed_out: true`，并在描述里写清 |
 
+## 实现偏差（2026-11-12 补记）
+
+- `users.role` **已删除**（`migrations/004_drop_users_role.sql`）。落地后发现它从未被任何
+  SQL 读写——用户行由绑定时创建，只写 `id / tenant_id / idp_subject / display_name`，
+  `role` 永远是默认值 `member`。而本服务的权限只来自 `account_grants` + 账户 owner，
+  没有租户级 RBAC。留一个不会被读的 `role` 列会让人误以为存在隐式管理员。
+  将来要做租户级角色，按当时的模型重新加列。
+- `users.email` / `users.status` 同样未被读写，但语义中立（不是权限暗示），保留为将来的位置。
+
 ## 未决问题
 
 - [ ] `mutating` 灰区（导出任务、审核提交）的裁决清单

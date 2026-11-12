@@ -135,7 +135,7 @@ JWKS 拉取失败时拒绝而非放行——故障期间"先信旧密钥"等于�
 ```sql
 tenants          (id, name, plan, status, created_at)
 users            (id, tenant_id, idp_subject, email, display_name,
-                  role, status, created_at)              -- owner | admin | member
+                  status, created_at)                   -- 无 role：权限只来自 grants
 baidu_accounts   (id, tenant_id, alias, owner_user_id, kind, baidu_user_id, user_name,
                   parent_account_id, app_id, access_token_expires_at,
                   status, created_at, updated_at)     -- 归属与展示，不存令牌
