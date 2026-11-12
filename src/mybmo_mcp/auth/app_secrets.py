@@ -17,16 +17,13 @@ import base64
 import json
 import os
 import re
-import tempfile
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 
-from cryptography.exceptions import InvalidTag
-from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-
+from mybmo_mcp.auth import crypto
 from mybmo_mcp.baidu.errors import CredentialError
 
 #: 应用 ID 是百度开发者中心给的 32 位十六进制串，但也可能是别的形态。
@@ -36,10 +33,9 @@ _APP_ID_RE = re.compile(APP_ID_PATTERN)
 
 ENVELOPE_VERSION = 1
 AAD_PREFIX = "mybmo-mcp/app/v1/"
-NONCE_BYTES = 12
 APPS_DIRNAME = "apps"
-_DIR_MODE = 0o700
-_FILE_MODE = 0o600
+_DIR_MODE = crypto.DIR_MODE
+_FILE_MODE = crypto.FILE_MODE
 DEFAULT_TENANT = "t_default"
 
 
@@ -52,7 +48,7 @@ def validate_app_id(app_id: str) -> str:
 
 
 def _aad(app_id: str) -> bytes:
-    return f"{AAD_PREFIX}{app_id}".encode()
+    return crypto.aad(AAD_PREFIX, app_id)
 
 
 @dataclass(frozen=True, slots=True)
@@ -95,11 +91,9 @@ class FileAppSecretStore:
     """``data/apps/<app_id>.json``，AES-GCM，AAD 绑 app_id。"""
 
     def __init__(self, root: str | os.PathLike[str], master_key: bytes) -> None:
-        if len(master_key) != 32:
-            raise CredentialError(f"主密钥必须是 32 字节，当前 {len(master_key)} 字节")
         self.root = Path(root)
         self.apps_dir = self.root / APPS_DIRNAME
-        self._aead = AESGCM(master_key)
+        self._aead = crypto.aead(master_key)
         self.apps_dir.mkdir(parents=True, exist_ok=True)
         os.chmod(self.root, _DIR_MODE)
         os.chmod(self.apps_dir, _DIR_MODE)
@@ -115,28 +109,17 @@ class FileAppSecretStore:
             "scope": app.scope,
             "note": app.note,
         }
-        plaintext = json.dumps(payload, ensure_ascii=False).encode("utf-8")
-        nonce = os.urandom(NONCE_BYTES)
-        ciphertext = self._aead.encrypt(nonce, plaintext, _aad(app.app_id))
+        nonce, ciphertext = crypto.seal(self._aead, payload, _aad(app.app_id))
         envelope = {
             "v": ENVELOPE_VERSION,
             "app_id": app.app_id,
             "nonce": base64.b64encode(nonce).decode("ascii"),
             "ciphertext": base64.b64encode(ciphertext).decode("ascii"),
         }
-        path = self.path_for(app.app_id)
-        fd, tmp = tempfile.mkstemp(dir=str(path.parent), prefix=f".{path.name}.", suffix=".tmp")
-        tmp_path = Path(tmp)
-        try:
-            with os.fdopen(fd, "wb") as fh:
-                fh.write(json.dumps(envelope, ensure_ascii=False).encode("utf-8"))
-                fh.flush()
-                os.fsync(fh.fileno())
-            os.chmod(tmp_path, _FILE_MODE)
-            os.replace(tmp_path, path)
-        except BaseException:
-            tmp_path.unlink(missing_ok=True)
-            raise
+        crypto.atomic_write(
+            self.path_for(app.app_id),
+            json.dumps(envelope, ensure_ascii=False).encode("utf-8"),
+        )
 
     def get(self, app_id: str) -> AppSecret | None:
         path = self.path_for(app_id)
@@ -146,14 +129,11 @@ class FileAppSecretStore:
             envelope = json.loads(path.read_text(encoding="utf-8"))
             nonce = base64.b64decode(envelope["nonce"], validate=True)
             ciphertext = base64.b64decode(envelope["ciphertext"], validate=True)
-            plaintext = self._aead.decrypt(nonce, ciphertext, _aad(app_id))
-            data = json.loads(plaintext)
-        except InvalidTag as exc:
-            raise CredentialError(
-                f"应用密钥解密失败：{path}。可能原因：主密钥不一致、文件被篡改或改过名"
-            ) from exc
         except (OSError, ValueError, KeyError, TypeError) as exc:
             raise CredentialError(f"应用密钥无法读取：{path}") from exc
+        data = crypto.open_json(
+            self._aead, nonce, ciphertext, _aad(app_id), label=f"应用密钥 {path}"
+        )
         return AppSecret(
             app_id=app_id,
             secret_key=str(data.get("secret_key", "")),
@@ -189,11 +169,9 @@ class PgAppSecretStore:
     ) -> None:
         if not dsn:
             raise CredentialError("PgAppSecretStore 需要 MYBMO_DATABASE_URL")
-        if len(master_key) != 32:
-            raise CredentialError(f"主密钥必须是 32 字节，当前 {len(master_key)} 字节")
         self._dsn = dsn
         self._tenant_id = tenant_id
-        self._aead = AESGCM(master_key)
+        self._aead = crypto.aead(master_key)
         self._connect_override = connect
 
     @contextmanager
@@ -228,9 +206,7 @@ class PgAppSecretStore:
             "scope": app.scope,
             "note": app.note,
         }
-        plaintext = json.dumps(payload, ensure_ascii=False).encode("utf-8")
-        nonce = os.urandom(NONCE_BYTES)
-        cipher = self._aead.encrypt(nonce, plaintext, _aad(app.app_id))
+        nonce, cipher = crypto.seal(self._aead, payload, _aad(app.app_id))
         with self._conn() as conn:
             conn.execute(
                 """
@@ -273,16 +249,13 @@ class PgAppSecretStore:
         return [self._decrypt(row, str(row["app_id"])) for row in rows]
 
     def _decrypt(self, row: Any, app_id: str) -> AppSecret:
-        try:
-            plaintext = self._aead.decrypt(bytes(row["nonce"]), bytes(row["cipher"]), _aad(app_id))
-            data = json.loads(plaintext)
-        except InvalidTag as exc:
-            raise CredentialError(
-                f"应用密钥解密失败：{self._tenant_id}/{app_id}。"
-                "可能原因：主密钥不一致或密文被篡改"
-            ) from exc
-        except ValueError as exc:
-            raise CredentialError(f"应用密钥损坏：{self._tenant_id}/{app_id}") from exc
+        data = crypto.open_json(
+            self._aead,
+            bytes(row["nonce"]),
+            bytes(row["cipher"]),
+            _aad(app_id),
+            label=f"应用密钥 {self._tenant_id}/{app_id}",
+        )
         return AppSecret(
             app_id=app_id,
             secret_key=str(data.get("secret_key", "")),

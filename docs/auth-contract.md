@@ -79,7 +79,7 @@ POST /mcp   Authorization: Bearer <JWT>
 未认证请求返回 `401 + WWW-Authenticate: Bearer resource_metadata="…/.well-known/oauth-protected-resource"`，
 把客户端指向 Casdoor。**③+⑤ 的语义是"必须是 pandabase 组织下 mybmo-mcp 应用签出的令牌"。**
 
-### 阶段 4：业务判权（`/data/tenancy.json`）
+### 阶段 4：业务判权（授权表；`MYBMO_TENANCY_BACKEND=file` 时是 `data/tenancy.json`）
 
 见第五节数据卷布局与 `docs/architecture.md`。要点：账户**私有**，owner 隐式 admin，
 分享只能 read/write，未登记的 alias 一律不可见，判定发生在**取凭据之前**。
@@ -92,7 +92,28 @@ POST /mcp   Authorization: Bearer <JWT>
         → POST api.baidu.com/json/sms/service/<Service>/<Method>
 ```
 
-`userName` 必须是**百度账户中文名**（填错报 81020）。
+`userName` 必须是**百度账户中文名**（填错报 81020）。账户改名后由刷新流程自动校正
+（`getUserInfo` 的 `masterName`），不需要人工干预。
+
+### 阶段 6：账户生命周期的三个离线动作
+
+这三个动作**只在服务器上执行**，MCP 工具层不参与——应用密钥不能经过对话、审计或模型上下文。
+
+| 动作 | 命令 | 契约要点 |
+|---|---|---|
+| 登记应用密钥 | `mybmo-mcp app secret set <appId> [--scope=…] [--note=…]` | `secretKey` 隐藏输入，写入 `app_secrets`（密文，AAD 绑 `appId`）。`app secret list` 只列 `appId`，**绝不回显密钥** |
+| 生成授权链接 | `mybmo-mcp auth bind --alias <别名> --app-id <appId> [--subject <sub>] [--tenant <id>]` | 先按 `appId` 取密钥，**预写一条 `status=pending` 的占位凭据**，再签发一次性 `state`（15 分钟 TTL）。`--tenant` 缺省取 `MYBMO_TENANT_ID` |
+| 解绑 | `mybmo-mcp auth unbind <别名>` | 删凭据 + 注销归属与全部分享。**换应用必须先解绑**，否则会撞唯一约束 |
+
+MCP 侧的对应工具是 `bind_account(alias, app_id)`：只传 `appId`；只登记了一个应用时可省略，
+登记了多个则必须显式指定（避免"猜一个应用"）。
+
+约束（ADR 0006 D2/D6）：
+
+- **一个百度账户在租户内只能绑定一个应用**，一个应用也只服务一个账户
+- 冲突发生在**回调阶段**（授权前拿不到 `baidu_user_id`）：换到令牌后查唯一性，
+  冲突则**丢弃令牌、不落库**，并提示 `auth unbind <已有别名>`
+- `pending` 占位凭据不出现在 `list_accounts` 里；与 state 同为 900 秒 TTL
 
 ## 二、八个不能违背的不变量
 

@@ -15,26 +15,22 @@
 
 from __future__ import annotations
 
-import json
-import os
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from typing import Any
 
-from cryptography.exceptions import InvalidTag
-from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-
+from mybmo_mcp.auth import crypto
 from mybmo_mcp.auth.models import Credential, validate_alias
 from mybmo_mcp.baidu.errors import CredentialError
 
 DEFAULT_TENANT = "t_default"
+#: v2：AAD 带上租户——落库后"行"更容易被搬动，绑租户能挡住跨租户复制密文
 AAD_PREFIX = "mybmo-mcp/credential/v2/"
-NONCE_BYTES = 12
 KEY_VERSION = 1
 
 
 def _aad(tenant_id: str, alias: str) -> bytes:
-    return f"{AAD_PREFIX}{tenant_id}/{alias}".encode()
+    return crypto.aad(AAD_PREFIX, tenant_id, alias)
 
 
 class PgCredentialStore:
@@ -50,11 +46,9 @@ class PgCredentialStore:
     ) -> None:
         if not dsn:
             raise CredentialError("PgCredentialStore 需要 MYBMO_DATABASE_URL")
-        if len(master_key) != 32:
-            raise CredentialError(f"主密钥必须是 32 字节，当前 {len(master_key)} 字节")
         self._dsn = dsn
         self._tenant_id = tenant_id
-        self._aead = AESGCM(master_key)
+        self._aead = crypto.aead(master_key)
         self._connect_override = connect
 
     # ---------- 连接 ----------
@@ -98,9 +92,9 @@ class PgCredentialStore:
 
     def _prepare(self, credential: Credential) -> tuple[str, str, dict[str, Any]]:
         alias = validate_alias(credential.alias)
-        plaintext = json.dumps(credential.to_storage(), ensure_ascii=False).encode("utf-8")
-        nonce = os.urandom(NONCE_BYTES)
-        cipher = self._aead.encrypt(nonce, plaintext, _aad(self._tenant_id, alias))
+        nonce, cipher = crypto.seal(
+            self._aead, credential.to_storage(), _aad(self._tenant_id, alias)
+        )
 
         sql = """
             INSERT INTO credentials (
@@ -246,23 +240,13 @@ class PgCredentialStore:
     # ---------- 内部 ----------
 
     def _decrypt_row(self, row: Any, alias: str) -> Credential:
-        try:
-            plaintext = self._aead.decrypt(
-                bytes(row["nonce"]), bytes(row["cipher"]), _aad(self._tenant_id, alias)
-            )
-        except InvalidTag as exc:
-            raise CredentialError(
-                f"凭据解密失败：{self._tenant_id}/{alias}。可能原因：主密钥与加密时不一致、"
-                "密文被篡改，或整行被搬到别的租户/别名下"
-            ) from exc
-        try:
-            data = json.loads(plaintext)
-        except ValueError as exc:
-            raise CredentialError(
-                f"凭据损坏：{self._tenant_id}/{alias} 解密后不是合法 JSON"
-            ) from exc
-        if not isinstance(data, dict):
-            raise CredentialError(f"凭据损坏：{self._tenant_id}/{alias} 解密后不是对象")
+        data = crypto.open_json(
+            self._aead,
+            bytes(row["nonce"]),
+            bytes(row["cipher"]),
+            _aad(self._tenant_id, alias),
+            label=f"凭据 {self._tenant_id}/{alias}",
+        )
         try:
             return Credential.from_storage(data)
         except (KeyError, TypeError, ValueError) as exc:

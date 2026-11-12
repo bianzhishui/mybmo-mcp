@@ -151,11 +151,6 @@ class Runtime:
             )
         return FileVault(self.settings.mybmo_data_dir, self.settings.master_key_bytes())
 
-    @property
-    def vault(self) -> CredentialStore:
-        """兼容旧名字。新代码用 :attr:`store`。"""
-        return self.store
-
     @cached_property
     def registry(self) -> AccountRegistry:
         return AccountRegistry(self.store)

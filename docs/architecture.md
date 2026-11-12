@@ -185,7 +185,7 @@ UNIQUE (tenant_id, app_id) WHERE app_id <> ''               -- 一个应用只�
 app secret set → 密钥进 app_secrets（密文）
    → auth bind → 预写 pending 占位凭据 → 签发 state
    → 回调 → 换令牌 → 查 1:1 唯一性 → 置 active
-   → 调用前检查过期 → 剩余 < 10min 触发刷新
+   → 调用前检查过期 → 剩余 < 5min（EXPIRY_SKEW=300s）触发刷新
    → 刷新：行锁串行（PG）→ 换令牌 → 顺手校正 user_name
    → 新令牌先落库再使用
    → 刷新失败：标记 reauth_required，通知用户重新绑定

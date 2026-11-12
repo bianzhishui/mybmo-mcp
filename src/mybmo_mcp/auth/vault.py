@@ -16,27 +16,24 @@ from __future__ import annotations
 import base64
 import json
 import os
-import tempfile
 from pathlib import Path
 from typing import Any
 
-from cryptography.exceptions import InvalidTag
-from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-
+from mybmo_mcp.auth import crypto
 from mybmo_mcp.auth.models import Credential, validate_alias
 from mybmo_mcp.baidu.errors import CredentialError
 
 ENVELOPE_VERSION = 1
+#: 文件后端沿用 v1（AAD 只绑 alias，不带租户）——存量文件不重加密
 AAD_PREFIX = "mybmo-mcp/credential/v1/"
-NONCE_BYTES = 12
 ACCOUNTS_DIRNAME = "accounts"
 DEFAULT_ALIAS_FILE = "default"
-_DIR_MODE = 0o700
-_FILE_MODE = 0o600
+_DIR_MODE = crypto.DIR_MODE
+_FILE_MODE = crypto.FILE_MODE
 
 
 def _aad(alias: str) -> bytes:
-    return f"{AAD_PREFIX}{alias}".encode()
+    return crypto.aad(AAD_PREFIX, alias)
 
 
 class FileVault:
@@ -49,11 +46,9 @@ class FileVault:
         *,
         accounts_dirname: str = ACCOUNTS_DIRNAME,
     ) -> None:
-        if len(master_key) != 32:
-            raise CredentialError(f"主密钥必须是 32 字节，当前 {len(master_key)} 字节")
         self.root = Path(root)
         self.accounts_dir = self.root / accounts_dirname
-        self._aead = AESGCM(master_key)
+        self._aead = crypto.aead(master_key)
         self.accounts_dir.mkdir(parents=True, exist_ok=True)
         os.chmod(self.root, _DIR_MODE)
         os.chmod(self.accounts_dir, _DIR_MODE)
@@ -67,16 +62,14 @@ class FileVault:
 
     def save(self, cred: Credential) -> None:
         path = self.path_for(cred.alias)
-        plaintext = json.dumps(cred.to_storage(), ensure_ascii=False).encode("utf-8")
-        nonce = os.urandom(NONCE_BYTES)
-        ciphertext = self._aead.encrypt(nonce, plaintext, _aad(cred.alias))
+        nonce, ciphertext = crypto.seal(self._aead, cred.to_storage(), _aad(cred.alias))
         envelope = {
             "v": ENVELOPE_VERSION,
             "alias": cred.alias,
             "nonce": base64.b64encode(nonce).decode("ascii"),
             "ciphertext": base64.b64encode(ciphertext).decode("ascii"),
         }
-        self._atomic_write(path, json.dumps(envelope, ensure_ascii=False).encode("utf-8"))
+        crypto.atomic_write(path, json.dumps(envelope, ensure_ascii=False).encode("utf-8"))
 
     def load(self, alias: str) -> Credential:
         alias = validate_alias(alias)
@@ -175,24 +168,6 @@ class FileVault:
             ciphertext = base64.b64decode(envelope["ciphertext"], validate=True)
         except (KeyError, TypeError, ValueError) as exc:
             raise CredentialError(f"凭据文件损坏：{path} 缺少 nonce 或 ciphertext") from exc
-        try:
-            return self._aead.decrypt(nonce, ciphertext, _aad(alias))
-        except InvalidTag as exc:
-            raise CredentialError(
-                f"凭据文件解密失败：{path}。可能原因：主密钥与加密时不一致、"
-                "文件被篡改，或文件被改过名"
-            ) from exc
-
-    def _atomic_write(self, path: Path, data: bytes) -> None:
-        fd, tmp = tempfile.mkstemp(dir=str(path.parent), prefix=f".{path.name}.", suffix=".tmp")
-        tmp_path = Path(tmp)
-        try:
-            with os.fdopen(fd, "wb") as fh:
-                fh.write(data)
-                fh.flush()
-                os.fsync(fh.fileno())
-            os.chmod(tmp_path, _FILE_MODE)
-            os.replace(tmp_path, path)
-        except BaseException:
-            tmp_path.unlink(missing_ok=True)
-            raise
+        return crypto.open_bytes(
+            self._aead, nonce, ciphertext, _aad(alias), label=f"凭据文件 {path}"
+        )
