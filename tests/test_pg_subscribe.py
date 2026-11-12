@@ -7,13 +7,12 @@ import uuid
 from pathlib import Path
 
 import pytest
+from tests.support.pg import all_migrations
 
 from mybmo_mcp.subscribe import PgSubscribeStore, build_record
 
 ROOT = Path(__file__).resolve().parents[1]
-MIGRATIONS = [
-    (ROOT / "migrations" / "007_subscribe_events.sql").read_text(encoding="utf-8"),
-]
+MIGRATIONS = all_migrations()
 DSN = os.environ.get("MYBMO_TEST_DATABASE_URL", "")
 
 pytestmark = pytest.mark.skipif(not DSN, reason="需要 MYBMO_TEST_DATABASE_URL 才能跑 PG 集成测试")

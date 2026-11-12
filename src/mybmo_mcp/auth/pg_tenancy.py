@@ -12,7 +12,6 @@
 
 from __future__ import annotations
 
-import uuid
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from typing import Any
@@ -128,13 +127,13 @@ class PgTenancyStore:
         row = cur.fetchone()
         if row is not None:
             return row["id"]
-        user_id = str(uuid.uuid4())
+        # id 由 identity 生成（ADR 0010），不再自己造 uuid
         cur.execute(
-            "INSERT INTO users (id, tenant_id, idp_subject, display_name)"
-            " VALUES (%s, %s, %s, %s)",
-            (user_id, self._tenant_id, sub, display_name),
+            "INSERT INTO users (tenant_id, idp_subject, display_name)"
+            " VALUES (%s, %s, %s) RETURNING id",
+            (self._tenant_id, sub, display_name),
         )
-        return user_id
+        return cur.fetchone()["id"]
 
     def _account_row(self, cur: Any, alias: str) -> Any:
         cur.execute(
@@ -231,17 +230,18 @@ class PgTenancyStore:
             raise TenancyError("登记账户缺 owner：账户必须归某个 sub 所有")
         with self._conn() as conn, conn.cursor() as cur:
             cur.execute(
-                "INSERT INTO tenants (id, name) VALUES (%s, %s) ON CONFLICT (id) DO NOTHING",
+                "INSERT INTO tenants (tenant_key, name) VALUES (%s, %s)"
+                " ON CONFLICT (tenant_key) DO NOTHING",
                 (self._tenant_id, self._tenant_id),
             )
             owner_id = self._user_id(cur, owner)
             cur.execute(
-                "INSERT INTO baidu_accounts (id, tenant_id, alias, owner_user_id, user_name)"
-                " VALUES (%s, %s, %s, %s, %s)"
+                "INSERT INTO baidu_accounts (tenant_id, alias, owner_user_id, user_name)"
+                " VALUES (%s, %s, %s, %s)"
                 " ON CONFLICT (tenant_id, alias) DO UPDATE"
                 " SET owner_user_id = EXCLUDED.owner_user_id,"
                 "     user_name = EXCLUDED.user_name, updated_at = now()",
-                (str(uuid.uuid4()), self._tenant_id, alias, owner_id, user_name),
+                (self._tenant_id, alias, owner_id, user_name),
             )
             conn.commit()
 

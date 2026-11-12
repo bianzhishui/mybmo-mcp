@@ -69,6 +69,12 @@ execute_capability → runtime.audit.record(...) → FileAuditSink / PgAuditSink
 * 审计**不在业务事务里**，也不会因为审计失败回滚百度侧的写操作
 * 单连接 + 线程锁复用（审计量小，不值得上连接池）
 
+## 四点五、行级时间戳
+
+`audit_log` 的 `started_at` / `finished_at` 是**调用**起止；
+`created_at` / `updated_at` 是**行**的写入/更新时间（ADR 0010）。
+所有时间按 `Asia/Shanghai` 显示（数据库与容器都设了时区）。
+
 ## 五、查询工具 `query_audit`
 
 只在 `MYBMO_AUDIT_BACKEND=pg` 时可用；文件后端会提示直接看 JSONL。

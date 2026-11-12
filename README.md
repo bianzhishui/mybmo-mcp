@@ -182,6 +182,7 @@ mybmo-mcp tenant rename t_default 玛卡快消      # 改显示名
 | [`ADR 0007`](docs/decisions/0007-credentials-in-postgres.md) | 凭据落 PostgreSQL（`credentials` 表 + 整块密文），不再存加密文件 |
 | [`ADR 0008`](docs/decisions/0008-tenant-per-client.md) | 租户按 Casdoor `client_id` 解析，首次访问自动开户 |
 | [`ADR 0009`](docs/decisions/0009-postgres-only.md) | 运行期只保留 PostgreSQL 后端（移除 file） |
+| [`ADR 0010`](docs/decisions/0010-table-convention.md) | 表规范：`id` 首列 + `created_at`/`updated_at` 末两列 |
 | [`.env.example`](.env.example) | 全部环境变量与取值说明 |
 
 接口元数据分两层，不要混：`baidu/capabilities.json` 由

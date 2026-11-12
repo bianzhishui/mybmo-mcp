@@ -12,15 +12,13 @@ import uuid
 from pathlib import Path
 
 import pytest
+from tests.support.pg import all_migrations
 
 from mybmo_mcp.auth.pg_tenancy import PgTenancyStore
 from mybmo_mcp.auth.tenancy import AccessDenied, Principal, TenancyError
 
 ROOT = Path(__file__).resolve().parents[1]
-MIGRATIONS = [
-    (ROOT / "migrations" / "001_init.sql").read_text(encoding="utf-8"),
-    (ROOT / "migrations" / "005_tenant_client.sql").read_text(encoding="utf-8"),
-]
+MIGRATIONS = all_migrations()
 DSN = os.environ.get("MYBMO_TEST_DATABASE_URL", "")
 
 pytestmark = pytest.mark.skipif(not DSN, reason="需要 MYBMO_TEST_DATABASE_URL 才能跑 PG 集成测试")

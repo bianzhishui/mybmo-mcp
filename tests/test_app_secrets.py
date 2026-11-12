@@ -11,6 +11,7 @@ import uuid
 from pathlib import Path
 
 import pytest
+from tests.support.pg import all_migrations, seed_tenant
 
 from mybmo_mcp.auth.app_secrets import (
     AAD_PREFIX,
@@ -22,11 +23,7 @@ from mybmo_mcp.auth.app_secrets import (
 from mybmo_mcp.baidu.errors import CredentialError
 
 ROOT = Path(__file__).resolve().parents[1]
-MIGRATIONS = [
-    (ROOT / "migrations" / "001_init.sql").read_text(encoding="utf-8"),
-    (ROOT / "migrations" / "003_credentials.sql").read_text(encoding="utf-8"),
-    (ROOT / "migrations" / "005_tenant_client.sql").read_text(encoding="utf-8"),
-]
+MIGRATIONS = all_migrations()
 DSN = os.environ.get("MYBMO_TEST_DATABASE_URL", "")
 KEY = b"k" * 32
 APP_A = "20426c0457c842036585e268d456fe45"
@@ -63,6 +60,7 @@ def pg_schema() -> str:
         conn.execute(f"SET search_path TO {schema}")
         for sql in MIGRATIONS:
             conn.execute(sql)
+        seed_tenant(conn)
     yield schema
     with psycopg.connect(DSN, autocommit=True) as conn:
         conn.execute(f"DROP SCHEMA {schema} CASCADE")

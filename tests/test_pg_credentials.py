@@ -14,6 +14,7 @@ from pathlib import Path
 
 import pytest
 from tests.support.memory import MemoryCredentialStore
+from tests.support.pg import all_migrations, seed_tenant
 
 from mybmo_mcp.auth.models import Credential
 from mybmo_mcp.auth.pg_store import PgCredentialStore
@@ -21,11 +22,7 @@ from mybmo_mcp.auth.store import CredentialStore
 from mybmo_mcp.baidu.errors import CredentialError
 
 ROOT = Path(__file__).resolve().parents[1]
-MIGRATIONS = [
-    (ROOT / "migrations" / "001_init.sql").read_text(encoding="utf-8"),
-    (ROOT / "migrations" / "003_credentials.sql").read_text(encoding="utf-8"),
-    (ROOT / "migrations" / "005_tenant_client.sql").read_text(encoding="utf-8"),
-]
+MIGRATIONS = all_migrations()
 DSN = os.environ.get("MYBMO_TEST_DATABASE_URL", "")
 KEY = b"k" * 32
 
@@ -60,6 +57,7 @@ def schema() -> str:
         conn.execute(f"SET search_path TO {name}")
         for sql in MIGRATIONS:
             conn.execute(sql)
+        seed_tenant(conn)
     yield name
     with psycopg.connect(DSN, autocommit=True) as conn:
         conn.execute(f"DROP SCHEMA {name} CASCADE")
@@ -179,6 +177,9 @@ def test_cipher_is_bound_to_tenant(store: PgCredentialStore, schema: str) -> Non
     import psycopg
 
     with psycopg.connect(DSN, options=f"-c search_path={schema}") as conn:
+        conn.execute(
+            "INSERT INTO tenants (tenant_key, name) VALUES ('t_other', 't_other')"
+        )
         conn.execute("UPDATE credentials SET tenant_id = 't_other' WHERE alias = 'a'")
 
     with pytest.raises(CredentialError, match="账户不存在"):

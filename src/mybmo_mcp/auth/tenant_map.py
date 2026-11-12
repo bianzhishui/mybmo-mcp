@@ -110,37 +110,38 @@ class PgTenantMap:
             )
         with self._conn() as conn:
             row = conn.execute(
-                "SELECT id FROM tenants WHERE client_id = %s", (client_id,)
+                "SELECT tenant_key FROM tenants WHERE client_id = %s", (client_id,)
             ).fetchone()
             if row is not None:
-                return str(row["id"])
+                return str(row["tenant_key"])
 
-            tenant_id = new_tenant_id()
+            tenant_key = new_tenant_id()
             conn.execute(
-                "INSERT INTO tenants (id, name, client_id) VALUES (%s, %s, %s)"
+                "INSERT INTO tenants (tenant_key, name, client_id) VALUES (%s, %s, %s)"
                 " ON CONFLICT (client_id) DO NOTHING",
-                (tenant_id, default_tenant_name(tenant_id), client_id),
+                (tenant_key, default_tenant_name(tenant_key), client_id),
             )
             row = conn.execute(
-                "SELECT id FROM tenants WHERE client_id = %s", (client_id,)
+                "SELECT tenant_key FROM tenants WHERE client_id = %s", (client_id,)
             ).fetchone()
         if row is None:  # pragma: no cover - 理论上不可达：插入被冲突时回查必命中
             raise CredentialError(f"自动开户失败：client_id={client_id}")
-        return str(row["id"])
+        return str(row["tenant_key"])
 
     def get(self, tenant_id: str) -> TenantRef | None:
         with self._conn() as conn:
             row = conn.execute(
-                "SELECT t.id, t.name, coalesce(t.client_id, '') AS client_id,"
-                "  (SELECT count(*) FROM users u WHERE u.tenant_id = t.id) AS users,"
-                "  (SELECT count(*) FROM baidu_accounts b WHERE b.tenant_id = t.id) AS accounts"
-                " FROM tenants t WHERE t.id = %s",
+                "SELECT t.tenant_key, t.name, coalesce(t.client_id, '') AS client_id,"
+                "  (SELECT count(*) FROM users u WHERE u.tenant_id = t.tenant_key) AS users,"
+                "  (SELECT count(*) FROM baidu_accounts b"
+                "     WHERE b.tenant_id = t.tenant_key) AS accounts"
+                " FROM tenants t WHERE t.tenant_key = %s",
                 (tenant_id,),
             ).fetchone()
         if row is None:
             return None
         return TenantRef(
-            id=str(row["id"]),
+            id=str(row["tenant_key"]),
             name=str(row["name"]),
             client_id=str(row["client_id"]),
             users=int(row["users"]),
@@ -150,14 +151,15 @@ class PgTenantMap:
     def list(self) -> list[TenantRef]:
         with self._conn() as conn:
             rows = conn.execute(
-                "SELECT t.id, t.name, coalesce(t.client_id, '') AS client_id,"
-                "  (SELECT count(*) FROM users u WHERE u.tenant_id = t.id) AS users,"
-                "  (SELECT count(*) FROM baidu_accounts b WHERE b.tenant_id = t.id) AS accounts"
-                " FROM tenants t ORDER BY t.created_at, t.id"
+                "SELECT t.tenant_key, t.name, coalesce(t.client_id, '') AS client_id,"
+                "  (SELECT count(*) FROM users u WHERE u.tenant_id = t.tenant_key) AS users,"
+                "  (SELECT count(*) FROM baidu_accounts b"
+                "     WHERE b.tenant_id = t.tenant_key) AS accounts"
+                " FROM tenants t ORDER BY t.created_at, t.tenant_key"
             ).fetchall()
         return [
             TenantRef(
-                id=str(r["id"]),
+                id=str(r["tenant_key"]),
                 name=str(r["name"]),
                 client_id=str(r["client_id"]),
                 users=int(r["users"]),
@@ -175,13 +177,13 @@ class PgTenantMap:
             raise CredentialError("client_id 不能为空")
         with self._conn() as conn:
             exists = conn.execute(
-                "SELECT 1 FROM tenants WHERE id = %s", (tenant_id,)
+                "SELECT 1 FROM tenants WHERE tenant_key = %s", (tenant_id,)
             ).fetchone()
             if exists is None:
                 raise CredentialError(f"租户不存在：{tenant_id}")
             try:
                 conn.execute(
-                    "UPDATE tenants SET client_id = %s WHERE id = %s",
+                    "UPDATE tenants SET client_id = %s WHERE tenant_key = %s",
                     (client_id, tenant_id),
                 )
             except Exception as exc:  # 唯一约束冲突
@@ -189,11 +191,12 @@ class PgTenantMap:
                     # 事务已被置为 aborted，必须先回滚才能继续查
                     conn.rollback()
                     owner = conn.execute(
-                        "SELECT id FROM tenants WHERE client_id = %s", (client_id,)
+                        "SELECT tenant_key FROM tenants WHERE client_id = %s", (client_id,)
                     ).fetchone()
+                    bound = owner["tenant_key"] if owner else "(未知)"
                     raise CredentialError(
-                        f"client_id {client_id} 已绑定到租户 "
-                        f"{owner['id'] if owner else '(未知)'}；一个 client 只能属于一个租户"
+                        f"client_id {client_id} 已绑定到租户 {bound}；"
+                        "一个 client 只能属于一个租户"
                     ) from exc
                 raise
 
@@ -203,7 +206,7 @@ class PgTenantMap:
             raise CredentialError("租户名不能为空")
         with self._conn() as conn:
             cur = conn.execute(
-                "UPDATE tenants SET name = %s WHERE id = %s", (name, tenant_id)
+                "UPDATE tenants SET name = %s WHERE tenant_key = %s", (name, tenant_id)
             )
             if cur.rowcount == 0:
                 raise CredentialError(f"租户不存在：{tenant_id}")
@@ -223,6 +226,7 @@ class PgTenantMap:
         """还没绑 client_id 的租户 id。启动自检用它。"""
         with self._conn() as conn:
             rows = conn.execute(
-                "SELECT id FROM tenants WHERE client_id IS NULL OR client_id = '' ORDER BY id"
+                "SELECT tenant_key FROM tenants"
+                " WHERE client_id IS NULL OR client_id = '' ORDER BY tenant_key"
             ).fetchall()
-        return [str(r["id"]) for r in rows]
+        return [str(r["tenant_key"]) for r in rows]

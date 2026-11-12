@@ -21,6 +21,7 @@ from tests.support.memory import (
     MemoryCredentialStore,
     MemoryTenancyStore,
 )
+from tests.support.pg import all_migrations, seed_tenant
 
 from mybmo_mcp.auth.app_secrets import AppSecret, PgAppSecretStore
 from mybmo_mcp.auth.models import Credential
@@ -69,16 +70,13 @@ def bundle(request):
     from psycopg.rows import dict_row
 
     schema = f"t_{uuid.uuid4().hex[:12]}"
-    migrations = [
-        (ROOT / "migrations" / "001_init.sql").read_text(encoding="utf-8"),
-        (ROOT / "migrations" / "003_credentials.sql").read_text(encoding="utf-8"),
-        (ROOT / "migrations" / "005_tenant_client.sql").read_text(encoding="utf-8"),
-    ]
+    migrations = all_migrations()
     with psycopg.connect(DSN, autocommit=True) as conn:
         conn.execute(f"CREATE SCHEMA {schema}")
         conn.execute(f"SET search_path TO {schema}")
         for sql in migrations:
             conn.execute(sql)
+        seed_tenant(conn)
 
     def connect():
         return psycopg.connect(DSN, options=f"-c search_path={schema}", row_factory=dict_row)

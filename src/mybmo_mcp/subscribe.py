@@ -180,7 +180,7 @@ class PgSubscribeStore:
         with self._conn() as conn:
             row = conn.execute(
                 "INSERT INTO subscribe_events"
-                " (received_at, method, path, client, key_source, query, headers,"
+                " (created_at, method, path, client, key_source, query, headers,"
                 "  body, body_truncated, body_json)"
                 " VALUES (to_timestamp(%s), %s, %s, %s, %s, %s, %s, %s, %s, %s)"
                 " RETURNING id",

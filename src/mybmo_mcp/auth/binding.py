@@ -118,16 +118,16 @@ class PgBindingStateStore:
                 "DELETE FROM binding_states WHERE expires_at <= now()"
             )
             conn.execute(
+                # created_at 由默认值 now() 生成（ADR 0010）；issued_at 只在进程内用
                 "INSERT INTO binding_states"
-                " (nonce, tenant_id, subject, alias, app_id, issued_at, expires_at)"
-                " VALUES (%s, %s, %s, %s, %s, to_timestamp(%s), to_timestamp(%s))",
+                " (nonce, tenant_id, subject, alias, app_id, expires_at)"
+                " VALUES (%s, %s, %s, %s, %s, to_timestamp(%s))",
                 (
                     state.nonce,
                     tenant,
                     subject,
                     alias,
                     app_id,
-                    state.issued_at,
                     state.expires_at,
                 ),
             )
@@ -142,7 +142,7 @@ class PgBindingStateStore:
                 "DELETE FROM binding_states"
                 " WHERE nonce = %s AND expires_at > now()"
                 " RETURNING nonce, tenant_id, subject, alias, app_id,"
-                " extract(epoch FROM issued_at) AS issued_at,"
+                " extract(epoch FROM created_at) AS issued_at,"
                 " extract(epoch FROM expires_at) AS expires_at",
                 (nonce,),
             ).fetchone()

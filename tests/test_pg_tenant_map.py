@@ -7,15 +7,13 @@ import uuid
 from pathlib import Path
 
 import pytest
+from tests.support.pg import all_migrations
 
 from mybmo_mcp.auth.tenant_map import PgTenantMap, default_tenant_name, new_tenant_id
 from mybmo_mcp.baidu.errors import CredentialError
 
 ROOT = Path(__file__).resolve().parents[1]
-MIGRATIONS = [
-    (ROOT / "migrations" / "001_init.sql").read_text(encoding="utf-8"),
-    (ROOT / "migrations" / "005_tenant_client.sql").read_text(encoding="utf-8"),
-]
+MIGRATIONS = all_migrations()
 DSN = os.environ.get("MYBMO_TEST_DATABASE_URL", "")
 
 pytestmark = pytest.mark.skipif(not DSN, reason="需要 MYBMO_TEST_DATABASE_URL 才能跑 PG 集成测试")
@@ -110,7 +108,9 @@ def test_unbound_lists_legacy_tenant(tmap: PgTenantMap) -> None:
 
     # 模拟一个没有 client_id 的历史租户
     with tmap._conn() as conn:
-        conn.execute("INSERT INTO tenants (id, name) VALUES ('t_legacy', '老租户')")
+        conn.execute(
+            "INSERT INTO tenants (tenant_key, name) VALUES ('t_legacy', '老租户')"
+        )
 
     assert tmap.unbound() == ["t_legacy"]
 
