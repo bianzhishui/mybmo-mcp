@@ -167,8 +167,7 @@ class PgTenancyStore:
         return max(grants, key=lambda p: _RANK.get(p, -1))
 
     def visible(self, principal: Principal, aliases: list[str]) -> list[str]:
-        if principal.unrestricted:
-            return list(aliases)
+        """筛出该身份能访问的 alias。没有隐式全权身份（ADR 0009 D5）。"""
         return [alias for alias in aliases if self.permission_for(principal, alias) is not None]
 
     def owner_of(self, alias: str) -> str | None:

@@ -137,3 +137,13 @@ def test_resolve_principal_without_name_keeps_it_empty(store) -> None:
     store.register_account("main", owner=ALICE)
 
     assert store.resolve_principal(ALICE).display_name == ""
+
+
+def test_visible_filters_by_permission(store: PgTenancyStore) -> None:
+    """没有隐式全权身份之后，visible 必须逐条判权（曾漏改导致线上 500）。"""
+    store.register_account("main", owner=ALICE)
+    store.register_account("other", owner=BOB)
+
+    assert store.visible(Principal(sub=ALICE), ["main", "other"]) == ["main"]
+    assert store.visible(Principal(sub=BOB), ["main", "other"]) == ["other"]
+    assert store.visible(Principal(sub="stranger-sub"), ["main", "other"]) == []
