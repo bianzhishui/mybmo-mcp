@@ -58,17 +58,8 @@ class Settings(BaseSettings):
     mybmo_oidc_orgs: str = ""
     mybmo_jwks_url: str = ""
     mybmo_database_url: str = ""
-    #: 授权表后端：``file``（data/tenancy.json，默认）/ ``pg``（PostgreSQL）
-    mybmo_tenancy_backend: str = "file"
-    #: 凭据后端：``file``（data/accounts/*.json，默认）/ ``pg``（credentials 表）。
-    #: 见 docs/decisions/0007-credentials-in-postgres.md。本地开发与单测用 file，
-    #: 生产用 pg——凭据不再是本机文件，多实例部署才成立。
-    mybmo_credential_backend: str = "file"
-    #: 凭据落库时的租户。单租户部署固定一个值；多租户要按 principal 分实例，
-    #: 见 ADR 0007 的未决问题（当前是所有请求共用这一个租户）
+    #: 旧配置项，仅 ``local`` 模式与 ``auth bind`` 兜底还在用；本地模式下线后一并删除
     mybmo_tenant_id: str = "t_default"
-    #: 审计后端：``file``（data/audit/*.jsonl，默认）/ ``pg``（audit_log 表）
-    mybmo_audit_backend: str = "file"
     #: 是否把入参/出参正文也写进审计。关掉只留 payload_digest
     mybmo_audit_store_payload: bool = True
 

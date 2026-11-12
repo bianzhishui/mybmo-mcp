@@ -2,15 +2,15 @@ from __future__ import annotations
 
 import time
 from collections.abc import Iterator
-from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
 import pytest
+from tests.support.memory import MemoryTenancyStore
 
 from mybmo_mcp.auth.access import AccountAccess
 from mybmo_mcp.auth.models import STATUS_ACTIVE, STATUS_REAUTH_REQUIRED
-from mybmo_mcp.auth.tenancy import MODE_LOCAL, Principal, TenancyStore
+from mybmo_mcp.auth.tenancy import Principal, TenancyStore
 from mybmo_mcp.tools import accounts as accounts_tools
 from mybmo_mcp.tools.runtime import set_runtime
 
@@ -47,7 +47,7 @@ class FakeRuntime:
 
     def __init__(self, entries: list[FakeEntry] | None = None, tenancy: TenancyStore | None = None):
         self.registry = FakeRegistry(entries or [FakeEntry()])
-        self.tenancy = tenancy or TenancyStore(Path("/nonexistent/tenancy.json"), mode=MODE_LOCAL)
+        self.tenancy = tenancy or MemoryTenancyStore()
         self.access = AccountAccess(self.registry, self.tenancy)  # type: ignore[arg-type]
         self.principal: Principal | None = None
 

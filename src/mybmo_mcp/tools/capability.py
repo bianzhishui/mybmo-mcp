@@ -22,7 +22,7 @@ from typing import Any
 
 from mcp.server import MCPServer
 
-from mybmo_mcp.audit.log import (
+from mybmo_mcp.audit.base import (
     STATE_DENIED,
     STATE_FAILED,
     STATE_SUCCEEDED,

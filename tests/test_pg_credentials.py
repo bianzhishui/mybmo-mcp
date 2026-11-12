@@ -13,11 +13,11 @@ import uuid
 from pathlib import Path
 
 import pytest
+from tests.support.memory import MemoryCredentialStore
 
 from mybmo_mcp.auth.models import Credential
 from mybmo_mcp.auth.pg_store import PgCredentialStore
 from mybmo_mcp.auth.store import CredentialStore
-from mybmo_mcp.auth.vault import FileVault
 from mybmo_mcp.baidu.errors import CredentialError
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -78,7 +78,7 @@ def store(schema: str) -> PgCredentialStore:
 
 def test_file_vault_satisfies_store_protocol(tmp_path: Path) -> None:
     """两个后端必须能互换——协议是 ADR 0007 D3 的前提。"""
-    assert isinstance(FileVault(tmp_path / "data", KEY), CredentialStore)
+    assert isinstance(MemoryCredentialStore(), CredentialStore)
 
 
 def test_roundtrip_preserves_all_fields(store: PgCredentialStore) -> None:

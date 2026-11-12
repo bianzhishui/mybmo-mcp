@@ -5,8 +5,8 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
+from tests.support.memory import MemoryAuditSink
 
-from mybmo_mcp.audit.log import AuditLog
 from mybmo_mcp.auth.tenancy import Principal
 from mybmo_mcp.baidu.capabilities import CapabilityRegistry
 from mybmo_mcp.tools import capability as capability_tools
@@ -47,7 +47,7 @@ class FakeRuntime:
         self.transport = FakeTransport()
         self.permissions: list[str] = []
         self.access = PermissiveAccess()
-        self.audit = AuditLog(None)
+        self.audit = MemoryAuditSink()
         self.principal: Principal | None = None
 
     def current_principal(self) -> Principal:

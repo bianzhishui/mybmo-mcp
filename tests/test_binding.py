@@ -5,13 +5,12 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from tests.support.memory import MemoryAppSecretStore, MemoryCredentialStore, MemoryTenancyStore
 
-from mybmo_mcp.auth.app_secrets import AppSecret, FileAppSecretStore
+from mybmo_mcp.auth.app_secrets import AppSecret
 from mybmo_mcp.auth.binding import BindingManager, StateStore
 from mybmo_mcp.auth.models import STATUS_ACTIVE
 from mybmo_mcp.auth.oauth import TokenBundle
-from mybmo_mcp.auth.tenancy import MODE_LOCAL, TenancyStore
-from mybmo_mcp.auth.vault import FileVault
 from mybmo_mcp.baidu.errors import CredentialError
 
 KEY = b"k" * 32
@@ -43,12 +42,12 @@ class FakeOAuth:
 
 def build_manager(
     tmp_path: Path, oauth: FakeOAuth | None = None, *, now=time.time
-) -> tuple[BindingManager, FileVault]:
+) -> tuple[BindingManager, MemoryCredentialStore]:
     """绑定管理器 + 一个"单租户"上下文（file 后端，租户无实质意义）。"""
-    vault = FileVault(tmp_path / "data", KEY)
-    apps = FileAppSecretStore(tmp_path / "data", KEY)
+    vault = MemoryCredentialStore()
+    apps = MemoryAppSecretStore()
     apps.save(AppSecret(app_id=APP, secret_key="sk-1"))
-    tenancy = TenancyStore(tmp_path / "data" / "tenancy.json", mode=MODE_LOCAL)
+    tenancy = MemoryTenancyStore()
     ctx = SimpleNamespace(
         tenant_id=TENANT,
         store=vault,

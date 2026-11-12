@@ -13,15 +13,14 @@ from pathlib import Path
 
 import pytest
 
-from mybmo_mcp.auth import app_secrets, crypto, pg_store, vault
+from mybmo_mcp.auth import app_secrets, crypto, pg_store
 from mybmo_mcp.baidu.errors import CredentialError
 
 KEY = b"k" * 32
 
 
 def test_aad_prefixes_are_frozen() -> None:
-    """改了这三个字符串等于让线上全部密文失效。"""
-    assert vault._aad("main") == b"mybmo-mcp/credential/v1/main"
+    """改了这两个字符串等于让线上全部密文失效。"""
     assert pg_store._aad("t_default", "main") == b"mybmo-mcp/credential/v2/t_default/main"
     assert app_secrets._aad("20426c04") == b"mybmo-mcp/app/v1/20426c04"
 

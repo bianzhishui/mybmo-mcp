@@ -45,9 +45,10 @@ def health_payload() -> dict[str, Any]:
         payload["users"] = identity["users"]
         payload["accounts"] = identity["accounts"]
         payload["grants"] = identity["grants"]
-    except (TenancyError, OSError):
-        # 授权表读不出来不该让进程判死：这一项降级为 None，监控按字段告警
-        payload["tenants"] = None
+    except (TenancyError, OSError, CredentialError):
+        # 授权表/租户映射读不出来不该让进程判死：这几项降级为 None，监控按字段告警
+        for key in ("tenants", "users", "accounts", "grants"):
+            payload[key] = None
 
     try:
         runtime.settings.master_key_bytes()

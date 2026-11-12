@@ -17,6 +17,7 @@ from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from typing import Any
 
+from mybmo_mcp.auth.models import validate_alias
 from mybmo_mcp.auth.tenancy import (
     _RANK,
     MODE_OIDC,
@@ -28,7 +29,6 @@ from mybmo_mcp.auth.tenancy import (
     Principal,
     TenancyError,
     satisfies,
-    validate_alias,
 )
 
 

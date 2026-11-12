@@ -7,10 +7,12 @@ import json
 from pathlib import Path
 
 import pytest
+from tests.support.memory import (
+    attach_memory_context,
+)
 
 from mybmo_mcp.auth.models import Credential
 from mybmo_mcp.auth.tenancy import Principal
-from mybmo_mcp.auth.vault import FileVault
 from mybmo_mcp.config import Settings
 from mybmo_mcp.tools import accounts as accounts_tools
 from mybmo_mcp.tools.runtime import Runtime, set_runtime
@@ -35,9 +37,9 @@ def make_runtime(tmp_path: Path, principal: Principal) -> Runtime:
         mybmo_baidu_callback_url="https://x/oauth/baidu/callback",
     )
     rt = Runtime(settings=settings, principal=principal)
-    FileVault(tmp_path, KEY).save(Credential(alias="main", user_name="账户", access_token="at"))
-    tenancy = rt.context_for_tenant("local").tenancy
-    tenancy.register_account("main", owner=OWNER.sub, user_name="账户")
+    ctx0 = attach_memory_context(rt, principal.tenant_id or "local")
+    ctx0.store.save(Credential(alias="main", user_name="账户", access_token="at"))
+    ctx0.tenancy.register_account("main", owner=OWNER.sub, user_name="账户")
     return rt
 
 
@@ -54,7 +56,7 @@ async def test_owner_can_share_read(owner_runtime: Runtime) -> None:
 
     assert result["ok"] is True
     assert result["data"]["shares"] == {"other-sub": "read"}
-    tenancy = owner_runtime.context_for_tenant("local").tenancy
+    tenancy = owner_runtime.context_for_tenant(OWNER.tenant_id).tenancy
     assert tenancy.permission_for(Principal(sub="other-sub"), "main") == "read"
 
 
@@ -84,7 +86,7 @@ async def test_revoke_removes_share(owner_runtime: Runtime) -> None:
 
     assert result["ok"] is True
     assert result["data"]["revoked"] is True
-    tenancy = owner_runtime.context_for_tenant("local").tenancy
+    tenancy = owner_runtime.context_for_tenant(OWNER.tenant_id).tenancy
     assert tenancy.permission_for(Principal(sub="other-sub"), "main") is None
 
 

@@ -12,11 +12,13 @@ import json
 from pathlib import Path
 
 import pytest
+from tests.support.memory import (
+    attach_memory_context,
+)
 
-from mybmo_mcp.auth.app_secrets import AppSecret, FileAppSecretStore
+from mybmo_mcp.auth.app_secrets import AppSecret
 from mybmo_mcp.auth.models import Credential
 from mybmo_mcp.auth.tenancy import Principal
-from mybmo_mcp.auth.vault import FileVault
 from mybmo_mcp.config import Settings
 from mybmo_mcp.tools import accounts as accounts_tools
 from mybmo_mcp.tools.runtime import Runtime, set_runtime
@@ -47,21 +49,20 @@ def runtime(tmp_path: Path):
         mybmo_auth_mode="oidc",
         mybmo_baidu_callback_url=CALLBACK,
     )
-    write_empty_tenancy(tmp_path)
-    # ADR 0006 D3：绑定用的应用密钥必须在服务器上预登记（这里模拟 CLI 已登记）
-    FileAppSecretStore(tmp_path, KEY).save(AppSecret(app_id=APP_ID, secret_key="sk-1"))
     rt = Runtime(settings=settings, principal=ME)
+    ctx = attach_memory_context(rt, ME.tenant_id or "local")
+    # ADR 0006 D3：绑定用的应用密钥必须在服务器上预登记（这里模拟 CLI 已登记）
+    ctx.app_secrets.save(AppSecret(app_id=APP_ID, secret_key="sk-1"))
     set_runtime(rt)
     yield rt
     set_runtime(None)
 
 
 def seed_account(runtime: Runtime, alias: str, *, owner: str | None) -> None:
-    vault = FileVault(runtime.settings.mybmo_data_dir, KEY)
-    vault.save(Credential(alias=alias, user_name=f"账户-{alias}", access_token="at"))
+    ctx = runtime.context_for_tenant(ME.tenant_id or "local")
+    ctx.store.save(Credential(alias=alias, user_name=f"账户-{alias}", access_token="at"))
     if owner is not None:
-        tenancy = runtime.context_for_tenant("local").tenancy
-        tenancy.register_account(alias, owner=owner, user_name=f"账户-{alias}")
+        ctx.tenancy.register_account(alias, owner=owner, user_name=f"账户-{alias}")
 
 
 async def test_bind_account_returns_url_bound_to_caller(runtime: Runtime) -> None:
@@ -116,10 +117,10 @@ async def test_bind_account_without_callback_config_fails_clearly(tmp_path: Path
         mybmo_auth_mode="oidc",
         mybmo_baidu_callback_url="",
     )
-    write_empty_tenancy(tmp_path)
-    # ADR 0006 D3：绑定用的应用密钥必须在服务器上预登记（这里模拟 CLI 已登记）
-    FileAppSecretStore(tmp_path, KEY).save(AppSecret(app_id=APP_ID, secret_key="sk-1"))
-    set_runtime(Runtime(settings=settings, principal=ME))
+    rt = Runtime(settings=settings, principal=ME)
+    ctx = attach_memory_context(rt, ME.tenant_id or "local")
+    ctx.app_secrets.save(AppSecret(app_id=APP_ID, secret_key="sk-1"))
+    set_runtime(rt)
     try:
         result = await accounts_tools.bind_account("mine", APP_ID)
     finally:
@@ -132,7 +133,9 @@ async def test_bind_account_without_callback_config_fails_clearly(tmp_path: Path
 async def test_list_accounts_shows_ownership(runtime: Runtime) -> None:
     seed_account(runtime, "mine", owner=ME.sub)
     seed_account(runtime, "shared", owner="bob-sub")
-    runtime.context_for_tenant("local").tenancy.share("shared", sub=ME.sub, permission="write")
+    runtime.context_for_tenant(ME.tenant_id or "local").tenancy.share(
+        "shared", sub=ME.sub, permission="write"
+    )
 
     result = await accounts_tools.list_accounts()
 

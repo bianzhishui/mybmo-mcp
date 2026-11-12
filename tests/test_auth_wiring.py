@@ -15,7 +15,6 @@ from mybmo_mcp.auth.resource import JwtVerifier
 from mybmo_mcp.auth.tenancy import (
     MODE_LOCAL,
     MODE_OIDC,
-    PERMISSION_ADMIN,
     PERMISSION_READ,
     Principal,
     TenancyError,
@@ -129,66 +128,7 @@ def test_oidc_without_identity_is_refused_not_defaulted(tmp_path: Path) -> None:
         Runtime(settings=make_settings(tmp_path)).current_principal()
 
 
-def test_unknown_sub_gets_a_principal_with_no_grants(tmp_path: Path) -> None:
-    """未登记的用户能"登录成功"，但看不到任何账户。
 
-    这比直接报错好：用户看到的是"没有可用账户"，而不是"你的账号不存在"——
-    后者会让人以为自己有账号只是服务坏了。
-    """
-    import json
-
-    settings = make_settings(tmp_path)
-    settings.mybmo_data_dir.mkdir(parents=True, exist_ok=True)
-    (settings.mybmo_data_dir / "tenancy.json").write_text(
-        json.dumps({"version": 1, "grants": []}), encoding="utf-8"
-    )
-    runtime = Runtime(settings=settings)
-
-    principal = runtime.context_for_tenant("local").tenancy.resolve_principal("u_unknown")
-
-    assert principal.sub == "u_unknown"
-    assert principal.tenant_id == ""
-    assert runtime.context_for_tenant("local").tenancy.permission_for(principal, "axd") is None
-
-
-def test_identity_resolves_even_without_tenancy_file(tmp_path: Path) -> None:
-    """授权表缺失时身份解析仍要成功——否则表现为 500 而不是"没有可用账户"。
-
-    真正的拒绝发生在 require()/permission_for()，那里才抛 TenancyError。
-    """
-    runtime = Runtime(settings=make_settings(tmp_path))
-
-    principal = runtime.context_for_tenant("local").tenancy.resolve_principal("u_zhang")
-
-    assert principal.sub == "u_zhang"
-    with pytest.raises(TenancyError, match="缺少授权表"):
-        runtime.context_for_tenant("local").tenancy.permission_for(principal, "axd")
-
-
-def test_known_sub_gets_tenant_and_display_name(tmp_path: Path) -> None:
-    import json
-
-    settings = make_settings(tmp_path)
-    settings.mybmo_data_dir.mkdir(parents=True, exist_ok=True)
-    (settings.mybmo_data_dir / "tenancy.json").write_text(
-        json.dumps(
-            {
-                "version": 1,
-                "users": [{"sub": "u_zhang", "tenant_id": "t_acme", "display_name": "张三"}],
-                "grants": [{"sub": "u_zhang", "alias": "axd", "permission": "admin"}],
-            },
-            ensure_ascii=False,
-        ),
-        encoding="utf-8",
-    )
-    runtime = Runtime(settings=settings)
-
-    principal = runtime.context_for_tenant("local").tenancy.resolve_principal("u_zhang")
-
-    assert principal.tenant_id == "t_acme"
-    assert principal.display_name == "张三"
-    tenancy = runtime.context_for_tenant("local").tenancy
-    assert tenancy.permission_for(principal, "axd") == PERMISSION_ADMIN
 
 
 def test_explicit_principal_wins_for_tests(tmp_path: Path) -> None:

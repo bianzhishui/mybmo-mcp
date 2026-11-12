@@ -7,20 +7,15 @@
 密钥进不来对话：只经 CLI ``mybmo-mcp app secret set <app_id>`` 用隐藏输入写入，
 MCP 工具层只接受 ``appId``（见 ADR 0006 D3 的折中方案）。
 
-两个后端与凭据后端保持同一套（ADR 0007 D3）：
-``file`` → ``data/apps/<app_id>.json``；``pg`` → ``app_secrets`` 表。
+运行期只有 PostgreSQL 一种后端（``app_secrets`` 表，见 ADR 0007 / 0009）。
 """
 
 from __future__ import annotations
 
-import base64
-import json
-import os
 import re
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 
 from mybmo_mcp.auth import crypto
@@ -31,11 +26,7 @@ from mybmo_mcp.baidu.errors import CredentialError
 APP_ID_PATTERN = r"^[A-Za-z0-9_-]{8,64}$"
 _APP_ID_RE = re.compile(APP_ID_PATTERN)
 
-ENVELOPE_VERSION = 1
 AAD_PREFIX = "mybmo-mcp/app/v1/"
-APPS_DIRNAME = "apps"
-_DIR_MODE = crypto.DIR_MODE
-_FILE_MODE = crypto.FILE_MODE
 
 
 def validate_app_id(app_id: str) -> str:
@@ -81,75 +72,6 @@ class AppSecretStore(Protocol):
     def delete(self, app_id: str) -> None: ...
 
     def list(self) -> list[AppSecret]: ...
-
-
-# ---------------------------------------------------------------- 文件后端
-
-
-class FileAppSecretStore:
-    """``data/apps/<app_id>.json``，AES-GCM，AAD 绑 app_id。"""
-
-    def __init__(self, root: str | os.PathLike[str], master_key: bytes) -> None:
-        self.root = Path(root)
-        self.apps_dir = self.root / APPS_DIRNAME
-        self._aead = crypto.aead(master_key)
-        self.apps_dir.mkdir(parents=True, exist_ok=True)
-        os.chmod(self.root, _DIR_MODE)
-        os.chmod(self.apps_dir, _DIR_MODE)
-
-    def path_for(self, app_id: str) -> Path:
-        return self.apps_dir / f"{validate_app_id(app_id)}.json"
-
-    def save(self, app: AppSecret) -> None:
-        validate_app_id(app.app_id)
-        payload = {
-            "app_id": app.app_id,
-            "secret_key": app.secret_key,
-            "scope": app.scope,
-            "note": app.note,
-        }
-        nonce, ciphertext = crypto.seal(self._aead, payload, _aad(app.app_id))
-        envelope = {
-            "v": ENVELOPE_VERSION,
-            "app_id": app.app_id,
-            "nonce": base64.b64encode(nonce).decode("ascii"),
-            "ciphertext": base64.b64encode(ciphertext).decode("ascii"),
-        }
-        crypto.atomic_write(
-            self.path_for(app.app_id),
-            json.dumps(envelope, ensure_ascii=False).encode("utf-8"),
-        )
-
-    def get(self, app_id: str) -> AppSecret | None:
-        path = self.path_for(app_id)
-        if not path.is_file():
-            return None
-        try:
-            envelope = json.loads(path.read_text(encoding="utf-8"))
-            nonce = base64.b64decode(envelope["nonce"], validate=True)
-            ciphertext = base64.b64decode(envelope["ciphertext"], validate=True)
-        except (OSError, ValueError, KeyError, TypeError) as exc:
-            raise CredentialError(f"应用密钥无法读取：{path}") from exc
-        data = crypto.open_json(
-            self._aead, nonce, ciphertext, _aad(app_id), label=f"应用密钥 {path}"
-        )
-        return AppSecret(
-            app_id=app_id,
-            secret_key=str(data.get("secret_key", "")),
-            scope=str(data.get("scope", "")),
-            note=str(data.get("note", "")),
-        )
-
-    def delete(self, app_id: str) -> None:
-        self.path_for(app_id).unlink(missing_ok=True)
-
-    def list(self) -> list[AppSecret]:
-        found: list[AppSecret] = []
-        for path in sorted(self.apps_dir.glob("*.json")):
-            app = self.get(path.stem)
-            if app is not None:
-                found.append(app)
-        return found
 
 
 # ---------------------------------------------------------------- PG 后端

@@ -11,18 +11,16 @@
 from __future__ import annotations
 
 import json
-import time
 from pathlib import Path
 from types import SimpleNamespace
 
-import pytest
+from tests.support.memory import MemoryAuditSink
 
-from mybmo_mcp.audit.log import (
+from mybmo_mcp.audit.base import (
     STATE_DENIED,
     STATE_FAILED,
     STATE_SUCCEEDED,
     STATE_UNKNOWN,
-    AuditLog,
     payload_digest,
 )
 from mybmo_mcp.auth.tenancy import AccessDenied, Principal
@@ -32,17 +30,16 @@ from mybmo_mcp.tools import capability as capability_tools
 from mybmo_mcp.tools.runtime import set_runtime
 
 
-def read_lines(directory: Path) -> list[dict]:
-    files = sorted(directory.glob("*.jsonl"))
-    assert files, "没有生成审计文件"
-    return [json.loads(line) for line in files[-1].read_text(encoding="utf-8").splitlines()]
+def read_lines(sink: MemoryAuditSink) -> list[dict]:
+    assert sink.records, "没有写入任何审计记录"
+    return sink.rows()
 
 
 # ---------- 写入与脱敏 ----------
 
 
-def test_record_writes_one_json_line(tmp_path: Path) -> None:
-    log = AuditLog(tmp_path)
+def test_record_writes_one_entry() -> None:
+    log = MemoryAuditSink()
     log.record(
         sub="u_zhang",
         tenant_id="t_acme",
@@ -56,7 +53,7 @@ def test_record_writes_one_json_line(tmp_path: Path) -> None:
         payload={"query": "月季"},
     )
 
-    lines = read_lines(tmp_path)
+    lines = read_lines(log)
     assert len(lines) == 1
     row = lines[0]
     assert row["sub"] == "u_zhang"
@@ -69,7 +66,7 @@ def test_record_writes_one_json_line(tmp_path: Path) -> None:
 
 
 def test_error_message_is_redacted(tmp_path: Path) -> None:
-    log = AuditLog(tmp_path)
+    log = MemoryAuditSink()
     log.record(
         sub="u_zhang",
         tenant_id="t_acme",
@@ -82,13 +79,13 @@ def test_error_message_is_redacted(tmp_path: Path) -> None:
         error="refresh failed: refresh_token=abc123secret&x=1",
     )
 
-    row = read_lines(tmp_path)[0]
+    row = read_lines(log)[0]
     assert "abc123secret" not in row["error"]
     assert "***" in row["error"]
 
 
 def test_payload_is_not_stored_only_its_digest(tmp_path: Path) -> None:
-    log = AuditLog(tmp_path)
+    log = MemoryAuditSink()
     log.record(
         sub="u",
         tenant_id="t",
@@ -101,7 +98,7 @@ def test_payload_is_not_stored_only_its_digest(tmp_path: Path) -> None:
         payload={"keywordTypes": [{"keyword": "月季花苗", "price": 3.5}]},
     )
 
-    raw = read_lines(tmp_path)[0]
+    raw = read_lines(log)[0]
     assert "月季花苗" not in json.dumps(raw, ensure_ascii=False)
 
 
@@ -152,7 +149,7 @@ class FakeRuntime:
         self.capabilities = CapabilityRegistry.load()
         self.access = access or AllowAccess()
         self.transport = transport or FakeTransport()
-        self.audit = audit or AuditLog(None)
+        self.audit = audit or MemoryAuditSink()
         self.principal = Principal(sub="u_zhang", tenant_id="t_acme")
 
     def current_principal(self) -> Principal:
@@ -174,22 +171,23 @@ class FakeRuntime:
         return self.transport
 
 
-async def run_with(tmp_path: Path, **runtime_kwargs) -> dict:
-    audit = AuditLog(tmp_path)
+async def run_with(tmp_path: Path, **runtime_kwargs) -> tuple[dict, MemoryAuditSink]:
+    audit = MemoryAuditSink()
     fake = FakeRuntime(audit=audit, **runtime_kwargs)
     set_runtime(fake)  # type: ignore[arg-type]
     try:
-        return await capability_tools.execute_capability(
+        result = await capability_tools.execute_capability(
             "KRService.getKRByQuery", input={"query": "月季"}
         )
+        return result, audit
     finally:
         set_runtime(None)
 
 
 async def test_success_is_recorded_with_call_id(tmp_path: Path) -> None:
-    result = await run_with(tmp_path)
+    result, log = await run_with(tmp_path)
 
-    row = read_lines(tmp_path)[0]
+    row = read_lines(log)[0]
     assert row["state"] == STATE_SUCCEEDED
     assert row["call_id"] == result["meta"]["call_id"]
     assert row["account"] == "axd"
@@ -198,9 +196,9 @@ async def test_success_is_recorded_with_call_id(tmp_path: Path) -> None:
 
 async def test_denied_is_not_recorded_as_failed(tmp_path: Path) -> None:
     """越权时请求根本没发出去，记成 failed 会让人以为百度那边出了问题。"""
-    result = await run_with(tmp_path, access=DenyAccess())
+    result, log = await run_with(tmp_path, access=DenyAccess())
 
-    row = read_lines(tmp_path)[0]
+    row = read_lines(log)[0]
     assert result["ok"] is False
     assert row["state"] == STATE_DENIED
     # 没传 account 时也要记下被解析出来的具体账户，否则排查时不知道想动的是谁
@@ -210,9 +208,9 @@ async def test_denied_is_not_recorded_as_failed(tmp_path: Path) -> None:
 
 async def test_business_failure_is_recorded_as_failed(tmp_path: Path) -> None:
     error = BaiduApiError("userName 不匹配", code=81020, outcome="failed")
-    await run_with(tmp_path, transport=FakeTransport(error))
+    _, log = await run_with(tmp_path, transport=FakeTransport(error))
 
-    row = read_lines(tmp_path)[0]
+    row = read_lines(log)[0]
     assert row["state"] == STATE_FAILED
     assert row["error_code"] == 81020
 
@@ -220,97 +218,7 @@ async def test_business_failure_is_recorded_as_failed(tmp_path: Path) -> None:
 async def test_timeout_is_recorded_as_unknown(tmp_path: Path) -> None:
     """unknown 是「不知道远端做没做」，重发前必须先查。记成 failed 就会诱发重发。"""
     error = BaiduApiError("请求超时，结果未知", outcome="unknown")
-    await run_with(tmp_path, transport=FakeTransport(error))
+    _, log = await run_with(tmp_path, transport=FakeTransport(error))
 
-    row = read_lines(tmp_path)[0]
+    row = read_lines(log)[0]
     assert row["state"] == STATE_UNKNOWN
-
-
-async def test_daily_file_name_is_a_date(tmp_path: Path) -> None:
-    AuditLog(tmp_path).record(
-        sub="u",
-        tenant_id="t",
-        account="axd",
-        capability="c",
-        permission="read",
-        mutating="false",
-        state=STATE_SUCCEEDED,
-        call_id="c1",
-    )
-
-    expected = time.strftime("%Y-%m-%d", time.localtime()) + ".jsonl"
-    assert (tmp_path / expected).is_file()
-
-
-def test_missing_directory_is_created_with_restricted_mode(tmp_path: Path) -> None:
-    target = tmp_path / "nested" / "audit"
-    AuditLog(target).record(
-        sub="u",
-        tenant_id="t",
-        account="axd",
-        capability="c",
-        permission="read",
-        mutating="false",
-        state=STATE_SUCCEEDED,
-        call_id="c1",
-    )
-
-    assert target.is_dir()
-    assert oct(target.stat().st_mode)[-3:] == "700"
-
-
-def test_audit_write_failure_does_not_raise(tmp_path: Path, monkeypatch) -> None:
-    """磁盘写不进去时不能把调用带崩——这是权衡，注释里写明了。"""
-
-    def boom(*args, **kwargs):
-        raise OSError("No space left on device")
-
-    log = AuditLog(tmp_path)
-    monkeypatch.setattr(Path, "open", boom)
-
-    record = log.record(
-        sub="u",
-        tenant_id="t",
-        account="axd",
-        capability="c",
-        permission="read",
-        mutating="false",
-        state=STATE_SUCCEEDED,
-        call_id="c1",
-    )
-
-    assert record.call_id == "c1"
-
-
-def test_none_directory_is_a_noop() -> None:
-    assert (
-        AuditLog(None)
-        .record(
-            sub="u",
-            tenant_id="t",
-            account="",
-            capability="c",
-            permission="read",
-            mutating="false",
-            state=STATE_FAILED,
-            call_id="c1",
-        )
-        .state
-        == STATE_FAILED
-    )
-
-
-@pytest.mark.parametrize("state", [STATE_SUCCEEDED, STATE_FAILED, STATE_UNKNOWN, STATE_DENIED])
-def test_all_states_round_trip(tmp_path: Path, state: str) -> None:
-    AuditLog(tmp_path).record(
-        sub="u",
-        tenant_id="t",
-        account="axd",
-        capability="c",
-        permission="write",
-        mutating="true",
-        state=state,
-        call_id="c1",
-    )
-
-    assert read_lines(tmp_path)[0]["state"] == state

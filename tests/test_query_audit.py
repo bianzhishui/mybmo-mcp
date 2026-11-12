@@ -11,10 +11,11 @@ import time
 from pathlib import Path
 from typing import Any
 
+from tests.support.memory import attach_memory_context
+
 from mybmo_mcp.audit.pg import PgAuditSink
 from mybmo_mcp.auth.models import Credential
-from mybmo_mcp.auth.tenancy import Principal, TenancyStore
-from mybmo_mcp.auth.vault import FileVault
+from mybmo_mcp.auth.tenancy import Principal
 from mybmo_mcp.config import Settings
 from mybmo_mcp.tools import audit as audit_tools
 from mybmo_mcp.tools.runtime import Runtime, set_runtime
@@ -48,15 +49,12 @@ def make_runtime(tmp_path: Path, principal: Principal) -> tuple[Runtime, Recordi
         mybmo_data_dir=tmp_path,
         mybmo_master_key=KEY_B64,
         mybmo_auth_mode="oidc",
-        mybmo_audit_backend="pg",
-        mybmo_database_url="postgresql://unused/none",
     )
     runtime = Runtime(settings=settings, principal=principal)
-    FileVault(tmp_path, KEY).save(Credential(alias="main", user_name="账户", access_token="at"))
-
-    tenancy: TenancyStore = runtime.context_for_tenant("local").tenancy
-    tenancy.register_account("main", owner=OWNER, user_name="baidu-示例账户")
-    tenancy.share("main", sub=OTHER, permission="read")
+    ctx = attach_memory_context(runtime, principal.tenant_id or "t_default")
+    ctx.store.save(Credential(alias="main", user_name="账户", access_token="at"))
+    ctx.tenancy.register_account("main", owner=OWNER, user_name="baidu-示例账户")
+    ctx.tenancy.share("main", sub=OTHER, permission="read")
 
     sink = RecordingSink()
     runtime.__dict__["audit"] = sink  # 绕过 cached_property 注入假 sink
@@ -142,20 +140,6 @@ async def test_limit_is_clamped_and_state_validated(tmp_path: Path) -> None:
     assert "state 只能是" in bad["error"]["message"]
 
 
-async def test_file_backend_is_rejected(tmp_path: Path) -> None:
-    runtime, _ = make_runtime(tmp_path, Principal(sub=OWNER, tenant_id="t_default"))
-    runtime.__dict__["audit"] = type(
-        "FakeFileSink", (), {"record": lambda self, **kw: None}
-    )()
-    set_runtime(runtime)
-    try:
-        result = await audit_tools.query_audit()
-    finally:
-        set_runtime(None)
-
-    assert result["ok"] is False
-    assert "MYBMO_AUDIT_BACKEND=pg" in result["error"]["message"]
-
 
 def test_tool_is_registered() -> None:
     from mybmo_mcp.tools import audit as module
@@ -163,15 +147,3 @@ def test_tool_is_registered() -> None:
     assert callable(module.query_audit)
     assert time.time() > 0
 
-
-def test_runtime_audit_is_accessible(tmp_path: Path) -> None:
-    """回归：audit 曾被双重装饰，取属性时报 'cached_property not callable'。"""
-    from mybmo_mcp.audit.log import FileAuditSink
-
-    runtime, _ = make_runtime(tmp_path, Principal(sub=OWNER, tenant_id="t_default"))
-    runtime.__dict__.pop("audit", None)  # 去掉测试注入，走真实属性
-    runtime.settings.mybmo_audit_backend = "file"
-
-    sink = runtime.audit
-
-    assert isinstance(sink, FileAuditSink)

@@ -90,11 +90,11 @@ curl -fsS https://baiduads.pandabase.top/healthz
 授权表格式见 [`tenancy.example.json`](tenancy.example.json)，档位与账户模型见
 [ADR 0004](docs/decisions/0004-multi-tenant-accounts.md)。
 
-### 凭据存储：加密文件或 PostgreSQL
+### 凭据存储：只有 PostgreSQL
 
-`MYBMO_CREDENTIAL_BACKEND` 决定凭据（令牌 + 应用密钥）放哪：`file`（默认，
-`data/accounts/*.json` + `data/apps/*.json`）或 `pg`（`credentials` / `app_secrets` 表）。
-两者同一套 `CredentialStore` 协议，行为一致；见
+凭据（令牌 + 应用密钥）、授权表、审计**全部落库**（`credentials` / `app_secrets` /
+`tenants` / `users` / `baidu_accounts` / `account_grants` / `audit_log`）。
+文件后端已移除，见 [ADR 0009](docs/decisions/0009-postgres-only.md)；落库设计见
 [ADR 0007](docs/decisions/0007-credentials-in-postgres.md)。
 
 **应用密钥不进对话**：绑定用的 `appId`/`secretKey` 必须在服务器上预登记——
@@ -116,15 +116,7 @@ mybmo-mcp tenant set-client t_default 709a8e…  # 给已有租户绑 client_id
 mybmo-mcp tenant rename t_default 玛卡快消      # 改显示名
 ```
 
-从文件搬到库（**搬完逐条回读校验，源文件保留**）：
-
-```bash
-python scripts/migrate_credentials_to_pg.py --dry-run
-python scripts/migrate_credentials_to_pg.py
-```
-
-校验全过再改 `MYBMO_CREDENTIAL_BACKEND=pg` 并重启；`data/accounts` 与 `data/apps`
-保留一个发布周期后再删。
+一次性迁移脚本已在 2026-11-12 执行完毕后删除（见 ADR 0009）。
 
 ## 两种运行模式
 
@@ -189,6 +181,7 @@ python scripts/migrate_credentials_to_pg.py
 | [`ADR 0006`](docs/decisions/0006-multi-app-credentials.md) | 应用凭据随凭据走；租户内一个百度账户只绑一个应用（含真实绑定实测结论） |
 | [`ADR 0007`](docs/decisions/0007-credentials-in-postgres.md) | 凭据落 PostgreSQL（`credentials` 表 + 整块密文），不再存加密文件 |
 | [`ADR 0008`](docs/decisions/0008-tenant-per-client.md) | 租户按 Casdoor `client_id` 解析，首次访问自动开户 |
+| [`ADR 0009`](docs/decisions/0009-postgres-only.md) | 运行期只保留 PostgreSQL 后端（移除 file） |
 | [`.env.example`](.env.example) | 全部环境变量与取值说明 |
 
 接口元数据分两层，不要混：`baidu/capabilities.json` 由

@@ -4,10 +4,10 @@ import time
 from pathlib import Path
 
 import pytest
+from tests.support.memory import MemoryCredentialStore
 
 from mybmo_mcp.auth.models import Credential
 from mybmo_mcp.auth.registry import AccountRegistry, credential_from_env
-from mybmo_mcp.auth.vault import FileVault
 from mybmo_mcp.baidu.errors import CredentialError
 
 KEY = b"k" * 32
@@ -23,11 +23,11 @@ def credential(alias: str, *, user_name: str = "示例账户", token: str = "tok
 
 
 @pytest.fixture
-def vault(tmp_path: Path) -> FileVault:
-    return FileVault(tmp_path / "data", KEY)
+def vault(tmp_path: Path) -> MemoryCredentialStore:
+    return MemoryCredentialStore()
 
 
-def test_lists_file_accounts_with_default_marked(vault: FileVault) -> None:
+def test_lists_file_accounts_with_default_marked(vault: MemoryCredentialStore) -> None:
     vault.save(credential("axd", user_name="账户甲"))
     vault.save(credential("wds02", user_name="账户乙"))
     vault.set_default("wds02")
@@ -42,7 +42,7 @@ def test_lists_file_accounts_with_default_marked(vault: FileVault) -> None:
     assert entries["axd"].user_name == "账户甲"
 
 
-def test_environment_credential_appears_but_is_not_default(vault: FileVault) -> None:
+def test_environment_credential_appears_but_is_not_default(vault: MemoryCredentialStore) -> None:
     env = {"BAIDU_USER_NAME": "临时账户", "BAIDU_ACCESS_TOKEN": "env-token"}
 
     entries = AccountRegistry(vault, env=env).list_accounts()
@@ -53,7 +53,7 @@ def test_environment_credential_appears_but_is_not_default(vault: FileVault) -> 
     assert entries[0].is_default is False
 
 
-def test_environment_credential_can_be_fetched_by_alias(vault: FileVault) -> None:
+def test_environment_credential_can_be_fetched_by_alias(vault: MemoryCredentialStore) -> None:
     registry = AccountRegistry(
         vault, env={"BAIDU_USER_NAME": "临时账户", "BAIDU_ACCESS_TOKEN": "t"}
     )
@@ -61,20 +61,8 @@ def test_environment_credential_can_be_fetched_by_alias(vault: FileVault) -> Non
     assert registry.get("env").access_token == "t"
 
 
-def test_corrupted_file_fails_loudly_with_path(vault: FileVault) -> None:
-    vault.save(credential("axd"))
-    broken = vault.path_for("wds02")
-    broken.write_text("{}", encoding="utf-8")
 
-    with pytest.raises(CredentialError) as excinfo:
-        AccountRegistry(vault, env={}).list_accounts()
-
-    message = str(excinfo.value)
-    assert "无法读取" in message
-    assert str(broken) in message
-
-
-def test_resolve_prefers_default_then_env_then_single(vault: FileVault) -> None:
+def test_resolve_prefers_default_then_env_then_single(vault: MemoryCredentialStore) -> None:
     vault.save(credential("axd", token="a"))
     vault.save(credential("wds02", token="b"))
     registry = AccountRegistry(vault, env={})
@@ -91,13 +79,13 @@ def test_resolve_prefers_default_then_env_then_single(vault: FileVault) -> None:
     assert env_registry.resolve("env").access_token == "e"
 
 
-def test_resolve_single_account_without_default(vault: FileVault) -> None:
+def test_resolve_single_account_without_default(vault: MemoryCredentialStore) -> None:
     vault.save(credential("axd", token="only"))
 
     assert AccountRegistry(vault, env={}).resolve().access_token == "only"
 
 
-def test_resolve_without_any_account_gives_actionable_error(vault: FileVault) -> None:
+def test_resolve_without_any_account_gives_actionable_error(vault: MemoryCredentialStore) -> None:
     with pytest.raises(CredentialError, match="没有任何已绑定的百度账户"):
         AccountRegistry(vault, env={}).resolve()
 
@@ -127,7 +115,7 @@ def test_credential_from_env_rejects_bad_numbers() -> None:
         )
 
 
-def test_public_view_contains_no_tokens(vault: FileVault) -> None:
+def test_public_view_contains_no_tokens(vault: MemoryCredentialStore) -> None:
     vault.save(credential("axd", token="secret-token"))
 
     rendered = vault.load("axd").to_public()
@@ -146,7 +134,7 @@ def test_public_view_contains_no_tokens(vault: FileVault) -> None:
 
 def test_pending_placeholder_is_hidden_from_accounts(tmp_path: Path) -> None:
     """ADR 0006 D4：预登记但未完成授权的占位凭据不能出现在可选项里。"""
-    store = FileVault(tmp_path / "data", KEY)
+    store = MemoryCredentialStore()
     store.save(credential("ready"))
     store.save(
         Credential(alias="waiting", app_id="app-1", secret_key="sk-1", status="pending")
@@ -160,7 +148,7 @@ def test_pending_placeholder_is_hidden_from_accounts(tmp_path: Path) -> None:
 
 def test_account_entry_masks_app_id(tmp_path: Path) -> None:
     """排查时要能看出这条凭据用哪个应用，但不能把整串密钥信息倒给模型。"""
-    store = FileVault(tmp_path / "data", KEY)
+    store = MemoryCredentialStore()
     store.save(
         Credential(
             alias="axd",
@@ -177,7 +165,7 @@ def test_account_entry_masks_app_id(tmp_path: Path) -> None:
 
 
 def test_account_entry_hides_empty_app_id(tmp_path: Path) -> None:
-    store = FileVault(tmp_path / "data", KEY)
+    store = MemoryCredentialStore()
     store.save(credential("axd"))
 
     assert AccountRegistry(store, env={}).list_accounts()[0].to_dict()["app_id"] == ""

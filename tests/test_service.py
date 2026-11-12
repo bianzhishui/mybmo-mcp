@@ -5,12 +5,12 @@ import time
 from pathlib import Path
 
 import pytest
+from tests.support.memory import MemoryCredentialStore
 
 from mybmo_mcp.auth.models import STATUS_ACTIVE, STATUS_REAUTH_REQUIRED, Credential
 from mybmo_mcp.auth.oauth import TokenBundle
 from mybmo_mcp.auth.registry import AccountRegistry
 from mybmo_mcp.auth.service import CredentialService
-from mybmo_mcp.auth.vault import FileVault
 from mybmo_mcp.baidu.errors import CredentialError
 
 KEY = b"k" * 32
@@ -34,8 +34,8 @@ class FakeOAuth:
 
 def setup_store(
     tmp_path: Path, *, expires_at: float | None = None, refresh_token: str = "rt-1"
-) -> tuple[FileVault, AccountRegistry]:
-    vault = FileVault(tmp_path / "data", KEY)
+) -> tuple[MemoryCredentialStore, AccountRegistry]:
+    vault = MemoryCredentialStore()
     vault.save(
         Credential(
             alias="axd",
@@ -124,7 +124,7 @@ async def test_missing_refresh_token_requires_rebinding(tmp_path: Path) -> None:
 
 
 async def test_environment_credential_is_not_persisted(tmp_path: Path) -> None:
-    vault = FileVault(tmp_path / "data", KEY)
+    vault = MemoryCredentialStore()
     env = {
         "BAIDU_USER_NAME": "临时账户",
         "BAIDU_ACCESS_TOKEN": "old-at",
@@ -140,7 +140,7 @@ async def test_environment_credential_is_not_persisted(tmp_path: Path) -> None:
 
 
 async def test_credentials_for_requires_user_name(tmp_path: Path) -> None:
-    vault = FileVault(tmp_path / "data", KEY)
+    vault = MemoryCredentialStore()
     vault.save(Credential(alias="axd", access_token="at", expires_at=time.time() + 3600))
     registry = AccountRegistry(vault, env={})
 
@@ -164,7 +164,7 @@ async def test_refresh_uses_the_credentials_own_app_credentials(tmp_path: Path) 
     回归用例。旧实现调全局单例，一旦凭据不是用环境变量那组授权的，
     refreshToken 就换不出令牌，还会被误标成 reauth_required。
     """
-    vault = FileVault(tmp_path / "data", KEY)
+    vault = MemoryCredentialStore()
     vault.save(
         Credential(
             alias="axd",
@@ -217,7 +217,7 @@ def test_refresh_writes_back_inside_the_row_lock(tmp_path: Path) -> None:
     """PG 后端：写回必须走行锁句柄，另开连接会等自己持有的锁而死锁。"""
     from contextlib import contextmanager
 
-    vault = FileVault(tmp_path / "data", KEY)
+    vault = MemoryCredentialStore()
     vault.save(
         Credential(
             alias="axd",
@@ -243,7 +243,7 @@ def test_refresh_writes_back_inside_the_row_lock(tmp_path: Path) -> None:
     saved_via_lock: list[Credential] = []
 
     class LockedVault:
-        """给 FileVault 加一个 locked()，模拟 PG 后端的事务句柄。"""
+        """给 MemoryCredentialStore 加一个 locked()，模拟 PG 后端的事务句柄。"""
 
         def __getattr__(self, name: str) -> object:
             return getattr(vault, name)
@@ -284,7 +284,7 @@ class FakeOAuthWithUserInfo(FakeOAuth):
 
 
 def _expired_registry(tmp_path: Path) -> AccountRegistry:
-    vault = FileVault(tmp_path / "data", KEY)
+    vault = MemoryCredentialStore()
     vault.save(
         Credential(
             alias="axd",

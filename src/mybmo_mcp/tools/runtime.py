@@ -25,14 +25,9 @@ import httpx2
 from mcp.server.auth.settings import AuthSettings
 from pydantic import AnyHttpUrl
 
-from mybmo_mcp.audit.log import FileAuditSink
 from mybmo_mcp.audit.pg import PgAuditSink
 from mybmo_mcp.auth.access import AccountAccess
-from mybmo_mcp.auth.app_secrets import (
-    AppSecretStore,
-    FileAppSecretStore,
-    PgAppSecretStore,
-)
+from mybmo_mcp.auth.app_secrets import AppSecretStore, PgAppSecretStore
 from mybmo_mcp.auth.binding import BindingManager, StateStore
 from mybmo_mcp.auth.oauth import BaiduOAuth
 from mybmo_mcp.auth.pg_store import PgCredentialStore
@@ -50,7 +45,6 @@ from mybmo_mcp.auth.tenancy import (
 )
 from mybmo_mcp.auth.tenant_context import TenantContext
 from mybmo_mcp.auth.tenant_map import PgTenantMap
-from mybmo_mcp.auth.vault import FileVault
 from mybmo_mcp.baidu.capabilities import CapabilityRegistry
 from mybmo_mcp.baidu.errors import CredentialError
 from mybmo_mcp.baidu.transport import BaiduTransport, RequestCredentials
@@ -131,13 +125,8 @@ class Runtime:
     @cached_property
     def tenant_map(self) -> PgTenantMap:
         """``client_id`` → 租户（ADR 0008）。只有 pg 后端有租户维度。"""
-        if not (
-            self.settings.mybmo_tenancy_backend == "pg"
-            and self.settings.mybmo_database_url
-        ):
-            raise CredentialError(
-                "多租户映射需要 MYBMO_TENANCY_BACKEND=pg 且配置 MYBMO_DATABASE_URL"
-            )
+        if not self.settings.mybmo_database_url:
+            raise CredentialError("租户映射需要 MYBMO_DATABASE_URL（本服务只支持 PostgreSQL）")
         return PgTenantMap(self.settings.mybmo_database_url)
 
     @cached_property
@@ -162,37 +151,18 @@ class Runtime:
         return self.context_for_tenant(target.tenant_id)
 
     def _build_context(self, tenant_id: str) -> TenantContext:
-        master = self.settings.master_key_bytes()
+        """构造某个租户的存储组件。运行期**只有 PostgreSQL** 一种后端（ADR 0009）。"""
         dsn = self.settings.mybmo_database_url
-        backend = (self.settings.mybmo_credential_backend or "file").strip().lower()
-
-        if backend == "pg":
-            if not dsn:
-                raise CredentialError(
-                    "MYBMO_CREDENTIAL_BACKEND=pg 但缺少 MYBMO_DATABASE_URL，无法读取凭据"
-                )
-            store: CredentialStore = PgCredentialStore(dsn, master, tenant_id=tenant_id)
-            app_secrets: AppSecretStore = PgAppSecretStore(
-                dsn, master, tenant_id=tenant_id
-            )
-        elif backend in ("file", ""):
-            store = FileVault(self.settings.mybmo_data_dir, master)
-            app_secrets = FileAppSecretStore(self.settings.mybmo_data_dir, master)
-        else:
+        if not dsn:
             raise CredentialError(
-                "MYBMO_CREDENTIAL_BACKEND 只能是 file 或 pg，"
-                f"当前是 {backend!r}（拒绝启动，避免静默走错后端）"
+                "缺少 MYBMO_DATABASE_URL：本服务只支持 PostgreSQL 后端（ADR 0009），没有文件兜底"
             )
-
-        if self.settings.mybmo_tenancy_backend == "pg" and dsn:
-            tenancy: TenancyStore | PgTenancyStore = PgTenancyStore(
-                dsn, tenant_id=tenant_id, mode=self.settings.mybmo_auth_mode
-            )
-        else:
-            tenancy = TenancyStore(
-                self.settings.mybmo_data_dir / "tenancy.json",
-                mode=self.settings.mybmo_auth_mode,
-            )
+        master = self.settings.master_key_bytes()
+        store: CredentialStore = PgCredentialStore(dsn, master, tenant_id=tenant_id)
+        app_secrets: AppSecretStore = PgAppSecretStore(dsn, master, tenant_id=tenant_id)
+        tenancy: TenancyStore = PgTenancyStore(
+            dsn, tenant_id=tenant_id, mode=self.settings.mybmo_auth_mode
+        )
 
         registry = AccountRegistry(store)
         return TenantContext(
@@ -210,29 +180,15 @@ class Runtime:
         )
 
     def identity_stats(self) -> dict[str, int]:
-        """探活用：租户/用户/账户/分享计数。pg 走映射表汇总，file 走 tenancy.json。"""
-        if (
-            self.settings.mybmo_tenancy_backend == "pg"
-            and self.settings.mybmo_database_url
-        ):
-            return self.tenant_map.stats()
-        # 刻意不构造 TenantContext：那会连带要求主密钥，而探活要能在"还没配密钥"
-        # 的状态下正常回答（见 health 的 credentials=unconfigured 分支）
-        tenancy = TenancyStore(
-            self.settings.mybmo_data_dir / "tenancy.json",
-            mode=self.settings.mybmo_auth_mode,
-        )
-        return tenancy.stats()
+        """探活用：租户/用户/账户/分享计数（只查 tenants 汇总，不需要主密钥）。"""
+        return self.tenant_map.stats()
 
     def preflight(self) -> None:
         """启动自检：pg 模式下每个租户都必须绑了 ``client_id``。
 
         不检就会变成"服务起来了但所有请求 403"，看起来像鉴权坏了。
         """
-        if (
-            self.settings.mybmo_tenancy_backend != "pg"
-            or not self.settings.mybmo_database_url
-        ):
+        if not self.settings.mybmo_database_url:
             return
         missing = self.tenant_map.unbound()
         if missing:
@@ -280,17 +236,17 @@ class Runtime:
         return CapabilityRegistry.load()
 
     @cached_property
-    def audit(self) -> FileAuditSink | PgAuditSink:
-        """审计写入器。``MYBMO_AUDIT_BACKEND=pg`` 时写 ``audit_log`` 表。
+    def audit(self) -> PgAuditSink:
+        """审计写入器：只有 ``audit_log`` 表一种（ADR 0009）。
 
         用 ``cached_property`` 而不是普通属性：PG 后端要复用连接，
         每次调用新建连接会把审计的固定开销抬到几十毫秒。
         """
-        store_payload = self.settings.mybmo_audit_store_payload
-        if self.settings.mybmo_audit_backend == "pg" and self.settings.mybmo_database_url:
-            return PgAuditSink(self.settings.mybmo_database_url, store_payload=store_payload)
-        return FileAuditSink(
-            self.settings.mybmo_data_dir / "audit", store_payload=store_payload
+        if not self.settings.mybmo_database_url:
+            raise CredentialError("缺少 MYBMO_DATABASE_URL：审计只支持 PostgreSQL 后端")
+        return PgAuditSink(
+            self.settings.mybmo_database_url,
+            store_payload=self.settings.mybmo_audit_store_payload,
         )
 
     @cached_property
@@ -306,8 +262,6 @@ class Runtime:
         ``file`` 后端没有租户维度，退回配置值——只服务单租户（CLI 与测试用，
         文件后端后续会移除）。
         """
-        if self.settings.mybmo_tenancy_backend != "pg":
-            return self.settings.mybmo_tenant_id
         if not client_id:
             raise TenancyError(
                 "令牌缺少 client_id（azp / aud），无法确定属于哪个租户"

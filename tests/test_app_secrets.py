@@ -16,7 +16,6 @@ from mybmo_mcp.auth.app_secrets import (
     AAD_PREFIX,
     AppSecret,
     AppSecretStore,
-    FileAppSecretStore,
     PgAppSecretStore,
     validate_app_id,
 )
@@ -35,57 +34,13 @@ APP_B = "d83aa97522af9aa92a59892993085c80"
 SECRET = "5dddca5c6643ce275b0ea6a96168f6ac"
 
 
-def test_file_store_satisfies_protocol(tmp_path: Path) -> None:
-    assert isinstance(FileAppSecretStore(tmp_path, KEY), AppSecretStore)
-
 
 def test_app_id_format_is_enforced() -> None:
     with pytest.raises(CredentialError, match="不合法"):
         validate_app_id("app-1")
 
 
-def test_file_roundtrip_and_list(tmp_path: Path) -> None:
-    store = FileAppSecretStore(tmp_path, KEY)
-    store.save(AppSecret(app_id=APP_A, secret_key=SECRET, scope="basic", note="主应用"))
 
-    loaded = store.get(APP_A)
-    assert loaded is not None
-    assert loaded.secret_key == SECRET
-    assert loaded.scope == "basic"
-    assert [app.app_id for app in store.list()] == [APP_A]
-
-
-def test_file_secret_is_encrypted(tmp_path: Path) -> None:
-    store = FileAppSecretStore(tmp_path, KEY)
-    store.save(AppSecret(app_id=APP_A, secret_key=SECRET))
-
-    raw = store.path_for(APP_A).read_text(encoding="utf-8")
-    assert SECRET not in raw
-    assert "secret_key" not in raw
-
-
-def test_file_repr_does_not_leak_secret() -> None:
-    assert SECRET not in repr(AppSecret(app_id=APP_A, secret_key=SECRET))
-    assert "secret_key" not in AppSecret(app_id=APP_A, secret_key=SECRET).to_public()
-
-
-def test_file_cipher_bound_to_app_id(tmp_path: Path) -> None:
-    """把 A 的密文文件改名成 B，必须解不开——AAD 绑的正是 app_id。"""
-    store = FileAppSecretStore(tmp_path, KEY)
-    store.save(AppSecret(app_id=APP_A, secret_key=SECRET))
-    store.path_for(APP_A).rename(store.path_for(APP_B))
-
-    with pytest.raises(CredentialError, match="解密失败"):
-        store.get(APP_B)
-
-
-def test_file_delete(tmp_path: Path) -> None:
-    store = FileAppSecretStore(tmp_path, KEY)
-    store.save(AppSecret(app_id=APP_A, secret_key=SECRET))
-    store.delete(APP_A)
-    store.delete(APP_A)
-
-    assert store.get(APP_A) is None
 
 
 def test_aad_prefix_is_stable() -> None:
@@ -159,3 +114,14 @@ def test_pg_delete(pg_store: PgAppSecretStore) -> None:
     pg_store.delete(APP_A)
 
     assert pg_store.get(APP_A) is None
+
+
+def test_repr_does_not_leak_secret() -> None:
+    assert SECRET not in repr(AppSecret(app_id=APP_A, secret_key=SECRET))
+    assert "secret_key" not in AppSecret(app_id=APP_A, secret_key=SECRET).to_public()
+
+
+def test_memory_store_satisfies_protocol() -> None:
+    from tests.support.memory import MemoryAppSecretStore
+
+    assert isinstance(MemoryAppSecretStore(), AppSecretStore)
