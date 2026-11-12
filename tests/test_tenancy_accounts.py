@@ -226,3 +226,19 @@ def test_file_change_is_picked_up_without_reload(tmp_path: Path) -> None:
     os.utime(path, (stamp, stamp))
 
     assert tenancy.permission_for(Principal(sub=BOB), "main") == "read"
+
+
+def test_unregister_account_removes_owner_and_shares(tmp_path: Path) -> None:
+    """解绑要连归属与分享一起清掉，否则会留下"有归属、无凭据"的幽灵账户。"""
+    path = tmp_path / "tenancy.json"
+    path.write_text(
+        json.dumps({"version": 2, "users": [], "accounts": [], "grants": []}), encoding="utf-8"
+    )
+    store = TenancyStore(path, mode=MODE_OIDC)
+    store.register_account("main", owner=ALICE, user_name="账户")
+    store.share("main", sub=BOB, permission="read")
+
+    assert store.unregister_account("main") is True
+    assert store.owner_of("main") is None
+    assert store.shares_of("main") == {}
+    assert store.unregister_account("main") is False

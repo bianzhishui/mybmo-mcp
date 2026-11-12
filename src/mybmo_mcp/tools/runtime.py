@@ -28,12 +28,19 @@ from pydantic import AnyHttpUrl
 from mybmo_mcp.audit.log import FileAuditSink
 from mybmo_mcp.audit.pg import PgAuditSink
 from mybmo_mcp.auth.access import AccountAccess
+from mybmo_mcp.auth.app_secrets import (
+    AppSecretStore,
+    FileAppSecretStore,
+    PgAppSecretStore,
+)
 from mybmo_mcp.auth.binding import BindingManager, StateStore
 from mybmo_mcp.auth.oauth import BaiduOAuth
+from mybmo_mcp.auth.pg_store import PgCredentialStore
 from mybmo_mcp.auth.pg_tenancy import PgTenancyStore
 from mybmo_mcp.auth.registry import AccountRegistry
 from mybmo_mcp.auth.resource import SCOPE_READ, JwtVerifier
 from mybmo_mcp.auth.service import CredentialService
+from mybmo_mcp.auth.store import CredentialStore
 from mybmo_mcp.auth.tenancy import (
     MODE_LOCAL,
     PERMISSION_READ,
@@ -120,12 +127,38 @@ class Runtime:
     principal: Principal | None = None
 
     @cached_property
-    def vault(self) -> FileVault:
+    def store(self) -> CredentialStore:
+        """凭据存储。``MYBMO_CREDENTIAL_BACKEND=pg`` 时走 PostgreSQL，否则加密文件。
+
+        见 docs/decisions/0007-credentials-in-postgres.md。两条后端实现同一套
+        ``CredentialStore`` 协议，上层不区分。
+        """
+        backend = (self.settings.mybmo_credential_backend or "file").strip().lower()
+        if backend == "pg":
+            if not self.settings.mybmo_database_url:
+                raise CredentialError(
+                    "MYBMO_CREDENTIAL_BACKEND=pg 但缺少 MYBMO_DATABASE_URL，无法读取凭据"
+                )
+            return PgCredentialStore(
+                self.settings.mybmo_database_url,
+                self.settings.master_key_bytes(),
+                tenant_id=self.settings.mybmo_tenant_id,
+            )
+        if backend not in ("file", ""):
+            raise CredentialError(
+                "MYBMO_CREDENTIAL_BACKEND 只能是 file 或 pg，"
+                f"当前是 {backend!r}（拒绝启动，避免静默走错后端）"
+            )
         return FileVault(self.settings.mybmo_data_dir, self.settings.master_key_bytes())
+
+    @property
+    def vault(self) -> CredentialStore:
+        """兼容旧名字。新代码用 :attr:`store`。"""
+        return self.store
 
     @cached_property
     def registry(self) -> AccountRegistry:
-        return AccountRegistry(self.vault)
+        return AccountRegistry(self.store)
 
     @cached_property
     def tenancy(self) -> TenancyStore | PgTenancyStore:
@@ -147,7 +180,38 @@ class Runtime:
 
     @cached_property
     def oauth(self) -> BaiduOAuth:
+        """遗留的"默认应用"客户端。
+
+        ADR 0006 D1 之后应用密钥跟着凭据走，这里只在**历史凭据没有应用凭据**时
+        作为回落；不再是可以绑定的唯一入口。
+        """
+        if not self.settings.baidu_app_id or not self.settings.baidu_secret_key:
+            raise CredentialError(
+                "没有配置默认应用（BAIDU_APP_ID / BAIDU_SECRET_KEY），"
+                "而这条凭据也没有自带应用凭据；需要重新绑定"
+            )
         return BaiduOAuth(self.settings.baidu_app_id, self.settings.baidu_secret_key)
+
+    @cached_property
+    def app_secrets(self) -> AppSecretStore:
+        """应用密钥登记表。与凭据后端同源（ADR 0007 D3）。
+
+        密钥只经 CLI 写入（隐藏输入），MCP 工具层只收 appId。
+        """
+        backend = (self.settings.mybmo_credential_backend or "file").strip().lower()
+        if backend == "pg":
+            if not self.settings.mybmo_database_url:
+                raise CredentialError(
+                    "MYBMO_CREDENTIAL_BACKEND=pg 但缺少 MYBMO_DATABASE_URL，无法读取应用密钥"
+                )
+            return PgAppSecretStore(
+                self.settings.mybmo_database_url,
+                self.settings.master_key_bytes(),
+                tenant_id=self.settings.mybmo_tenant_id,
+            )
+        return FileAppSecretStore(
+            self.settings.mybmo_data_dir, self.settings.master_key_bytes()
+        )
 
     @cached_property
     def credentials(self) -> CredentialService:
@@ -168,15 +232,12 @@ class Runtime:
                 "缺少 MYBMO_BAIDU_CALLBACK_URL（在 dev2 应用「安全设置」里登记的授权回调地址），"
                 "没有它生成不了授权链接。取值见 docs/auth-contract.md"
             )
-        if not self.settings.baidu_app_id or not self.settings.baidu_secret_key:
-            raise CredentialError("缺少 BAIDU_APP_ID / BAIDU_SECRET_KEY，无法绑定百度账户")
         return BindingManager(
-            self.oauth,
-            self.vault,
+            None,
+            self.store,
             StateStore(self.settings.mybmo_data_dir),
-            app_id=self.settings.baidu_app_id,
-            secret_key=self.settings.baidu_secret_key,
             redirect_uri=callback,
+            app_secrets=self.app_secrets,
             tenancy=self.tenancy,
         )
 

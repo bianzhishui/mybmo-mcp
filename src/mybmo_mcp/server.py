@@ -19,6 +19,7 @@ from starlette.requests import Request
 from starlette.responses import HTMLResponse, JSONResponse
 
 from mybmo_mcp import __version__
+from mybmo_mcp.auth.app_secrets import AppSecret
 from mybmo_mcp.auth.binding import STATE_TTL
 from mybmo_mcp.auth.callback import CallbackOutcome, complete_binding
 from mybmo_mcp.auth.tenancy import MODE_LOCAL, Principal
@@ -237,12 +238,32 @@ def _auth_kwargs() -> dict[str, Any]:
     return {"auth": settings, "token_verifier": verifier}
 
 
+class _StripQueryFilter(logging.Filter):
+    """把访问日志里的 query string 抹掉。
+
+    为什么必须有它：``/oauth/baidu/callback`` 的授权码就在 query 里，
+    而 uvicorn 的 access log 用 ``get_path_with_query_string()`` 原样打印
+    （2026-11-12 真实绑定实测：整串 ``authCode`` 进了 docker logs）。
+    回调路由自己只记状态码与文案，这里补上被 access log 漏出去的那一份。
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        args = record.args
+        if isinstance(args, tuple) and len(args) >= 3:
+            target = args[2]
+            if isinstance(target, str) and "?" in target:
+                record.args = (args[0], args[1], target.split("?", 1)[0], *args[3:])
+        return True
+
+
 def _configure_logging(level: str) -> None:
     logging.basicConfig(
         level=_LOG_LEVELS.get(level.lower(), logging.INFO),
         stream=sys.stderr,
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
+    # 失败关闭式的兜底：即便 access log 开着，也不让授权码进日志
+    logging.getLogger("uvicorn.access").addFilter(_StripQueryFilter())
 
 
 @app.callback(invoke_without_command=True)
@@ -302,6 +323,13 @@ def auth_bind(
         str,
         typer.Option("--tenant", help="租户 ID；local 模式默认 local"),
     ] = "",
+    app_id: Annotated[
+        str,
+        typer.Option(
+            "--app-id",
+            help="用哪个应用授权（先用 `mybmo-mcp app secret set <appId>` 登记密钥）",
+        ),
+    ] = "",
 ) -> None:
     """生成百度授权链接。
 
@@ -329,10 +357,15 @@ def auth_bind(
         typer.echo(f"错误：{exc}", err=True)
         raise typer.Exit(code=2) from exc
 
-    url, state = manager.authorize_url(subject=subject, tenant=tenant, alias=alias)
+    url, state = manager.authorize_url(
+        subject=subject, tenant=tenant, alias=alias, app_id=app_id
+    )
     minutes = int(STATE_TTL // 60)
     callback = runtime.settings.mybmo_baidu_callback_url
-    typer.echo(f"账户别名：{state.alias}（归属 sub={state.subject} tenant={state.tenant}）")
+    typer.echo(
+        f"账户别名：{state.alias}（归属 sub={state.subject} tenant={state.tenant} "
+        f"app={state.app_id}）"
+    )
     typer.echo(f"授权链接（{minutes} 分钟内有效，state 一次性）：")
     typer.echo("")
     typer.echo(url)
@@ -349,7 +382,93 @@ def auth_bind(
     )
 
 
+@auth_app.command("unbind")
+def auth_unbind(
+    alias: Annotated[str, typer.Argument(help="要解绑的账户别名")],
+    yes: Annotated[bool, typer.Option("--yes", "-y", help="跳过确认")] = False,
+) -> None:
+    """解绑账户：删凭据 + 注销归属与分享。
+
+    换应用时先解绑再绑定。**不会**动审计日志——审计要能回放当时的调用。
+    """
+    runtime = get_runtime()
+    if not yes:
+        typer.confirm(f"确认解绑 {alias}？与它相关的分享会一并失效", abort=True)
+    runtime.store.delete(alias)
+    removed = runtime.tenancy.unregister_account(alias)
+    typer.echo(f"凭据已删除：{alias}" + ("" if removed else "（授权表里本来就没有登记）"))
+
+
+app_app = typer.Typer(
+    name="app",
+    help="应用密钥（appId / secretKey）登记。密钥只在服务器上隐藏输入，不经 MCP 工具与对话。",
+    add_completion=False,
+    rich_markup_mode=None,
+)
+secret_app = typer.Typer(
+    name="secret", help="应用密钥的登记与查看（只看是否已登记，不回显密钥）。",
+    add_completion=False, rich_markup_mode=None,
+)
+
+
+@secret_app.command("set")
+def app_secret_set(
+    app_id: Annotated[str, typer.Argument(help="百度开发者中心的应用 AppID")],
+    scope: Annotated[str, typer.Option("--scope", help="授权 scope（应用级参数，可留空）")] = "",
+    note: Annotated[str, typer.Option("--note", help="备注，便于区分多个应用")] = "",
+    secret: Annotated[
+        str,
+        typer.Option(
+            "--secret",
+            help="不推荐：命令行会进 shell history。留空则交互式隐藏输入",
+        ),
+    ] = "",
+) -> None:
+    """登记（或更新）一个应用的 secretKey。"""
+    runtime = get_runtime()
+    value = secret.strip() or typer.prompt(
+        "secretKey（输入不显示）", hide_input=True, confirmation_prompt=True
+    )
+    if not value.strip():
+        typer.echo("错误：secretKey 不能为空", err=True)
+        raise typer.Exit(code=2)
+    runtime.app_secrets.save(
+        AppSecret(app_id=app_id, secret_key=value.strip(), scope=scope, note=note)
+    )
+    typer.echo(f"已登记应用 {app_id}（密钥不回显）。下一步：")
+    typer.echo(f"  mybmo-mcp auth bind --alias <别名> --app-id {app_id} --subject <sub>")
+
+
+@secret_app.command("list")
+def app_secret_list() -> None:
+    """列出已登记的应用。**不显示密钥**。"""
+    runtime = get_runtime()
+    apps = runtime.app_secrets.list()
+    if not apps:
+        typer.echo("还没有登记任何应用。用 `mybmo-mcp app secret set <appId>` 登记。")
+        return
+    for app in apps:
+        scope = f" scope={app.scope}" if app.scope else ""
+        note = f"  # {app.note}" if app.note else ""
+        typer.echo(f"{app.app_id}{scope}{note}")
+
+
+@secret_app.command("remove")
+def app_secret_remove(
+    app_id: Annotated[str, typer.Argument(help="要删除的应用 AppID")],
+    yes: Annotated[bool, typer.Option("--yes", "-y", help="跳过确认")] = False,
+) -> None:
+    """删除应用密钥登记。已绑定的账户不受影响（它们各自存了密钥副本）。"""
+    runtime = get_runtime()
+    if not yes:
+        typer.confirm(f"确认删除应用 {app_id} 的密钥登记？", abort=True)
+    runtime.app_secrets.delete(app_id)
+    typer.echo(f"已删除应用 {app_id}")
+
+
+app_app.add_typer(secret_app, name="secret")
 app.add_typer(auth_app, name="auth")
+app.add_typer(app_app, name="app")
 
 
 def main(argv: Sequence[str] | None = None) -> int:

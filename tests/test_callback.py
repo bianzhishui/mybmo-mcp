@@ -152,13 +152,15 @@ async def test_missing_user_id_is_flagged_in_hints(tmp_path: Path) -> None:
     assert any("userId" in hint for hint in outcome.hints)
 
 
-async def test_non_numeric_user_id_does_not_crash(tmp_path: Path) -> None:
+async def test_non_numeric_user_id_fails_with_actionable_hint(tmp_path: Path) -> None:
+    """userId 解析不出来、又没有 state 时不做兜底：既不知道账户也不知道归属，
+    编一个 acct_0 只会产出没人能认领的凭据。"""
     outcome = await complete_binding(
-        build_manager(tmp_path), {"authCode": "c", "userId": "not-a-number"}
+        build_manager(tmp_path), {"authCode": "c", "userId": "not-a-number", "appId": "app-1"}
     )
 
-    assert outcome.ok is True
-    assert outcome.data["alias"].startswith("acct_")
+    assert outcome.ok is False
+    assert "重新执行一次绑定" in outcome.message
 
 
 async def test_missing_master_name_fails(tmp_path: Path) -> None:

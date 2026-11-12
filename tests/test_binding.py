@@ -109,15 +109,20 @@ async def test_complete_without_state_falls_back_and_marks_unconfirmed(tmp_path:
     assert "待人工确认" in vault.load("acct_1001").note
 
 
-async def test_replayed_state_degrades_to_unconfirmed(tmp_path: Path) -> None:
+async def test_replayed_state_is_refused_instead_of_duplicating(tmp_path: Path) -> None:
+    """state 已被消费 → 走 appId 兜底；但同一百度账户已经绑过，必须拒绝。
+
+    这比"降级成 acct_<userId> 的 unconfirmed 副本"好：副本会让同一账户出现
+    两套并行令牌，且没人认领（ADR 0006 D6）。
+    """
     manager, _ = build_manager(tmp_path)
     _, state = manager.authorize_url(subject="s", tenant="t", alias="axd")
     await manager.complete(auth_code="code", state=state.nonce, user_id=1001)
 
-    second, _ = await manager.complete(auth_code="code-2", state=state.nonce, user_id=1001)
-
-    assert second.alias == "acct_1001"
-    assert second.status == STATUS_UNCONFIRMED
+    with pytest.raises(CredentialError, match="只能绑定一个应用"):
+        await manager.complete(
+            auth_code="code-2", state=state.nonce, user_id=1001, app_id="app-1"
+        )
 
 
 async def test_missing_master_name_fails_loudly(tmp_path: Path) -> None:

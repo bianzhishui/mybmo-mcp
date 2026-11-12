@@ -142,3 +142,17 @@ def test_public_view_contains_no_tokens(vault: FileVault) -> None:
         "refresh_expires_at",
         "note",
     }
+
+
+def test_pending_placeholder_is_hidden_from_accounts(tmp_path: Path) -> None:
+    """ADR 0006 D4：预登记但未完成授权的占位凭据不能出现在可选项里。"""
+    store = FileVault(tmp_path / "data", KEY)
+    store.save(credential("ready"))
+    store.save(
+        Credential(alias="waiting", app_id="app-1", secret_key="sk-1", status="pending")
+    )
+    registry = AccountRegistry(store, env={})
+
+    assert [entry.alias for entry in registry.list_accounts()] == ["ready"]
+    # 只剩一个可用账户时，resolve() 不该被占位记录干扰
+    assert registry.resolve().alias == "ready"

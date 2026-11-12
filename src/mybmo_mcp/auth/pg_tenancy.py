@@ -274,6 +274,25 @@ class PgTenancyStore:
             conn.commit()
         return removed
 
+    def unregister_account(self, alias: str) -> bool:
+        """注销账户归属：先删 grants，再删账户行。返回是否真的删了。"""
+        alias = validate_alias(alias)
+        with self._conn() as conn, conn.cursor() as cur:
+            row = self._account_row(cur, alias)
+            if row is None:
+                return False
+            cur.execute(
+                "DELETE FROM account_grants g USING baidu_accounts a"
+                " WHERE g.account_id = a.id AND a.id = %s AND a.tenant_id = %s",
+                (row["id"], self._tenant_id),
+            )
+            cur.execute(
+                "DELETE FROM baidu_accounts WHERE id = %s AND tenant_id = %s",
+                (row["id"], self._tenant_id),
+            )
+            conn.commit()
+        return True
+
     # ---------- 判权 ----------
 
     def require(self, principal: Principal, alias: str, permission: str) -> None:

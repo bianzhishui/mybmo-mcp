@@ -27,6 +27,8 @@ EXPIRY_SKEW = 300.0
 STATUS_ACTIVE = "active"
 STATUS_REAUTH_REQUIRED = "reauth_required"
 STATUS_UNCONFIRMED = "unconfirmed"
+#: 预写占位：只有应用凭据、还没换到令牌（ADR 0006 D4 / ADR 0007 D6）
+STATUS_PENDING = "pending"
 
 
 def validate_alias(alias: str) -> str:

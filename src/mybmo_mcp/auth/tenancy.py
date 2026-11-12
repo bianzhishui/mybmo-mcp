@@ -350,6 +350,37 @@ class TenancyStore:
             self.reload()
         return removed
 
+    def unregister_account(self, alias: str) -> bool:
+        """注销账户归属：删掉 accounts 里的登记与全部 grants。返回是否真的删了。
+
+        解绑（``auth unbind``）时调用。凭据本体由凭据库删除，这里只管授权表，
+        否则会留下"有归属、无凭据"的幽灵账户。
+        """
+        self._ensure_loaded()
+        alias = validate_alias(alias)
+        data = self._read_raw()
+        accounts = [
+            dict(item)
+            for item in (data.get("accounts") or [])  # type: ignore[union-attr]
+            if isinstance(item, dict) and str(item.get("alias") or "").strip().lower() != alias
+        ]
+        grants = [
+            dict(item)
+            for item in (data.get("grants") or [])  # type: ignore[union-attr]
+            if isinstance(item, dict) and str(item.get("alias") or "").strip().lower() != alias
+        ]
+        removed = (
+            len(accounts) != len(data.get("accounts") or [])
+            or len(grants) != len(data.get("grants") or [])
+        )
+        if removed:
+            data["version"] = TENANCY_VERSION
+            data["accounts"] = accounts
+            data["grants"] = grants
+            self._write_raw(data)
+            self.reload()
+        return removed
+
     def shares_of(self, alias: str) -> dict[str, str]:
         """某账户被分享给了谁：``{sub: permission}``。"""
         self._ensure_loaded()

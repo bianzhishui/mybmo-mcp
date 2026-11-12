@@ -90,6 +90,33 @@ curl -fsS https://baiduads.pandabase.top/healthz
 授权表格式见 [`tenancy.example.json`](tenancy.example.json)，档位与账户模型见
 [ADR 0004](docs/decisions/0004-multi-tenant-accounts.md)。
 
+### 凭据存储：加密文件或 PostgreSQL
+
+`MYBMO_CREDENTIAL_BACKEND` 决定凭据（令牌 + 应用密钥）放哪：`file`（默认，
+`data/accounts/*.json` + `data/apps/*.json`）或 `pg`（`credentials` / `app_secrets` 表）。
+两者同一套 `CredentialStore` 协议，行为一致；见
+[ADR 0007](docs/decisions/0007-credentials-in-postgres.md)。
+
+**应用密钥不进对话**：绑定用的 `appId`/`secretKey` 必须在服务器上预登记——
+MCP 工具 `bind_account(alias, app_id)` 只收 `appId`。
+
+```bash
+mybmo-mcp app secret set <appId>          # 隐藏输入 secretKey；--scope 可选
+mybmo-mcp app secret list                 # 只看登记了哪些应用，不回显密钥
+mybmo-mcp auth bind --alias main --app-id <appId> --subject <sub>
+mybmo-mcp auth unbind main                # 换应用前先解绑
+```
+
+从文件搬到库（**搬完逐条回读校验，源文件保留**）：
+
+```bash
+python scripts/migrate_credentials_to_pg.py --dry-run
+python scripts/migrate_credentials_to_pg.py
+```
+
+校验全过再改 `MYBMO_CREDENTIAL_BACKEND=pg` 并重启；`data/accounts` 与 `data/apps`
+保留一个发布周期后再删。
+
 ## 两种运行模式
 
 | 模式 | 场景 | 身份 |
@@ -150,6 +177,8 @@ curl -fsS https://baiduads.pandabase.top/healthz
 | [`ADR 0003`](docs/decisions/0003-capability-only.md) | 只做能力层，不做业务编排与写审批 |
 | [`ADR 0004`](docs/decisions/0004-multi-tenant-accounts.md) | 多租户账户模型、MCC 子账户、`wait` 语义 |
 | [`ADR 0005`](docs/decisions/0005-sdk-poc.md) | `baiduads-sdk` 可行性验证：为什么只做元数据源 |
+| [`ADR 0006`](docs/decisions/0006-multi-app-credentials.md) | 应用凭据随凭据走；租户内一个百度账户只绑一个应用（含真实绑定实测结论） |
+| [`ADR 0007`](docs/decisions/0007-credentials-in-postgres.md) | 凭据落 PostgreSQL（`credentials` 表 + 整块密文），不再存加密文件 |
 | [`.env.example`](.env.example) | 全部环境变量与取值说明 |
 
 接口元数据分两层，不要混：`baidu/capabilities.json` 由

@@ -6,9 +6,10 @@
 回调地址是**公网可达的普通 URL，任何人都会访问到**（百度跳转过来的是浏览器，
 带不了 Bearer 令牌），所以这里守三条：
 
-1. **不信任 state**：它只用来定位 alias；缺失或不匹配时由
-   :class:`~mybmo_mcp.auth.binding.BindingManager` 降级成 ``acct_<userId>`` +
-   ``unconfirmed``，把判断权交回给人，而不是在回调里"猜一个账户"。
+1. **不信任 state**：它只用来定位 alias 与应用；缺失或不匹配时由
+   :class:`~mybmo_mcp.auth.binding.BindingManager` 用回调自带的 ``appId``
+   兜底（应用已知），降级成 ``acct_<userId>`` + ``unconfirmed``；
+   连 ``appId`` 都没有才失败——那时无法知道用哪把密钥。
 2. **对外只有一句话**：不区分"没有这个 state"与"state 被别人用了"，避免探测。
 3. **不回显任何令牌片段**：只回 alias 与账户中文名，错误信息也只来自
    :class:`~mybmo_mcp.baidu.errors.CredentialError`——那个类本身已保证不含
@@ -32,6 +33,8 @@ from mybmo_mcp.baidu.errors import BaiduError, CredentialError
 #: 候选参数名，按优先级排。第一项是百度营销侧既有实现里见到的写法。
 AUTH_CODE_KEYS: tuple[str, ...] = ("authCode", "code", "auth_code")
 USER_ID_KEYS: tuple[str, ...] = ("userId", "uid", "user_id")
+#: 实测回调会带 ``appId``（2026-11-12 真实绑定），用它可以在 state 缺失时找回应用
+APP_ID_KEYS: tuple[str, ...] = ("appId", "app_id")
 ERROR_KEYS: tuple[str, ...] = ("error", "errorCode")
 ERROR_DESC_KEYS: tuple[str, ...] = ("error_description", "errorMessage", "errorMsg")
 
@@ -97,10 +100,11 @@ async def complete_binding(
 
     user_id = _parse_user_id(_first(params, USER_ID_KEYS))
     state = _first(params, ("state",))
+    app_id = _first(params, APP_ID_KEYS)
 
     try:
         credential, binding = await manager.complete(
-            auth_code=auth_code, state=state, user_id=user_id
+            auth_code=auth_code, state=state, user_id=user_id, app_id=app_id
         )
     except CredentialError as exc:
         # CredentialError 的文案由 auth/oauth.py 保证不含授权码与任何令牌
@@ -124,7 +128,7 @@ async def complete_binding(
     if not owner:
         hints.append(
             "state 缺失，无法确定账户归属（owner）；账户现在对任何人不可见，"
-            "需在 tenancy.json 的 accounts 里补 {alias, owner}"
+            "需要在授权表里补 {alias, owner}"
         )
     if credential.status != STATUS_ACTIVE:
         hints.append(

@@ -96,7 +96,7 @@ async def auth_status(account: str | None = None) -> list[dict[str, Any]]:
     return await guarded(_run)
 
 
-async def bind_account(alias: str) -> dict[str, Any]:
+async def bind_account(alias: str, app_id: str = "") -> dict[str, Any]:
     """发起一次百度账户绑定，返回一个授权链接——**由你本人在浏览器里完成授权**。
 
     ``alias`` 是给这个账户起的别名（小写字母开头，可含数字与下划线），之后所有调用都用它。
@@ -117,7 +117,7 @@ async def bind_account(alias: str) -> dict[str, Any]:
                 f"账户别名 {name} 已属于别人（owner={owner}）——换一个别名，"
                 "或请 owner 用分享把该账户授给你"
             )
-        existing = set(runtime.vault.scan()[0])
+        existing = set(runtime.store.scan()[0])
         if name in existing and owner is None:
             raise CredentialError(
                 f"凭据库里已有 {name}，但授权表没有它的归属记录；"
@@ -125,14 +125,27 @@ async def bind_account(alias: str) -> dict[str, Any]:
                 "否则绑了也没人能看见"
             )
         manager = runtime.binding
+        resolved_app = app_id.strip()
+        if not resolved_app:
+            known = [app.app_id for app in runtime.app_secrets.list()]
+            if len(known) == 1:
+                resolved_app = known[0]
+            else:
+                listed = "、".join(known) if known else "（无）"
+                raise CredentialError(
+                    f"必须指定 app_id。已登记的应用：{listed}。"
+                    "密钥需要在服务器上预登记：mybmo-mcp app secret set <appId>"
+                )
         url, state = manager.authorize_url(
             subject=principal.sub,
             tenant=principal.tenant_id or "t_default",
             alias=name,
+            app_id=resolved_app,
         )
         return {
             "authorize_url": url,
             "alias": state.alias,
+            "app_id": state.app_id,
             "owner": state.subject,
             "expires_at": state.expires_at,
             "expires_in_seconds": int(state.expires_at - time.time()),

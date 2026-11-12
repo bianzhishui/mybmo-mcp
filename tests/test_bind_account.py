@@ -13,6 +13,7 @@ from pathlib import Path
 
 import pytest
 
+from mybmo_mcp.auth.app_secrets import AppSecret, FileAppSecretStore
 from mybmo_mcp.auth.models import Credential
 from mybmo_mcp.auth.tenancy import Principal
 from mybmo_mcp.auth.vault import FileVault
@@ -21,6 +22,8 @@ from mybmo_mcp.tools import accounts as accounts_tools
 from mybmo_mcp.tools.runtime import Runtime, set_runtime
 
 KEY = b"k" * 32
+#: 形如真实百度 appId（32 位十六进制），app_secrets 会校验格式
+APP_ID = "20426c0457c842036585e268d456fe45"
 KEY_B64 = base64.b64encode(KEY).decode()
 CALLBACK = "https://baiduads.pandabase.top/oauth/baidu/callback"
 ME = Principal(sub="alice-sub", tenant_id="t_default")
@@ -37,7 +40,7 @@ def write_empty_tenancy(root: Path) -> None:
 @pytest.fixture
 def runtime(tmp_path: Path):
     settings = Settings(
-        baidu_app_id="app-1",
+        baidu_app_id=APP_ID,
         baidu_secret_key="sk-1",
         mybmo_data_dir=tmp_path,
         mybmo_master_key=KEY_B64,
@@ -45,6 +48,8 @@ def runtime(tmp_path: Path):
         mybmo_baidu_callback_url=CALLBACK,
     )
     write_empty_tenancy(tmp_path)
+    # ADR 0006 D3：绑定用的应用密钥必须在服务器上预登记（这里模拟 CLI 已登记）
+    FileAppSecretStore(tmp_path, KEY).save(AppSecret(app_id=APP_ID, secret_key="sk-1"))
     rt = Runtime(settings=settings, principal=ME)
     set_runtime(rt)
     yield rt
@@ -59,7 +64,7 @@ def seed_account(runtime: Runtime, alias: str, *, owner: str | None) -> None:
 
 
 async def test_bind_account_returns_url_bound_to_caller(runtime: Runtime) -> None:
-    result = await accounts_tools.bind_account("mine")
+    result = await accounts_tools.bind_account("mine", APP_ID)
 
     assert result["ok"] is True
     data = result["data"]
@@ -75,7 +80,7 @@ async def test_bind_account_returns_url_bound_to_caller(runtime: Runtime) -> Non
 async def test_bind_account_rejects_alias_owned_by_someone_else(runtime: Runtime) -> None:
     seed_account(runtime, "shared", owner="bob-sub")
 
-    result = await accounts_tools.bind_account("shared")
+    result = await accounts_tools.bind_account("shared", APP_ID)
 
     assert result["ok"] is False
     assert "已属于别人" in result["error"]["message"]
@@ -86,7 +91,7 @@ async def test_bind_account_rejects_orphan_credential(runtime: Runtime) -> None:
     """凭据在库里但没有归属记录——绑了也不可见，先让负责人补 accounts。"""
     seed_account(runtime, "orphan", owner=None)
 
-    result = await accounts_tools.bind_account("orphan")
+    result = await accounts_tools.bind_account("orphan", APP_ID)
 
     assert result["ok"] is False
     assert "归属记录" in result["error"]["message"]
@@ -95,7 +100,7 @@ async def test_bind_account_rejects_orphan_credential(runtime: Runtime) -> None:
 async def test_bind_account_allows_rebinding_own_account(runtime: Runtime) -> None:
     seed_account(runtime, "mine", owner=ME.sub)
 
-    result = await accounts_tools.bind_account("mine")
+    result = await accounts_tools.bind_account("mine", APP_ID)
 
     assert result["ok"] is True
     assert result["data"]["owner"] == ME.sub
@@ -103,7 +108,7 @@ async def test_bind_account_allows_rebinding_own_account(runtime: Runtime) -> No
 
 async def test_bind_account_without_callback_config_fails_clearly(tmp_path: Path) -> None:
     settings = Settings(
-        baidu_app_id="app-1",
+        baidu_app_id=APP_ID,
         baidu_secret_key="sk-1",
         mybmo_data_dir=tmp_path,
         mybmo_master_key=KEY_B64,
@@ -111,9 +116,11 @@ async def test_bind_account_without_callback_config_fails_clearly(tmp_path: Path
         mybmo_baidu_callback_url="",
     )
     write_empty_tenancy(tmp_path)
+    # ADR 0006 D3：绑定用的应用密钥必须在服务器上预登记（这里模拟 CLI 已登记）
+    FileAppSecretStore(tmp_path, KEY).save(AppSecret(app_id=APP_ID, secret_key="sk-1"))
     set_runtime(Runtime(settings=settings, principal=ME))
     try:
-        result = await accounts_tools.bind_account("mine")
+        result = await accounts_tools.bind_account("mine", APP_ID)
     finally:
         set_runtime(None)
 

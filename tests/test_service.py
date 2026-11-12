@@ -50,7 +50,12 @@ def setup_store(
 
 
 def service(registry: AccountRegistry, oauth: FakeOAuth, tmp_path: Path) -> CredentialService:
-    return CredentialService(registry, oauth, lock_dir=tmp_path / "locks")  # type: ignore[arg-type]
+    return CredentialService(
+        registry,
+        oauth,  # type: ignore[arg-type]
+        lock_dir=tmp_path / "locks",
+        oauth_for=lambda _cred: oauth,  # type: ignore[arg-type,return-value]
+    )
 
 
 async def test_fresh_credential_is_returned_without_refresh(tmp_path: Path) -> None:
@@ -151,3 +156,112 @@ async def test_credentials_for_returns_request_scoped_pair(tmp_path: Path) -> No
     assert pair.user_name == "示例账户"
     assert pair.access_token == "old-at"
     assert "old-at" not in repr(pair)
+
+
+async def test_refresh_uses_the_credentials_own_app_credentials(tmp_path: Path) -> None:
+    """ADR 0006 D5：刷新必须用这条凭据自己的 app_id/secret_key。
+
+    回归用例。旧实现调全局单例，一旦凭据不是用环境变量那组授权的，
+    refreshToken 就换不出令牌，还会被误标成 reauth_required。
+    """
+    vault = FileVault(tmp_path / "data", KEY)
+    vault.save(
+        Credential(
+            alias="axd",
+            user_name="示例账户",
+            user_id=1001,
+            app_id="app-own",
+            secret_key="sk-own",
+            access_token="old-at",
+            refresh_token="rt-1",
+            expires_at=time.time() - 10,
+        )
+    )
+    registry = AccountRegistry(vault, env={})
+    seen: list[str] = []
+    fake = FakeOAuth()
+
+    def factory(credential: Credential) -> FakeOAuth:
+        seen.append(f"{credential.app_id}/{credential.secret_key}")
+        return fake
+
+    svc = CredentialService(  # type: ignore[arg-type]
+        registry, fake, lock_dir=tmp_path / "locks", oauth_for=factory
+    )
+    await svc.ensure_valid("axd")
+
+    assert seen == ["app-own/sk-own"]
+
+
+def test_default_oauth_factory_uses_credential_app_id(tmp_path: Path) -> None:
+    _, registry = setup_store(tmp_path)
+    svc = CredentialService(registry, FakeOAuth(), lock_dir=tmp_path / "locks")  # type: ignore[arg-type]
+
+    built = svc._oauth_for_credential(
+        Credential(alias="axd", app_id="app-own", secret_key="sk-own")
+    )
+
+    assert built._app_id == "app-own"
+
+
+def test_default_oauth_factory_falls_back_when_credential_has_no_app(tmp_path: Path) -> None:
+    """历史凭据没存应用凭据时，退回全局那一组，不能直接炸。"""
+    _, registry = setup_store(tmp_path)
+    fallback = FakeOAuth()
+    svc = CredentialService(registry, fallback, lock_dir=tmp_path / "locks")  # type: ignore[arg-type]
+
+    assert svc._oauth_for_credential(Credential(alias="axd")) is fallback
+
+
+def test_refresh_writes_back_inside_the_row_lock(tmp_path: Path) -> None:
+    """PG 后端：写回必须走行锁句柄，另开连接会等自己持有的锁而死锁。"""
+    from contextlib import contextmanager
+
+    vault = FileVault(tmp_path / "data", KEY)
+    vault.save(
+        Credential(
+            alias="axd",
+            user_name="示例账户",
+            user_id=1001,
+            app_id="app-own",
+            secret_key="sk-own",
+            access_token="old-at",
+            refresh_token="rt-1",
+            expires_at=time.time() - 10,
+        )
+    )
+
+    class LockedHolder:
+        def __init__(self, credential: Credential) -> None:
+            self.credential = credential
+            self.saved: list[Credential] = []
+
+        def save(self, credential: Credential) -> None:
+            self.saved.append(credential)
+            vault.save(credential)
+
+    saved_via_lock: list[Credential] = []
+
+    class LockedVault:
+        """给 FileVault 加一个 locked()，模拟 PG 后端的事务句柄。"""
+
+        def __getattr__(self, name: str) -> object:
+            return getattr(vault, name)
+
+        @contextmanager
+        def locked(self, alias: str):
+            holder = LockedHolder(vault.load(alias))
+            yield holder
+            saved_via_lock.extend(holder.saved)
+
+    store = LockedVault()
+    registry = AccountRegistry(store, env={})  # type: ignore[arg-type]
+    fake = FakeOAuth()
+    svc = CredentialService(  # type: ignore[arg-type]
+        registry, fake, lock_dir=tmp_path / "locks", oauth_for=lambda _c: fake
+    )
+
+    updated = asyncio.run(svc.ensure_valid("axd"))
+
+    assert updated.access_token == "new-at"
+    assert [cred.alias for cred in saved_via_lock] == ["axd"]
