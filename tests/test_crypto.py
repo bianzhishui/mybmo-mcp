@@ -7,10 +7,6 @@
 
 from __future__ import annotations
 
-import os
-import stat
-from pathlib import Path
-
 import pytest
 
 from mybmo_mcp.auth import app_secrets, crypto, pg_store
@@ -54,23 +50,3 @@ def test_master_key_length_is_enforced() -> None:
         crypto.aead(b"short")
 
 
-def test_atomic_write_sets_private_mode(tmp_path: Path) -> None:
-    path = tmp_path / "f.json"
-    crypto.atomic_write(path, b'{"a":1}')
-
-    assert path.read_bytes() == b'{"a":1}'
-    assert stat.S_IMODE(path.stat().st_mode) == 0o600
-    # 不留临时文件
-    assert [p.name for p in tmp_path.iterdir()] == ["f.json"]
-
-
-def test_atomic_write_cleans_up_on_failure(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    def boom(*_args: object, **_kwargs: object) -> None:
-        raise OSError("disk full")
-
-    monkeypatch.setattr(os, "replace", boom)
-
-    with pytest.raises(OSError):
-        crypto.atomic_write(tmp_path / "f.json", b"x")
-
-    assert list(tmp_path.iterdir()) == []

@@ -19,8 +19,6 @@ from __future__ import annotations
 
 import json
 import os
-import tempfile
-from pathlib import Path
 from typing import Any
 
 from cryptography.exceptions import InvalidTag
@@ -31,7 +29,6 @@ from mybmo_mcp.baidu.errors import CredentialError
 MASTER_KEY_BYTES = 32
 NONCE_BYTES = 12
 DIR_MODE = 0o700
-FILE_MODE = 0o600
 
 
 def aead(master_key: bytes) -> AESGCM:
@@ -92,21 +89,3 @@ def open_json(
         raise CredentialError(f"密文损坏：{label} 解密后不是对象")
     return data
 
-
-def atomic_write(path: Path, data: bytes, *, mode: int = FILE_MODE) -> None:
-    """先写临时文件再 ``os.replace``：避免写一半断电留下半个 JSON。
-
-    临时文件与目标同目录，``os.replace`` 才是原子的（跨设备会退化成拷贝）。
-    """
-    fd, tmp = tempfile.mkstemp(dir=str(path.parent), prefix=f".{path.name}.", suffix=".tmp")
-    tmp_path = Path(tmp)
-    try:
-        with os.fdopen(fd, "wb") as fh:
-            fh.write(data)
-            fh.flush()
-            os.fsync(fh.fileno())
-        os.chmod(tmp_path, mode)
-        os.replace(tmp_path, path)
-    except BaseException:
-        tmp_path.unlink(missing_ok=True)
-        raise

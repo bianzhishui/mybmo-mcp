@@ -9,7 +9,6 @@ from __future__ import annotations
 import base64
 import binascii
 from functools import lru_cache
-from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -30,7 +29,6 @@ class Settings(BaseSettings):
 
     baidu_app_id: str = ""
     baidu_secret_key: str = ""
-    mybmo_data_dir: Path = Path("./data")
     mybmo_master_key: str = ""
     casdoor_issuer: str = ""
     mybmo_resource_url: str = ""

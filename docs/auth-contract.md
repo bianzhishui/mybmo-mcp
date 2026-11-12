@@ -187,22 +187,23 @@ MCP 侧的对应工具是 `bind_account(alias, app_id)`：只传 `appId`；只�
 
 反代（Caddy）**不做鉴权**：它注入的身份头可被直连回环伪造，令牌校验必须在本进程内完成。
 
-## 五、数据卷布局
+## 五、数据卷布局（已取消）
 
-挂载点是 `/data`，由 infra 提供卷；里面放什么都由本仓库决定：
+本服务**不再需要本地磁盘**：授权表、凭据、应用密钥、绑定 state、订阅样本、审计
+全部在 PostgreSQL 里（ADR 0007 / 0009）。容器不挂载任何卷，`MYBMO_DATA_DIR`
+配置项已删除。
 
-```
-/data/tenancy.json     授权表 v2（accounts 归属 + grants 分享；`MYBMO_TENANCY_BACKEND=pg` 时不读）
-/data/audit/*.jsonl    按天分文件的审计（`MYBMO_AUDIT_BACKEND=file` 时；`pg` 时改写 audit_log 表）
-(订阅推送样本已落库：subscribe_events 表，见 migrations/007)
-(绑定 state 已落库：binding_states 表，见 migrations/006)
-/data/accounts/*.json  加密凭据文件，AES-GCM 密文，权限 600（`CREDENTIAL_BACKEND=file` 时使用）
-/data/apps/*.json      应用密钥登记，同上（`CREDENTIAL_BACKEND=file` 时使用）
-```
+历史上 `/data` 下放过的东西与去向：
 
-生产用 `MYBMO_CREDENTIAL_BACKEND=pg`：凭据在 PostgreSQL 的 `credentials` / `app_secrets` 表，
-`/data/accounts` 与 `/data/apps` 为空。迁移用
-[`scripts/migrate_credentials_to_pg.py`](../scripts/migrate_credentials_to_pg.py)。
+| 旧路径 | 现在 |
+|---|---|
+| `/data/tenancy.json` | `tenants` / `users` / `baidu_accounts` / `account_grants` |
+| `/data/accounts/*.json` | `credentials` |
+| `/data/apps/*.json` | `app_secrets` |
+| `/data/binding_state/*.json` | `binding_states` |
+| `/data/audit/*.jsonl` | `audit_log` |
+| `/data/subscribe/*.jsonl` | `subscribe_events` |
+| `/data/locks/*.lock` | `SELECT … FOR UPDATE` 行锁 |
 
 ## 六、当前实例的取值（2026-11-11）
 

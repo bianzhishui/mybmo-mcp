@@ -22,21 +22,12 @@ services:
     restart: unless-stopped
     env_file:
       - .env
-    environment:
-      # 覆盖 .env 里的相对路径，指到卷上
-      MYBMO_DATA_DIR: /data
-    volumes:
-      - data:/data
     ports:
       # 只绑回环：宿主 Caddy 能打到，公网打不到
       - "127.0.0.1:8000:8000"
     networks:
       - pandabase
 
-volumes:
-  data:
-    # 显式钉死卷名：改 project 名时不会静默换成一个空卷
-    name: mybmo_data
 
 networks:
   pandabase:
