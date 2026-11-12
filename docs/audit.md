@@ -97,7 +97,6 @@ execute_capability → runtime.audit.record(...) → FileAuditSink / PgAuditSink
 |---|---|
 | 普通用户 | **只有 `user_sub = 自己`** |
 | 账户 owner | 自己的 + **该账户下所有人的调用** |
-| `unrestricted`（local 模式） | 全部 |
 
 * 所有查询强制带 `tenant_id`，跨租户永远查不到
 * 显式传别人的 `user` → `AccessDenied`（不做"悄悄降级成自己"）
