@@ -3,13 +3,11 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 import pytest
 
 from mybmo_mcp.subscribe import (
     MAX_BODY_BYTES,
-    append_record,
     build_record,
     check_key,
     extract_key,
@@ -122,18 +120,6 @@ def test_build_record_tolerates_non_json_body() -> None:
     assert record["body_json"] is None
     assert record["body"] == "event=paused&id=42"
 
-
-def test_append_record_writes_one_line_per_push(tmp_path: Path) -> None:
-    record = {"received_at": 1_700_000_000.0, "method": "POST", "body": "{}"}
-
-    path = append_record(tmp_path, record)
-    append_record(tmp_path, record)
-
-    assert path.parent == tmp_path / "subscribe"
-    lines = path.read_text(encoding="utf-8").splitlines()
-    assert len(lines) == 2
-    assert json.loads(lines[0])["method"] == "POST"
-    assert path.stat().st_mode & 0o777 == 0o600
 
 
 def test_looks_like_baidu_key_accepts_32_lowercase_alnum() -> None:

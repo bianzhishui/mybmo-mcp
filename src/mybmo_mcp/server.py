@@ -24,7 +24,7 @@ from mybmo_mcp.auth.binding import STATE_TTL
 from mybmo_mcp.auth.callback import CallbackOutcome, complete_binding
 from mybmo_mcp.baidu.errors import BaiduError
 from mybmo_mcp.health import health_payload
-from mybmo_mcp.subscribe import append_record, build_record, check_key, looks_like_baidu_key
+from mybmo_mcp.subscribe import build_record, check_key, looks_like_baidu_key
 from mybmo_mcp.tools import register_all
 from mybmo_mcp.tools.runtime import get_runtime
 
@@ -187,18 +187,18 @@ def _register_baidu_subscribe(server: MCPServer) -> None:
             client=client,
         )
         try:
-            path = append_record(get_runtime().settings.mybmo_data_dir, record)
-        except OSError as exc:
-            # 落盘失败不影响回 200：百度重推一遍也不会更好，先在日志里留证据
-            _logger.error("订阅推送落盘失败（%s），仅打印", type(exc).__name__)
-            path = None
+            stored = get_runtime().subscribe_store.save(record)
+        except Exception as exc:
+            # 落库失败不影响回 200：百度重推一遍也不会更好，先在日志里留证据
+            _logger.error("订阅推送落库失败（%s），仅打印", type(exc).__name__)
+            stored = None
 
         _logger.info(
             "收到订阅推送（%s）：%s",
             key_source,
             json.dumps(record, ensure_ascii=False, indent=2),
         )
-        return JSONResponse({"ok": True, "stored": str(path) if path else None}, status_code=200)
+        return JSONResponse({"ok": True, "stored": stored}, status_code=200)
 
 
 def build_server(*, with_auth: bool = True) -> MCPServer:

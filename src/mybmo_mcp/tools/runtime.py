@@ -20,6 +20,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from functools import cached_property
+from typing import Any
 
 import httpx2
 from mcp.server.auth.settings import AuthSettings
@@ -224,6 +225,15 @@ class Runtime:
             redirect_uri=callback,
             context_for=self.context_for_tenant,
         )
+
+    @cached_property
+    def subscribe_store(self) -> Any:
+        """订阅推送采样写入器（只有 PG 一种，ADR 0009）。"""
+        from mybmo_mcp.subscribe import PgSubscribeStore
+
+        if not self.settings.mybmo_database_url:
+            raise CredentialError("订阅采样落库需要 MYBMO_DATABASE_URL")
+        return PgSubscribeStore(self.settings.mybmo_database_url)
 
     @cached_property
     def capabilities(self) -> CapabilityRegistry:

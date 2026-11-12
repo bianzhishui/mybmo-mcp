@@ -11,24 +11,24 @@
 
 1. **不配密钥就 503**（失败关闭）。宁可这个端点不可用，也不能悄悄变成匿名接收器。
 2. **验签失败不落盘**，只记一行告警（含来源 IP 与命中的密钥位置），避免被扫描器灌爆磁盘。
-3. **落盘前脱敏**：把配置的密钥值从头、查询串、body 里抹掉。原始报文要留下给人看，
+3. **入库前脱敏**：把配置的密钥值从头、查询串、body 里抹掉。原始报文要留下给人看，
    密钥不要留下。
 """
 
 from __future__ import annotations
 
 import json
-import os
 import secrets
 import time
-from collections.abc import Mapping
-from pathlib import Path
+from collections.abc import Iterator, Mapping
+from contextlib import contextmanager
 from typing import Any
+
+from mybmo_mcp.baidu.errors import CredentialError
 
 #: 一次推送最多读这么多，超出截断并标注 ``body_truncated``。
 MAX_BODY_BYTES = 64 * 1024
 
-SUBDIR = "subscribe"
 
 #: 密钥可能放在哪。百度侧到底怎么传**未实测**，所以这里多认几个位置，
 #: 并记录命中位置——看过几种真实请求后就能收敛成一个。
@@ -145,15 +145,58 @@ def build_record(
     }
 
 
-def append_record(root: str | os.PathLike[str], record: Mapping[str, Any]) -> Path:
-    """按天一行一条追加到 ``<data>/subscribe/YYYY-MM-DD.jsonl``。返回文件路径。"""
-    directory = Path(root) / SUBDIR
-    directory.mkdir(parents=True, exist_ok=True)
-    os.chmod(directory, 0o700)
-    stamp = time.strftime("%Y-%m-%d", time.localtime(float(record.get("received_at") or 0)))
-    path = directory / f"{stamp}.jsonl"
-    line = json.dumps(dict(record), ensure_ascii=False)
-    with path.open("a", encoding="utf-8") as handle:
-        handle.write(line + "\n")
-    os.chmod(path, 0o600)
-    return path
+class PgSubscribeStore:
+    """把推送样本写进 ``subscribe_events`` 表（ADR 0009 D6）。
+
+    端点只采样、不解析（ADR 0003），所以这里也不需要事务语义：
+    单条 INSERT，失败就记日志——百度重推一遍也不会更好。
+    """
+
+    def __init__(self, dsn: str, *, connect: Any = None) -> None:
+        if not dsn:
+            raise CredentialError("PgSubscribeStore 需要 MYBMO_DATABASE_URL")
+        self._dsn = dsn
+        self._connect_override = connect
+
+    @contextmanager
+    def _conn(self) -> Iterator[Any]:
+        if self._connect_override is not None:
+            conn = self._connect_override()
+            try:
+                yield conn
+                conn.commit()
+            finally:
+                conn.close()
+            return
+
+        import psycopg
+        from psycopg.rows import dict_row
+
+        with psycopg.connect(self._dsn, row_factory=dict_row) as conn:
+            yield conn
+
+    def save(self, record: Mapping[str, Any]) -> int:
+        """写入一条样本，返回行 id。"""
+        with self._conn() as conn:
+            row = conn.execute(
+                "INSERT INTO subscribe_events"
+                " (received_at, method, path, client, key_source, query, headers,"
+                "  body, body_truncated, body_json)"
+                " VALUES (to_timestamp(%s), %s, %s, %s, %s, %s, %s, %s, %s, %s)"
+                " RETURNING id",
+                (
+                    float(record.get("received_at") or time.time()),
+                    str(record.get("method") or ""),
+                    str(record.get("path") or ""),
+                    str(record.get("client") or ""),
+                    str(record.get("key_source") or ""),
+                    json.dumps(record.get("query") or {}, ensure_ascii=False),
+                    json.dumps(record.get("headers") or {}, ensure_ascii=False),
+                    str(record.get("body") or ""),
+                    bool(record.get("body_truncated")),
+                    None
+                    if record.get("body_json") is None
+                    else json.dumps(record["body_json"], ensure_ascii=False),
+                ),
+            ).fetchone()
+        return int(row["id"])
