@@ -12,9 +12,7 @@ from __future__ import annotations
 import time
 from collections.abc import Callable
 from dataclasses import replace
-from pathlib import Path
 
-from mybmo_mcp.auth import lock
 from mybmo_mcp.auth.models import STATUS_REAUTH_REQUIRED, Credential
 from mybmo_mcp.auth.oauth import BaiduOAuth
 from mybmo_mcp.auth.registry import AccountRegistry
@@ -30,15 +28,11 @@ class CredentialService:
         registry: AccountRegistry,
         oauth: BaiduOAuth | None,
         *,
-        lock_dir: str | Path,
-        lock_timeout: float = lock.DEFAULT_TIMEOUT,
         now=time.time,
         oauth_for: Callable[[Credential], BaiduOAuth] | None = None,
     ) -> None:
         self._registry = registry
         self._oauth = oauth
-        self._lock_dir = Path(lock_dir)
-        self._lock_timeout = lock_timeout
         self._now = now
         #: 测试注入点：默认按凭据自带的 app_id/secret_key 现造客户端
         self._oauth_for = oauth_for or self._oauth_for_credential
@@ -59,21 +53,16 @@ class CredentialService:
             self._persist(credential.mark_reauth_required("refreshToken 已过期（约 30 天）"))
             raise CredentialError(f"账户 {credential.alias} 的 refreshToken 已过期，需要重新授权")
 
-        # PG 后端有行锁就优先用它：文件锁只在同一台机器内有效，多副本部署挡不住并发刷新
-        locked = getattr(self._registry.store, "locked", None)
-        async with lock.exclusive(self._lock_path(credential.alias), timeout=self._lock_timeout):
-            if locked is None:
-                # 拿到锁后重新读一次：排队期间别的进程可能已经刷过了。
-                fresh = self._registry.get(credential.alias)
-                if not fresh.needs_refresh(self._now()):
-                    return fresh
-                return await self._refresh(fresh, self._persist)
+        if self._registry.is_environment(credential.alias):
+            # 环境变量提供的临时凭据不落库，刷新结果也不需要写回，跳过行锁
+            return await self._refresh(credential, self._persist)
 
-            with locked(credential.alias) as row:
-                fresh = row.credential
-                if not fresh.needs_refresh(self._now()):
-                    return fresh
-                return await self._refresh(fresh, row.save)
+        # 行锁是唯一的并发防线：文件锁只在同一台机器内有效，多副本部署挡不住
+        with self._registry.store.locked(credential.alias) as row:
+            fresh = row.credential
+            if not fresh.needs_refresh(self._now()):
+                return fresh
+            return await self._refresh(fresh, row.save)
 
     async def credentials_for(self, alias: str | None = None) -> RequestCredentials:
         """给传输层用：只交出请求必需的账户名与令牌。"""
@@ -158,6 +147,3 @@ class CredentialService:
         if self._registry.is_environment(credential.alias):
             return
         self._registry.store.save(credential)
-
-    def _lock_path(self, alias: str) -> Path:
-        return self._lock_dir / f"{alias}.lock"

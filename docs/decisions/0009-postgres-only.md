@@ -60,7 +60,7 @@ ADR 0007 落库时保留了 `file` 后端（`data/accounts/*.json`、`data/apps/
 
 | 位置 | 现状 | 计划 |
 |---|---|---|
-| `auth/lock.py` | `data/locks/<alias>.lock`（**pg 后端也在用**） | 改 `SELECT … FOR UPDATE`（ADR 0007 D4 已实现 `locked()`） |
+| `auth/lock.py` | `data/locks/<alias>.lock`（**pg 后端也在用**） | ✅ 已删；刷新统一走 `store.locked()`（`SELECT … FOR UPDATE`） |
 | `auth/binding.py` StateStore | `data/binding_state/<nonce>.json` | ✅ 已落 `binding_states` 表（migration 006） |
 | `subscribe.append_record` | `data/subscribe/*.jsonl` | 落 `subscribe_events` 表 |
 

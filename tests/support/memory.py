@@ -60,6 +60,28 @@ class MemoryCredentialStore:
             raise CredentialError(f"账户不存在，无法设为默认：{alias}")
         self._default = alias
 
+    def locked(self, alias: str) -> Any:
+        """内存版行锁：单进程测试里没有并发，直接交出可写句柄。"""
+        from contextlib import contextmanager
+
+        @contextmanager
+        def _cm() -> Any:
+            credential = self.load(alias)
+
+            class _Handle:
+                def __init__(self, current: Any) -> None:
+                    self.credential = current
+
+                def save(self, updated: Any) -> None:
+                    self.credential = updated
+                    self._store.save(updated)
+
+            handle = _Handle(credential)
+            handle._store = self
+            yield handle
+
+        return _cm()
+
 
 class MemoryAppSecretStore:
     """``AppSecretStore`` 的内存实现。"""
@@ -312,9 +334,6 @@ def attach_memory_context(runtime: Any, tenant_id: str = "local") -> Any:
     运行期只支持 PostgreSQL，所以测试不能真的调 ``_build_context``；
     这个 helper 把 ``_contexts`` 预填好，后面所有 ``runtime.context(...)`` 都用它。
     """
-    import tempfile
-    from pathlib import Path
-
     from mybmo_mcp.auth.access import AccountAccess
     from mybmo_mcp.auth.registry import AccountRegistry
     from mybmo_mcp.auth.service import CredentialService
@@ -331,9 +350,7 @@ def attach_memory_context(runtime: Any, tenant_id: str = "local") -> Any:
         app_secrets=app_secrets,
         registry=registry,
         access=AccountAccess(registry, tenancy),
-        credentials=CredentialService(
-            registry, None, lock_dir=Path(tempfile.mkdtemp(prefix="mybmo-test-locks-"))
-        ),
+        credentials=CredentialService(registry, None),
     )
     runtime._contexts[tenant_id] = ctx
     runtime.__dict__["tenant_map"] = _FakeTenantMap(tenancy, tenant_id)

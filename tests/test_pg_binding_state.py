@@ -91,7 +91,7 @@ def test_issue_purges_expired_rows(store_factory) -> None:
     clock[0] = 2000.0
     store.issue(subject="s2", tenant="t", alias="main")
 
-    conn = store._connect_override()  # noqa: SLF001 - 测试里直接查行数
+    conn = store._connect_override()
     try:
         rows = conn.execute("SELECT nonce FROM binding_states").fetchall()
     finally:

@@ -52,3 +52,12 @@ class CredentialStore(Protocol):
     def set_default(self, alias: str) -> None:
         """设置默认账户。"""
         ...
+
+    def locked(self, alias: str) -> Any:
+        """在事务/临界区里锁住一条凭据，交出**可写句柄**。
+
+        刷新必须走它：百度每次刷新都会轮换 ``refreshToken``，两个并发刷新会让
+        其中一方拿到已作废的令牌（ADR 0007 D4）。句柄的 ``save()`` 必须写在同一
+        事务里——另开连接会等自己持有的锁。
+        """
+        ...

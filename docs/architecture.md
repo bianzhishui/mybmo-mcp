@@ -189,7 +189,7 @@ app secret set → 密钥进 app_secrets（密文）
    → auth bind → 预写 pending 占位凭据 → 签发 state
    → 回调 → 换令牌 → 查 1:1 唯一性 → 置 active
    → 调用前检查过期 → 剩余 < 5min（EXPIRY_SKEW=300s）触发刷新
-   → 刷新：行锁串行（PG）→ 换令牌 → 顺手校正 user_name
+   → 刷新：`SELECT … FOR UPDATE` 行锁串行 → 换令牌 → 顺手校正 user_name
    → 新令牌先落库再使用
    → 刷新失败：标记 reauth_required，通知用户重新绑定
 ```
@@ -197,8 +197,8 @@ app secret set → 密钥进 app_secrets（密文）
 红线：
 
 - 刷新失败**不重试旧令牌**
-- 并发刷新必须串行化：PG 后端用 `SELECT … FOR UPDATE`（事务内写回，另开连接会等自己的锁而死锁）；
-  文件后端用 `flock`，只在同一台机器内有效
+- 并发刷新必须串行化：用 `SELECT … FOR UPDATE` 行锁，且**必须写回同一事务**
+  （另开连接会等自己持有的锁而死锁）。文件锁已随 ADR 0009 删除
 - **`secretKey` 重置会让该应用下所有令牌立即失效**（实测 `50003` / `89406`），
   运维上等于一次全员重绑，必须提前通知
 - 日志、异常、审计中 `accessToken` / `refreshToken` / `SecretKey` 一律脱敏；

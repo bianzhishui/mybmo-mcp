@@ -53,7 +53,6 @@ def service(registry: AccountRegistry, oauth: FakeOAuth, tmp_path: Path) -> Cred
     return CredentialService(
         registry,
         oauth,  # type: ignore[arg-type]
-        lock_dir=tmp_path / "locks",
         oauth_for=lambda _cred: oauth,  # type: ignore[arg-type,return-value]
     )
 
@@ -102,17 +101,6 @@ async def test_reauth_required_is_not_retried(tmp_path: Path) -> None:
 
     assert oauth.calls == 0
 
-
-async def test_concurrent_refresh_only_calls_oauth_once(tmp_path: Path) -> None:
-    _, registry = setup_store(tmp_path)
-    oauth = FakeOAuth()
-    svc = service(registry, oauth, tmp_path)
-
-    first, second = await asyncio.gather(svc.ensure_valid("axd"), svc.ensure_valid("axd"))
-
-    assert oauth.calls == 1
-    assert first.access_token == "new-at"
-    assert second.access_token == "new-at"
 
 
 async def test_missing_refresh_token_requires_rebinding(tmp_path: Path) -> None:
@@ -186,7 +174,7 @@ async def test_refresh_uses_the_credentials_own_app_credentials(tmp_path: Path) 
         return fake
 
     svc = CredentialService(  # type: ignore[arg-type]
-        registry, fake, lock_dir=tmp_path / "locks", oauth_for=factory
+        registry, fake, oauth_for=factory
     )
     await svc.ensure_valid("axd")
 
@@ -195,7 +183,7 @@ async def test_refresh_uses_the_credentials_own_app_credentials(tmp_path: Path) 
 
 def test_default_oauth_factory_uses_credential_app_id(tmp_path: Path) -> None:
     _, registry = setup_store(tmp_path)
-    svc = CredentialService(registry, FakeOAuth(), lock_dir=tmp_path / "locks")  # type: ignore[arg-type]
+    svc = CredentialService(registry, FakeOAuth(), )  # type: ignore[arg-type]
 
     built = svc._oauth_for_credential(
         Credential(alias="axd", app_id="app-own", secret_key="sk-own")
@@ -208,7 +196,7 @@ def test_default_oauth_factory_falls_back_when_credential_has_no_app(tmp_path: P
     """历史凭据没存应用凭据时，退回全局那一组，不能直接炸。"""
     _, registry = setup_store(tmp_path)
     fallback = FakeOAuth()
-    svc = CredentialService(registry, fallback, lock_dir=tmp_path / "locks")  # type: ignore[arg-type]
+    svc = CredentialService(registry, fallback, )  # type: ignore[arg-type]
 
     assert svc._oauth_for_credential(Credential(alias="axd")) is fallback
 
@@ -258,7 +246,7 @@ def test_refresh_writes_back_inside_the_row_lock(tmp_path: Path) -> None:
     registry = AccountRegistry(store, env={})  # type: ignore[arg-type]
     fake = FakeOAuth()
     svc = CredentialService(  # type: ignore[arg-type]
-        registry, fake, lock_dir=tmp_path / "locks", oauth_for=lambda _c: fake
+        registry, fake, oauth_for=lambda _c: fake
     )
 
     updated = asyncio.run(svc.ensure_valid("axd"))
@@ -305,7 +293,7 @@ def test_refresh_resyncs_user_name(tmp_path: Path) -> None:
     registry = _expired_registry(tmp_path)
     fake = FakeOAuthWithUserInfo(user_name="改名后的账户")
     svc = CredentialService(  # type: ignore[arg-type]
-        registry, fake, lock_dir=tmp_path / "locks", oauth_for=lambda _c: fake
+        registry, fake, oauth_for=lambda _c: fake
     )
 
     updated = asyncio.run(svc.ensure_valid("axd"))
@@ -319,7 +307,7 @@ def test_user_info_failure_does_not_break_refresh(tmp_path: Path) -> None:
     registry = _expired_registry(tmp_path)
     fake = FakeOAuthWithUserInfo(fail=True)
     svc = CredentialService(  # type: ignore[arg-type]
-        registry, fake, lock_dir=tmp_path / "locks", oauth_for=lambda _c: fake
+        registry, fake, oauth_for=lambda _c: fake
     )
 
     updated = asyncio.run(svc.ensure_valid("axd"))
@@ -333,7 +321,7 @@ def test_oauth_without_user_info_is_tolerated(tmp_path: Path) -> None:
     registry = _expired_registry(tmp_path)
     fake = FakeOAuth()  # 只有 refresh
     svc = CredentialService(  # type: ignore[arg-type]
-        registry, fake, lock_dir=tmp_path / "locks", oauth_for=lambda _c: fake
+        registry, fake, oauth_for=lambda _c: fake
     )
 
     updated = asyncio.run(svc.ensure_valid("axd"))

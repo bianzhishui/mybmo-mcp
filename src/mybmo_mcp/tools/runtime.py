@@ -172,11 +172,7 @@ class Runtime:
             app_secrets=app_secrets,
             registry=registry,
             access=AccountAccess(registry, tenancy),
-            credentials=CredentialService(
-                registry,
-                None,
-                lock_dir=self.settings.mybmo_data_dir / "locks",
-            ),
+            credentials=CredentialService(registry, None),
         )
 
     def identity_stats(self) -> dict[str, int]:
