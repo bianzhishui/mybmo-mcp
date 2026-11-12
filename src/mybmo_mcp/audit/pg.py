@@ -272,9 +272,22 @@ class PgAuditSink:
                 total = _scalar(cur.fetchone())
                 cur.execute(sql, (*tuple(args), limit, offset))
                 rows = cur.fetchall()
+                cols = [d[0] for d in (cur.description or [])]
             conn.commit()
-        # row_factory 可能是 dict_row（生产）或默认元组（测试注入），两种都归一成 dict
-        return total, [row if isinstance(row, dict) else dict(row) for row in rows]
+        return total, [_as_dict(row, cols) for row in rows]
+
+
+def _as_dict(row: Any, cols: list[str]) -> dict[str, Any]:
+    """把一行统一成 dict。
+
+    连接上有没有 ``row_factory`` 取决于调用方（生产走 dict_row，测试可能注入默认元组），
+    所以这里两种都要支持——元组用游标的列名 zip 回去。
+    """
+    if isinstance(row, dict):
+        return dict(row)
+    if hasattr(row, "keys"):
+        return {key: row[key] for key in row.keys()}  # type: ignore[union-attr]
+    return dict(zip(cols, row, strict=False))
 
 
 def _scalar(row: Any) -> int:

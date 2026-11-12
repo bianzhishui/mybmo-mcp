@@ -233,3 +233,29 @@ def test_query_is_tenant_scoped(sink: PgAuditSink) -> None:
     total, _ = sink.query(tenant_id="t_default")
 
     assert total == 1
+
+
+def test_query_works_without_dict_row_factory() -> None:
+    """生产连接没有 row_factory 时返回元组——曾因 dict(row) 直接炸掉。"""
+    import psycopg
+
+    schema = f"a_{uuid.uuid4().hex[:12]}"
+    with psycopg.connect(DSN, autocommit=True) as conn:
+        conn.execute(f"CREATE SCHEMA {schema}")
+        conn.execute(f"SET search_path TO {schema}")
+        conn.execute(MIGRATION)
+
+    def connect():
+        return psycopg.connect(DSN, options=f"-c search_path={schema}")
+
+    sink = PgAuditSink(DSN, connect=connect)
+    try:
+        do_record(sink, call_id=uuid.uuid4().hex[:12])
+        total, rows = sink.query(tenant_id="t_default", include_payload=True)
+        assert total == 1
+        assert rows[0]["user_name"] == "test02"
+        assert rows[0]["request_params"] == {"campaignShoppingIds": [2079251858]}
+    finally:
+        sink._reset()
+        with psycopg.connect(DSN, autocommit=True) as conn:
+            conn.execute(f"DROP SCHEMA {schema} CASCADE")
