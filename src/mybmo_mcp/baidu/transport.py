@@ -39,6 +39,25 @@ READ_PREFIXES = ("get", "query", "list", "search", "describe", "download", "chec
 
 
 @dataclass(frozen=True, slots=True)
+class Exchange:
+    """最近一次 HTTP 交互的快照，供审计落库用。
+
+    传输层原本把 ``status_code`` 和原始响应都吞掉了，审计只能记"成功/失败"这种
+    粗粒度结论。有了这个快照，审计能记下真正的 HTTP 状态码与出参原文。
+    """
+
+    url: str
+    http_status: int | None
+    response_text: str
+    started_at: float
+    finished_at: float
+
+    @property
+    def duration_ms(self) -> int:
+        return max(0, int((self.finished_at - self.started_at) * 1000))
+
+
+@dataclass(frozen=True, slots=True)
 class RequestCredentials:
     """一次请求所需的鉴权信息。
 
@@ -140,6 +159,8 @@ class BaiduTransport:
         self._last_call = 0.0
         #: 最近一次响应的配额信息，由调用方按需读取
         self.last_rquota: dict[str, Any] | None = None
+        #: 最近一次 HTTP 交互快照（审计用）。没发出去（越权/参数错）时保持 ``None``
+        self.exchange: Exchange | None = None
 
     async def call(
         self,
@@ -187,12 +208,14 @@ class BaiduTransport:
     async def _send(self, url: str, payload: dict[str, Any], service: str, method: str) -> Any:
         write = is_write_method(method)
         retries = 0 if write else self._read_retries
+        started = time.time()
 
         for attempt in range(retries + 1):
             try:
                 response = await self._client.post(url, json=payload)
             except httpx2.TimeoutException as exc:
                 # 超时属于「结果未知」：读可以重试，写绝不能重发。
+                self.exchange = Exchange(url, None, "", started, time.time())
                 if attempt < retries:
                     await asyncio.sleep(self._backoff * (2**attempt))
                     continue
@@ -204,6 +227,7 @@ class BaiduTransport:
                 ) from exc
             except httpx2.HTTPError as exc:
                 # 连接层失败（DNS、TLS、连接重置）。写请求同样不重试。
+                self.exchange = Exchange(url, None, "", started, time.time())
                 if attempt < retries:
                     await asyncio.sleep(self._backoff * (2**attempt))
                     continue
@@ -214,6 +238,10 @@ class BaiduTransport:
                     outcome="unknown",
                 ) from exc
 
+            self.exchange = Exchange(
+                url, response.status_code, response.text, started, time.time()
+            )
+
             if response.status_code >= 500:
                 # 网关侧异常，不重试：写请求可能已被接受，读请求下一轮由调用方决定。
                 raise BaiduApiError(
@@ -221,6 +249,7 @@ class BaiduTransport:
                     service=service,
                     method=method,
                     outcome="unknown",
+                    http_status=response.status_code,
                 )
             if response.status_code >= 400:
                 raise BaiduApiError(
@@ -228,8 +257,15 @@ class BaiduTransport:
                     service=service,
                     method=method,
                     outcome="failed",
+                    http_status=response.status_code,
                 )
-            return self._parse(response.text, service, method)
+            try:
+                return self._parse(response.text, service, method)
+            except BaiduApiError as exc:
+                # 业务错误码也带上 HTTP 状态，审计才分得清"网关挂了"和"参数不对"
+                if exc.http_status is None:
+                    exc.http_status = response.status_code
+                raise
 
         raise BaiduApiError(  # pragma: no cover - 循环必然 return 或 raise
             f"{service}/{method} 重试耗尽",

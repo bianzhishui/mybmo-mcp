@@ -88,6 +88,7 @@ class BaiduApiError(BaiduError):
         service: str | None = None,
         method: str | None = None,
         outcome: str = "failed",
+        http_status: int | None = None,
     ) -> None:
         super().__init__(redact(message))
         self.code = code
@@ -95,6 +96,8 @@ class BaiduApiError(BaiduError):
         self.service = service
         self.method = method
         self.outcome = outcome
+        #: HTTP 状态码。网关 4xx/5xx 与业务错误码是两件事，审计要分开看
+        self.http_status = http_status
 
     @property
     def hint(self) -> str | None:

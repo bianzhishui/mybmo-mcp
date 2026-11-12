@@ -224,7 +224,9 @@ class TenancyStore:
 
     # ---------- 身份 ----------
 
-    def resolve_principal(self, sub: str, *, org: str = "", app: str = "") -> Principal:
+    def resolve_principal(
+        self, sub: str, *, org: str = "", app: str = "", fallback_name: str = ""
+    ) -> Principal:
         """把 JWT 的 ``sub`` 映射成身份。
 
         **未登记的身份不自动创建**。用户表缺失时也允许通过——但那时它拿不到任何
@@ -240,7 +242,13 @@ class TenancyStore:
         self._ensure_loaded()
         user = self._users.get(sub)
         if user is None:
-            return Principal(sub=sub, org=org, app=app, tenant_id="", source=MODE_OIDC)
+            return Principal(
+                sub=sub, org=org, app=app, display_name=fallback_name, tenant_id="",
+                source=MODE_OIDC,
+            )
+        if not user.display_name and fallback_name:
+            # 授权表没填名字时，用令牌里的 name 兜底（审计需要"谁调的"）
+            user = replace(user, display_name=fallback_name)
         return replace(user, org=org, app=app)
 
     # ---------- 查询 ----------

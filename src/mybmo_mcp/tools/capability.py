@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import asyncio
 import difflib
+import json
 import time
 from typing import Any
 
@@ -158,8 +159,18 @@ async def execute_capability(
         return fail_from(exc)
 
     started = time.perf_counter()
+    started_wall = time.time()
 
-    def _audit(state: str, *, alias: str = "", error: str = "", code: int | None = None) -> None:
+    def _audit(
+        state: str,
+        *,
+        alias: str = "",
+        error: str = "",
+        code: int | None = None,
+        account_name: str = "",
+        transport: Any = None,
+    ) -> None:
+        exchange = getattr(transport, "exchange", None) if transport is not None else None
         runtime.audit.record(
             sub=principal.sub,
             tenant_id=principal.tenant_id,
@@ -173,6 +184,13 @@ async def execute_capability(
             error_code=code,
             error=error,
             payload=payload,
+            user_name=principal.display_name,
+            app=principal.app,
+            account_name=account_name,
+            started_at=started_wall,
+            finished_at=time.time(),
+            http_status=exchange.http_status if exchange is not None else None,
+            response_body=_response_body(exchange),
         )
 
     try:
@@ -186,15 +204,28 @@ async def execute_capability(
         _audit(STATE_FAILED, alias=account or "", error=str(exc))
         return fail_from(exc)
 
+    # 百度账户中文名（给人看的）。测试里的假 entry 可能没有这个属性
+    entry_name = getattr(entry, "user_name", "") or ""
+
     try:
         transport = runtime.transport_for(entry.alias, principal=principal, permission=permission)
         data = await transport.call(cap.service, cap.method, payload, product_line=cap.product_line)
     except BaiduApiError as exc:
         state = STATE_UNKNOWN if exc.outcome == "unknown" else STATE_FAILED
-        _audit(state, alias=entry.alias, error=str(exc), code=exc.code)
+        _audit(
+            state,
+            alias=entry.alias,
+            error=str(exc),
+            code=exc.code,
+            account_name=entry_name,
+            transport=transport,
+        )
         return fail_from(exc)
     except (BaiduError, ValueError) as exc:
-        _audit(STATE_FAILED, alias=entry.alias, error=str(exc))
+        _audit(
+            STATE_FAILED, alias=entry.alias, error=str(exc), account_name=entry_name,
+            transport=transport,
+        )
         return fail_from(exc)
 
     # 先等异步任务再有"成功"这回事：轮询失败时不该先记一条 succeeded 再记 failed。
@@ -211,10 +242,15 @@ async def execute_capability(
                     product_line=cap.product_line,
                 )
             except (BaiduApiError, BaiduError, ValueError) as exc:
-                _audit(STATE_FAILED, alias=entry.alias, error=str(exc))
+                _audit(
+                    STATE_FAILED, alias=entry.alias, error=str(exc),
+                    account_name=entry_name, transport=transport,
+                )
                 return fail_from(exc)
 
-    _audit(STATE_SUCCEEDED, alias=entry.alias)
+    _audit(
+        STATE_SUCCEEDED, alias=entry.alias, account_name=entry_name, transport=transport
+    )
 
     meta: dict[str, Any] = {
         "capability": cap.key,
@@ -381,6 +417,20 @@ def _not_found(registry: CapabilityRegistry, capability: str) -> dict[str, Any]:
             else "先用 search_capabilities 检索，key 形如 Service.method"
         ),
     )
+
+
+def _response_body(exchange: Any) -> Any:
+    """把传输层留下的原始响应解析成出参。
+
+    解析不出来时保留原文（``_raw``），审计宁可存一坨文本也不能丢——
+    "百度返回了非 JSON"本身就是最有价值的排查线索。
+    """
+    if exchange is None or not getattr(exchange, "response_text", ""):
+        return None
+    try:
+        return json.loads(exchange.response_text)
+    except ValueError:
+        return {"_raw": exchange.response_text}
 
 
 def register(mcp: MCPServer) -> None:

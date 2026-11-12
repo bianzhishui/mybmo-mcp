@@ -24,14 +24,15 @@ def test_discover_finds_initial_migration() -> None:
 
     found = runner.discover()
 
-    assert [version for version, _ in found] == [1]
+    assert [version for version, _ in found] == [1, 2]
     assert found[0][1].name == "001_init.sql"
+    assert found[1][1].name == "002_audit_log.sql"
 
 
 def test_dry_run_lists_pending_versions() -> None:
     runner = load_runner()
 
-    assert runner.apply("postgresql://unused", dry_run=True) == [1]
+    assert runner.apply("postgresql://unused", dry_run=True) == [1, 2]
 
 
 def test_migration_sql_declares_core_tables() -> None:
@@ -63,7 +64,7 @@ def test_apply_is_idempotent_in_temp_schema() -> None:
     with psycopg.connect(dsn, autocommit=True) as conn:
         conn.execute(f"CREATE SCHEMA {schema}")
     try:
-        assert runner.apply(dsn, schema=schema) == [1]
+        assert runner.apply(dsn, schema=schema) == [1, 2]
         assert runner.apply(dsn, schema=schema) == []
 
         with psycopg.connect(dsn, autocommit=True, options=f"-c search_path={schema}") as conn:
@@ -74,8 +75,46 @@ def test_apply_is_idempotent_in_temp_schema() -> None:
                 )
             }
             versions = [row[0] for row in conn.execute("SELECT version FROM schema_version")]
-        assert {"tenants", "users", "baidu_accounts", "account_grants", "schema_version"} <= tables
-        assert versions == [1]
+        assert {
+            "tenants",
+            "users",
+            "baidu_accounts",
+            "account_grants",
+            "audit_log",
+            "schema_version",
+        } <= tables
+        assert versions == [1, 2]
     finally:
         with psycopg.connect(dsn, autocommit=True) as conn:
             conn.execute(f"DROP SCHEMA {schema} CASCADE")
+
+
+def test_audit_log_sql_declares_required_columns() -> None:
+    """审计表的列是与使用方约定的契约，少一列就要重新评估。"""
+    sql = (ROOT / "migrations" / "002_audit_log.sql").read_text(encoding="utf-8")
+
+    for column in (
+        "call_id",
+        "started_at",
+        "finished_at",
+        "duration_ms",
+        "tenant_id",
+        "user_sub",
+        "user_name",
+        "account_alias",
+        "account_name",
+        "capability",
+        "state",
+        "http_status",
+        "error_code",
+        "error",
+        "request_params",
+        "response_body",
+        "request_bytes",
+        "response_bytes",
+        "payload_digest",
+    ):
+        assert column in sql, f"缺少列 {column}"
+    # 四态约束与 jsonb 类型不能丢
+    assert "CHECK (state IN ('succeeded', 'failed', 'unknown', 'denied'))" in sql
+    assert "request_params jsonb" in sql and "response_body  jsonb" in sql

@@ -83,7 +83,9 @@ class PgTenancyStore:
 
     # ---------- 身份 ----------
 
-    def resolve_principal(self, sub: str, *, org: str = "", app: str = "") -> Principal:
+    def resolve_principal(
+        self, sub: str, *, org: str = "", app: str = "", fallback_name: str = ""
+    ) -> Principal:
         with self._conn() as conn, conn.cursor() as cur:
             cur.execute(
                 "SELECT idp_subject, display_name FROM users"
@@ -93,11 +95,14 @@ class PgTenancyStore:
             row = cur.fetchone()
         if row is None:
             # 未登记不自动创建：登录成功但没有任何账户，是可解释的状态
-            return Principal(sub=sub, org=org, app=app, tenant_id="", source=self._mode)
+            return Principal(
+                sub=sub, org=org, app=app, display_name=fallback_name, tenant_id="",
+                source=self._mode,
+            )
         return Principal(
             sub=row["idp_subject"],
             tenant_id=self._tenant_id,
-            display_name=row["display_name"] or "",
+            display_name=row["display_name"] or fallback_name,
             source=self._mode,
             org=org,
             app=app,

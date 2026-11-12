@@ -160,7 +160,7 @@ POST /mcp   Authorization: Bearer <JWT>
 
 ```
 /data/tenancy.json     授权表 v2（accounts 归属 + grants 分享；尚未落库）
-/data/audit/*.jsonl    按天分文件的审计
+/data/audit/*.jsonl    按天分文件的审计（`MYBMO_AUDIT_BACKEND=file` 时；`pg` 时改写 audit_log 表）
 /data/subscribe/*.jsonl 百度事件推送的原始样本（脱敏后），只供人工分析
 /data/locks/           凭据刷新的文件锁
 /data/<加密凭据文件>    AES-GCM 密文，权限 600

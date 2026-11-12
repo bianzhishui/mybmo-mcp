@@ -1,6 +1,6 @@
 """MCP 工具层。
 
-六个常驻工具，分两类：
+九个常驻工具（另有 ``query_audit`` 查调用审计），分两类：
 
 - ``accounts``：``list_accounts`` / ``auth_status`` / ``bind_account``，
   本项目自身能力；前两个不联网，``bind_account`` 只生成授权链接，用户自己在浏览器完成
@@ -19,7 +19,8 @@ from mcp.server import MCPServer
 
 
 def register_all(mcp: MCPServer) -> None:
-    from mybmo_mcp.tools import accounts, capability
+    from mybmo_mcp.tools import accounts, audit, capability
 
     accounts.register(mcp)
     capability.register(mcp)
+    audit.register(mcp)

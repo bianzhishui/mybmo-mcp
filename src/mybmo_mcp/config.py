@@ -60,6 +60,10 @@ class Settings(BaseSettings):
     mybmo_database_url: str = ""
     #: 授权表后端：``file``（data/tenancy.json，默认）/ ``pg``（PostgreSQL）
     mybmo_tenancy_backend: str = "file"
+    #: 审计后端：``file``（data/audit/*.jsonl，默认）/ ``pg``（audit_log 表）
+    mybmo_audit_backend: str = "file"
+    #: 是否把入参/出参正文也写进审计。关掉只留 payload_digest
+    mybmo_audit_store_payload: bool = True
 
     def master_key_bytes(self) -> bytes:
         """解码并校验主密钥。

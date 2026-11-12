@@ -208,3 +208,73 @@ def test_name_normalization_is_idempotent(raw: str, canonical: str) -> None:
         else normalize_method(normalized)
     )
     assert again == canonical
+
+
+async def test_exchange_records_http_status_on_success() -> None:
+    """审计要拿到真正的 HTTP 状态码：成功路径也要留快照。"""
+
+    async def handler(request: httpx2.Request) -> httpx2.Response:
+        return httpx2.Response(200, text=fixture_text("account_info.json"))
+
+    transport = build(handler)
+    await transport.call("AccountService", "getAccountInfo")
+
+    assert transport.exchange is not None
+    assert transport.exchange.http_status == 200
+    assert transport.exchange.response_text
+    assert transport.exchange.duration_ms >= 0
+
+
+async def test_exchange_records_http_status_on_500() -> None:
+    async def handler(request: httpx2.Request) -> httpx2.Response:
+        return httpx2.Response(502, text="bad gateway")
+
+    transport = build(handler)
+    with pytest.raises(BaiduApiError) as excinfo:
+        await transport.call("AccountService", "getAccountInfo")
+
+    assert excinfo.value.http_status == 502
+    assert transport.exchange is not None
+    assert transport.exchange.http_status == 502
+    assert transport.exchange.response_text == "bad gateway"
+
+
+async def test_exchange_keeps_raw_text_on_business_error() -> None:
+    """业务错误码时也要带上 HTTP 状态，审计才分得清网关和参数问题。"""
+
+    async def handler(request: httpx2.Request) -> httpx2.Response:
+        return httpx2.Response(200, text=fixture_text("error_81020.json"))
+
+    transport = build(handler)
+    with pytest.raises(BaiduApiError) as excinfo:
+        await transport.call("AccountService", "getAccountInfo")
+
+    assert excinfo.value.code == 81020
+    assert excinfo.value.http_status == 200
+    assert transport.exchange is not None
+    assert "81020" in transport.exchange.response_text
+
+
+async def test_exchange_is_none_when_request_never_sent() -> None:
+    """越权/参数错这类没发出请求的情况，不该留下假的快照。"""
+
+    async def handler(request: httpx2.Request) -> httpx2.Response:  # pragma: no cover
+        raise AssertionError("不应该发出请求")
+
+    transport = build(handler)
+    with pytest.raises(DryRunRequested):
+        await transport.call("AccountService", "getAccountInfo", {}, dry_run=True)
+
+    assert transport.exchange is None
+
+
+async def test_exchange_records_none_status_on_timeout() -> None:
+    async def handler(request: httpx2.Request) -> httpx2.Response:
+        raise httpx2.TimeoutException("boom")
+
+    transport = build(handler)
+    with pytest.raises(BaiduApiError):
+        await transport.call("AccountService", "getAccountInfo", None)
+
+    assert transport.exchange is not None
+    assert transport.exchange.http_status is None

@@ -2,7 +2,7 @@
 
 # mybmo-mcp
 
-百度营销开放平台的 MCP 能力网关。**399 个接口收进 9 个工具**——用检索代替枚举，
+百度营销开放平台的 MCP 能力网关。**399 个接口收进 10 个工具**——用检索代替枚举，
 模型不必面对 390 个工具定义；百度令牌只活在服务端，客户端拿的是本服务自己的身份。
 
 > 非官方项目，与百度无隶属关系。需自行在 <https://dev2.baidu.com> 创建应用并完成授权。
@@ -61,7 +61,7 @@ curl -fsS https://baiduads.pandabase.top/healthz
 证书与备份由 [`pandabase-infra`](https://github.com/bianzhishui/pandabase-infra) 提供。
 **反代不做鉴权**，`/mcp` 的令牌校验必须在本进程内完成。
 
-## 九个工具
+## 十个工具
 
 | 工具 | 作用 |
 |---|---|
@@ -74,6 +74,7 @@ curl -fsS https://baiduads.pandabase.top/healthz
 | `share_account` | 把账户分享给别人（**仅 owner**，只能 read/write） |
 | `revoke_share` | 撤销分享（仅 owner） |
 | `list_shares` | 看账户分享给了谁（仅 owner） |
+| `query_audit` | 查调用审计（按人/账户/接口/时间/入参），带用户隔离 |
 
 **本服务只提供能力，不做业务编排，也不拦写操作。** 拓词、报表汇总、写前确认属于
 调用方（skill / agent 工作流）的职责，理由见 [ADR 0003](docs/decisions/0003-capability-only.md)。
@@ -140,6 +141,7 @@ curl -fsS https://baiduads.pandabase.top/healthz
 | [`docs/auth-contract.md`](docs/auth-contract.md) | **与 infra 的唯一契约**：鉴权不变量、环境变量、端点、卷布局 |
 | [`docs/baidu-behavior.md`](docs/baidu-behavior.md) | 百度接口行为实测结论；未验证项不得写进能力说明 |
 | [`docs/reports.md`](docs/reports.md) | 推广报告速查：三个方法、通用参数、reportType 全表、列字典、实测对照 |
+| [`docs/audit.md`](docs/audit.md) | 调用审计：字段含义、体积与增长、查询工具与隔离规则 |
 | [`docs/image-management.md`](docs/image-management.md) | 图片资产：上传（MD5 去重）/查询（最终一致）/改名/删除/裁剪/分享 |
 | [`docs/campaign-shopping.md`](docs/campaign-shopping.md) | 电商计划读写：52 字段标准读法、material 整体替换风险、词包绑定/解绑、关键字段含义 |
 | [`docs/keyword-packages.md`](docs/keyword-packages.md) | 电商关键词包（KeyWordShoppingService）：8 个接口实测（含导出 CSV、绑定计划、删词） |

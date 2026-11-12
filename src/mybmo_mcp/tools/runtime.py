@@ -25,7 +25,8 @@ import httpx2
 from mcp.server.auth.settings import AuthSettings
 from pydantic import AnyHttpUrl
 
-from mybmo_mcp.audit.log import AuditLog
+from mybmo_mcp.audit.log import FileAuditSink
+from mybmo_mcp.audit.pg import PgAuditSink
 from mybmo_mcp.auth.access import AccountAccess
 from mybmo_mcp.auth.binding import BindingManager, StateStore
 from mybmo_mcp.auth.oauth import BaiduOAuth
@@ -49,7 +50,7 @@ from mybmo_mcp.config import Settings, get_settings
 _runtime: Runtime | None = None
 
 
-def _principal_from_bearer_token() -> tuple[str, str, str] | None:
+def _principal_from_bearer_token() -> tuple[str, str, str, str] | None:
     """从 SDK 的鉴权上下文里取 ``(sub, 组织, 应用)``。
 
     SDK 的 ``AuthContextMiddleware`` 把已验证的 ``AccessToken`` 放进 ContextVar，
@@ -70,7 +71,10 @@ def _principal_from_bearer_token() -> tuple[str, str, str] | None:
     claims = getattr(access, "claims", None) or {}
     org = str(claims.get("owner") or "").strip()
     app = str(getattr(access, "client_id", "") or claims.get("azp") or "").strip()
-    return str(access.subject), org, app
+    # Casdoor 令牌里带着 name（如 test02）。授权表的 display_name 为空时用它兜底，
+    # 否则审计里"谁调的"这一栏会是空的。
+    name = str(claims.get("name") or claims.get("preferred_username") or "").strip()
+    return str(access.subject), org, app, name
 
 
 class _AccountCredentials:
@@ -182,8 +186,19 @@ class Runtime:
         return CapabilityRegistry.load()
 
     @cached_property
-    def audit(self) -> AuditLog:
-        return AuditLog(self.settings.mybmo_data_dir / "audit")
+    @cached_property
+    def audit(self) -> FileAuditSink | PgAuditSink:
+        """审计写入器。``MYBMO_AUDIT_BACKEND=pg`` 时写 ``audit_log`` 表。
+
+        用 ``cached_property`` 而不是普通属性：PG 后端要复用连接，
+        每次调用新建连接会把审计的固定开销抬到几十毫秒。
+        """
+        store_payload = self.settings.mybmo_audit_store_payload
+        if self.settings.mybmo_audit_backend == "pg" and self.settings.mybmo_database_url:
+            return PgAuditSink(self.settings.mybmo_database_url, store_payload=store_payload)
+        return FileAuditSink(
+            self.settings.mybmo_data_dir / "audit", store_payload=store_payload
+        )
 
     @cached_property
     def client(self) -> httpx2.AsyncClient:
@@ -203,8 +218,10 @@ class Runtime:
 
         bearer = _principal_from_bearer_token()
         if bearer is not None:
-            sub, org, app = bearer
-            return self.tenancy.resolve_principal(sub, org=org, app=app)
+            sub, org, app, name = bearer
+            return self.tenancy.resolve_principal(
+                sub, org=org, app=app, fallback_name=name
+            )
 
         if self.settings.mybmo_auth_mode != MODE_LOCAL:
             raise TenancyError(

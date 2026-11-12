@@ -122,6 +122,7 @@ def test_server_registers_all_tools() -> None:
         "share_account",
         "revoke_share",
         "list_shares",
+        "query_audit",
         "search_capabilities",
         "get_capability_schema",
         "execute_capability",

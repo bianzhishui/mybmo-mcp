@@ -124,8 +124,11 @@ baidu_accounts   (id, tenant_id, alias, owner_user_id, kind, baidu_user_id, user
                   refresh_token_cipher, access_token_expires_at,
                   status, created_at, updated_at)
 account_grants   (user_id, account_id, permission, created_at)  -- 只 read | write
-audit_log        (id, tenant_id, account_id, user_id, capability,
-                  request_id, state, payload_digest, error, created_at)
+audit_log        (id, call_id, started_at, finished_at, duration_ms, tenant_id,
+                  user_sub, user_name, app, account_alias, account_name, capability,
+                  state, http_status, error_code, error,
+                  request_params, response_body, request_bytes, response_bytes,
+                  payload_digest)                        -- 见 migrations/002_audit_log.sql
 
 UNIQUE (tenant_id, alias)         -- 别名在租户内唯一，跨租户可重名
 UNIQUE (tenant_id, idp_subject)   -- 一个 IdP 身份在一个租户内只对应一个用户
@@ -142,6 +145,9 @@ UNIQUE (tenant_id, idp_subject)   -- 一个 IdP 身份在一个租户内只对�
 
 **账户私有**：`owner_user_id` 是绑定者，owner 隐式拥有 admin；`account_grants` 只表达
 `read` / `write`（admin 不能转授）。没有 `owner_user_id` 的账户对任何人不可见（fail closed）。
+
+审计表**不建外键**：用户未登记、账户被删时审计仍要写得进去，所以 `user_sub` /
+`account_alias` / `user_name` / `account_name` 都是冗余文本。详见 `docs/audit.md`。
 
 多租户隔离原则：所有查询带 `tenant_id`，不靠应用层 if 判断；执行前必须经授权表校验，
 不能直接信任入参 alias；`read` 只能调 `mutating=false` 的能力，`mutating=unknown` 按写处理。

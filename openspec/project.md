@@ -2,7 +2,7 @@
 
 ## 是什么
 
-百度营销开放平台的 MCP 能力网关。399 个接口收进 9 个工具，用检索代替枚举；百度令牌只活在
+百度营销开放平台的 MCP 能力网关。399 个接口收进 10 个工具，用检索代替枚举；百度令牌只活在
 服务端，客户端拿的是本服务自己的身份。
 
 部署、身份与数据库在 [`pandabase-infra`](https://github.com/bianzhishui/pandabase-infra)，
@@ -51,6 +51,7 @@
 | [`docs/auth-contract.md`](../docs/auth-contract.md) | 与 infra 的鉴权契约（不变量、环境变量、端点、卷布局） |
 | [`docs/baidu-behavior.md`](../docs/baidu-behavior.md) | 百度接口行为实测结论（身份/分页/字段/错误码） |
 | [`docs/reports.md`](../docs/reports.md) | 推广报告速查：参数、reportType 总表、列字典 |
+| [`docs/audit.md`](../docs/audit.md) | 调用审计：字段、体积、查询与隔离 |
 | [`docs/image-management.md`](../docs/image-management.md) | 图片资产管理：接口、去重、最终一致 |
 | [`docs/campaign-shopping.md`](../docs/campaign-shopping.md) | 电商计划读写：标准字段表与写前校验 |
 | [`docs/keyword-packages.md`](../docs/keyword-packages.md) | 电商关键词包：8 个接口（含导出、绑定计划、删词）全部实测 |
