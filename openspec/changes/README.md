@@ -24,3 +24,4 @@ changes/
 |---|---|---|
 | 真实链路验证 | `archive/2026-11-11-live-validation/` | 2026-11-11 |
 | 多租户落库 | `archive/2026-11-11-multi-tenant-persistence/` | 2026-11-11（MCC 子账户暂缓） |
+| 调用审计落库 | `archive/2026-11-12-audit-log-persistence/` | 2026-11-12 |

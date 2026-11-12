@@ -77,3 +77,4 @@
 |---|---|---|
 | [`live-validation`](changes/archive/2026-11-11-live-validation/proposal.md) | ✅ 已完成 | 32/32 任务；结论进 `docs/baidu-behavior.md` 等 |
 | [`multi-tenant-persistence`](changes/archive/2026-11-11-multi-tenant-persistence/proposal.md) | ✅ 已完成（MCC 暂缓） | PG 后端已上线，文件后端可回滚 |
+| [`audit-log-persistence`](changes/archive/2026-11-12-audit-log-persistence/proposal.md) | ✅ 已完成 | `audit_log` 表 + `query_audit` 工具已上线 |
