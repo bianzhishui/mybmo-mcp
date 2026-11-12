@@ -183,11 +183,20 @@ exchange(app 凭据, authCode)
 | `pending` 占位残留 | 用户放弃授权会留下无令牌凭据 | TTL 对齐 state（900s），同 alias 重绑直接覆盖 |
 | PG 与 vault 双份状态 | 回填遗漏会导致约束校验失效 | 迁移脚本 + 一致性校验任务 |
 
+## 已结案的未决项
+
+- [x] **`secretKey` 重置后旧令牌是否失效**：2026-11-12 实测**全部失效**。
+      重置后用新密钥刷 `main` 报 `50003 token验签失败`，业务接口报
+      `89406 The access token you provided is invalidate.`。结论：换密钥 = 一次
+      **全员重绑**事件，运维要提前通知
+- [x] **`user_name` 改名后的 `81020`**：改为**刷新令牌时顺手 `getUserInfo` 校正**
+      （`CredentialService._refresh`）。取不到就沿用旧名，不影响刷新本身
+- [x] **`app_id` 展示**：`AccountEntry.app_id` 只输出脱敏前缀（`20426c04…`）
+- [x] **`auth bind --tenant` 默认值**：缺省取 `MYBMO_TENANT_ID`，不再留空
+
 ## 未决问题
 
-- [ ] **`secretKey` 重置后旧 `refreshToken` 是否失效**：影响是一次性重绑还是全员重绑，必须实测
-- [ ] **`user_name` 改名后的 `81020`**：账户中文名变更会让库里的 `user_name` 过期，
-      是否要在每次刷新令牌时 `getUserInfo` 顺手校正
-- [ ] 回调 `signature` 是否值得校验（当前判定为低优先级）
-- [ ] `auth_status` / `list_accounts` 是否展示 `app_id` 脱敏前缀（`2042c045…`）便于排查
+- [ ] 回调 `signature` 暂不校验：百度未公开算法，且伪造回调还需有效 `authCode`
+      （换令牌必失败），攻击面小。先把 `signature` / `timestamp` 记进
+      `docs/baidu-behavior.md` 的样本，等有算法再补
 - [ ] 同一百度账户在**不同租户**里各绑一次是否允许（当前约束是租户内，跨租户不拦）

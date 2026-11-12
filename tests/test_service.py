@@ -265,3 +265,78 @@ def test_refresh_writes_back_inside_the_row_lock(tmp_path: Path) -> None:
 
     assert updated.access_token == "new-at"
     assert [cred.alias for cred in saved_via_lock] == ["axd"]
+
+
+class FakeOAuthWithUserInfo(FakeOAuth):
+    """刷新成功之外还能回答 getUserInfo —— 用来测账户改名后的自愈。"""
+
+    def __init__(self, *, user_name: str = "改名后的账户", fail: bool = False) -> None:
+        super().__init__()
+        self.user_name = user_name
+        self.fail = fail
+        self.user_info_calls = 0
+
+    async def user_info(self, access_token: str, *, user_id: int = 0, open_id: str = ""):
+        self.user_info_calls += 1
+        if self.fail:
+            raise CredentialError("getUserInfo 失败")
+        return {"masterName": self.user_name, "userId": user_id}
+
+
+def _expired_registry(tmp_path: Path) -> AccountRegistry:
+    vault = FileVault(tmp_path / "data", KEY)
+    vault.save(
+        Credential(
+            alias="axd",
+            user_name="改名前的账户",
+            user_id=1001,
+            app_id="app-own",
+            secret_key="sk-own",
+            access_token="old-at",
+            refresh_token="rt-1",
+            expires_at=time.time() - 10,
+        )
+    )
+    return AccountRegistry(vault, env={})
+
+
+def test_refresh_resyncs_user_name(tmp_path: Path) -> None:
+    """百度后台改账户名后，user_name 不更新会导致所有接口 81020（ADR 0006 未决项）。"""
+    registry = _expired_registry(tmp_path)
+    fake = FakeOAuthWithUserInfo(user_name="改名后的账户")
+    svc = CredentialService(  # type: ignore[arg-type]
+        registry, fake, lock_dir=tmp_path / "locks", oauth_for=lambda _c: fake
+    )
+
+    updated = asyncio.run(svc.ensure_valid("axd"))
+
+    assert updated.user_name == "改名后的账户"
+    assert fake.user_info_calls == 1
+
+
+def test_user_info_failure_does_not_break_refresh(tmp_path: Path) -> None:
+    """校正失败不能连累刷新本身——旧名字总比没令牌好。"""
+    registry = _expired_registry(tmp_path)
+    fake = FakeOAuthWithUserInfo(fail=True)
+    svc = CredentialService(  # type: ignore[arg-type]
+        registry, fake, lock_dir=tmp_path / "locks", oauth_for=lambda _c: fake
+    )
+
+    updated = asyncio.run(svc.ensure_valid("axd"))
+
+    assert updated.access_token == "new-at"
+    assert updated.user_name == "改名前的账户"
+
+
+def test_oauth_without_user_info_is_tolerated(tmp_path: Path) -> None:
+    """老测试替身没有 user_info 方法，不能因此炸掉刷新。"""
+    registry = _expired_registry(tmp_path)
+    fake = FakeOAuth()  # 只有 refresh
+    svc = CredentialService(  # type: ignore[arg-type]
+        registry, fake, lock_dir=tmp_path / "locks", oauth_for=lambda _c: fake
+    )
+
+    updated = asyncio.run(svc.ensure_valid("axd"))
+
+    assert updated.access_token == "new-at"
+    assert updated.user_name == "改名前的账户"

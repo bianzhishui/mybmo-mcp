@@ -156,3 +156,28 @@ def test_pending_placeholder_is_hidden_from_accounts(tmp_path: Path) -> None:
     assert [entry.alias for entry in registry.list_accounts()] == ["ready"]
     # 只剩一个可用账户时，resolve() 不该被占位记录干扰
     assert registry.resolve().alias == "ready"
+
+
+def test_account_entry_masks_app_id(tmp_path: Path) -> None:
+    """排查时要能看出这条凭据用哪个应用，但不能把整串密钥信息倒给模型。"""
+    store = FileVault(tmp_path / "data", KEY)
+    store.save(
+        Credential(
+            alias="axd",
+            user_name="示例账户",
+            access_token="tok",
+            app_id="20426c0457c842036585e268d456fe45",
+            expires_at=time.time() + 3600,
+        )
+    )
+    entry = AccountRegistry(store, env={}).list_accounts()[0]
+
+    assert entry.to_dict()["app_id"] == "20426c04…"
+    assert "20426c0457c842036585e268d456fe45" not in str(entry.to_dict())
+
+
+def test_account_entry_hides_empty_app_id(tmp_path: Path) -> None:
+    store = FileVault(tmp_path / "data", KEY)
+    store.save(credential("axd"))
+
+    assert AccountRegistry(store, env={}).list_accounts()[0].to_dict()["app_id"] == ""

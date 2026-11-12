@@ -18,6 +18,14 @@ from mybmo_mcp.auth.models import STATUS_PENDING, Credential, validate_alias
 from mybmo_mcp.auth.store import CredentialStore
 from mybmo_mcp.baidu.errors import CredentialError
 
+
+def mask_app_id(app_id: str) -> str:
+    """应用 ID 的脱敏前缀。appId 本身不是秘密，但没必要整串倒给模型。"""
+    if not app_id:
+        return ""
+    return f"{app_id[:8]}…" if len(app_id) > 8 else app_id
+
+
 ENV_ALIAS = "env"
 SOURCE_FILE = "file"
 SOURCE_ENV = "environment"
@@ -35,11 +43,14 @@ class AccountEntry:
     source: str
     expires_at: float
     note: str = ""
+    #: 这条凭据用的是哪个应用。**只给脱敏前缀**，排查够用且不泄露密钥
+    app_id: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "alias": self.alias,
             "user_name": self.user_name,
+            "app_id": mask_app_id(self.app_id),
             "usable": self.usable,
             "is_default": self.is_default,
             "status": self.status,
@@ -194,4 +205,5 @@ class AccountRegistry:
             source=source,
             expires_at=credential.expires_at,
             note=credential.note,
+            app_id=credential.app_id,
         )

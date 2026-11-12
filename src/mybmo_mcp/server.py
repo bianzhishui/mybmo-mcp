@@ -351,6 +351,10 @@ def auth_bind(
         )
         raise typer.Exit(code=2)
 
+    # tenant 是 state 里唯一能证明"这次绑定属于哪个租户"的字段。
+    # 留空不会立刻报错，但真做多租户时会静默写错租户，所以必须有默认值。
+    tenant = tenant or runtime.settings.mybmo_tenant_id
+
     try:
         manager = runtime.binding
     except BaiduError as exc:

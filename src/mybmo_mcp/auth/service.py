@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import time
 from collections.abc import Callable
+from dataclasses import replace
 from pathlib import Path
 
 from mybmo_mcp.auth import lock
@@ -101,6 +102,23 @@ class CredentialService:
             if oauth is not self._oauth:
                 await oauth.aclose()
 
+        # 账户中文名会被人在百度后台改掉，而它是每次请求鉴权头里的 userName，
+        # 过期后全部接口报 81020——偏偏表现为"授权失效"，很难排查。
+        # 刷新时顺手校正一次，代价是每账户每天多一次 getUserInfo。
+        user_name = fresh.user_name
+        try:
+            info = await oauth.user_info(
+                bundle.access_token,
+                user_id=bundle.user_id or fresh.user_id,
+                open_id=bundle.open_id or fresh.open_id,
+            )
+            fetched = str(info.get("masterName") or info.get("userName") or "").strip()
+            if fetched:
+                user_name = fetched
+        except (AttributeError, CredentialError):
+            # 拿不到就沿用旧名：校正失败不能连累刷新本身
+            pass
+
         updated = fresh.with_tokens(
             access_token=bundle.access_token,
             refresh_token=bundle.refresh_token or None,
@@ -110,6 +128,8 @@ class CredentialService:
             user_id=bundle.user_id or None,
             scope=bundle.scope or None,
         )
+        if user_name and user_name != fresh.user_name:
+            updated = replace(updated, user_name=user_name)
         persist(updated)
         return updated
 
