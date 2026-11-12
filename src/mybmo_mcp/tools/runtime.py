@@ -28,7 +28,7 @@ from pydantic import AnyHttpUrl
 from mybmo_mcp.audit.pg import PgAuditSink
 from mybmo_mcp.auth.access import AccountAccess
 from mybmo_mcp.auth.app_secrets import AppSecretStore, PgAppSecretStore
-from mybmo_mcp.auth.binding import BindingManager, StateStore
+from mybmo_mcp.auth.binding import BindingManager, PgBindingStateStore
 from mybmo_mcp.auth.oauth import BaiduOAuth
 from mybmo_mcp.auth.pg_store import PgCredentialStore
 from mybmo_mcp.auth.pg_tenancy import PgTenancyStore
@@ -224,8 +224,10 @@ class Runtime:
                 "缺少 MYBMO_BAIDU_CALLBACK_URL（在 dev2 应用「安全设置」里登记的授权回调地址），"
                 "没有它生成不了授权链接。取值见 docs/auth-contract.md"
             )
+        if not self.settings.mybmo_database_url:
+            raise CredentialError("绑定 state 落库需要 MYBMO_DATABASE_URL（ADR 0009）")
         return BindingManager(
-            StateStore(self.settings.mybmo_data_dir),
+            PgBindingStateStore(self.settings.mybmo_database_url),
             redirect_uri=callback,
             context_for=self.context_for_tenant,
         )

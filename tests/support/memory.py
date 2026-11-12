@@ -338,3 +338,44 @@ def attach_memory_context(runtime: Any, tenant_id: str = "local") -> Any:
     runtime._contexts[tenant_id] = ctx
     runtime.__dict__["tenant_map"] = _FakeTenantMap(tenancy, tenant_id)
     return ctx
+
+
+class MemoryBindingStateStore:
+    """``PgBindingStateStore`` 的内存替身：一次性 + TTL 语义一致。"""
+
+    def __init__(self, *args: Any, ttl: float = 900.0, now: Any = None, **kwargs: Any) -> None:
+        import time as _time
+
+        self._items: dict[str, Any] = {}
+        self._ttl = ttl
+        self._now = now or _time.time
+
+    def issue(self, *, subject: str, tenant: str, alias: str, app_id: str = "") -> Any:
+        import secrets as _secrets
+
+        from mybmo_mcp.auth.binding import BindingState
+        from mybmo_mcp.auth.models import validate_alias
+
+        alias = validate_alias(alias)
+        if not subject:
+            raise CredentialError("缺少 subject，无法签发绑定 state")
+        now = self._now()
+        state = BindingState(
+            nonce=_secrets.token_urlsafe(32),
+            subject=subject,
+            tenant=tenant,
+            alias=alias,
+            issued_at=now,
+            expires_at=now + self._ttl,
+            app_id=app_id,
+        )
+        self._items[state.nonce] = state
+        return state
+
+    def consume(self, nonce: str) -> Any:
+        state = self._items.pop(nonce, None)
+        if state is None:
+            return None
+        if state.expires_at <= self._now():
+            return None
+        return state

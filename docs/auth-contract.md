@@ -196,7 +196,7 @@ MCP 侧的对应工具是 `bind_account(alias, app_id)`：只传 `appId`；只�
 /data/tenancy.json     授权表 v2（accounts 归属 + grants 分享；`MYBMO_TENANCY_BACKEND=pg` 时不读）
 /data/audit/*.jsonl    按天分文件的审计（`MYBMO_AUDIT_BACKEND=file` 时；`pg` 时改写 audit_log 表）
 /data/subscribe/*.jsonl 百度事件推送的原始样本（脱敏后），只供人工分析
-/data/binding_state/   一次性绑定 state（15 分钟 TTL，取用即删）
+(绑定 state 已落库：binding_states 表，见 migrations/006)
 /data/locks/           凭据刷新的文件锁（`CREDENTIAL_BACKEND=pg` 时改用行锁，此目录闲置）
 /data/accounts/*.json  加密凭据文件，AES-GCM 密文，权限 600（`CREDENTIAL_BACKEND=file` 时使用）
 /data/apps/*.json      应用密钥登记，同上（`CREDENTIAL_BACKEND=file` 时使用）

@@ -9,22 +9,22 @@
 3. :meth:`BindingManager.complete` 消费 state → 按 alias 取回占位凭据里的应用密钥
    → 换令牌 → 取 ``masterName`` → 查 1:1 唯一性 → 落库并登记 owner
 
-**state 缺失不再瞎猜**：实测百度确实会原样回传 ``state``，但也自带 ``appId``。
-所以 state 缺失时按回调的 ``appId`` 兜底（应用已知），按 ``userId`` 命名成
-``acct_<userId>`` 并标 ``unconfirmed``；连 ``appId`` 都没有才失败——那时既不知道
-用哪把密钥，也不知道是哪个应用，硬猜只会把凭据存到错误的应用名下。
+**state 是租户的唯一来源**（ADR 0008 D5）：回调那一跳来自浏览器，没有令牌可依据。
+state 缺失/过期/重放一律失败——猜一个租户等于把 A 租户的凭据写进 B 租户，
+且事后无法识别。
+
+state 落 PostgreSQL（ADR 0009 D6）：多实例下实例 A 签发、回调可能打到实例 B，
+文件方案必然失败。一次性由 ``DELETE … RETURNING`` 保证。
 """
 
 from __future__ import annotations
 
-import json
-import os
 import re
 import secrets
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
 
 from mybmo_mcp.auth.models import (
@@ -38,10 +38,7 @@ from mybmo_mcp.auth.tenant_context import TenantContext
 from mybmo_mcp.baidu.errors import CredentialError
 
 STATE_TTL = 900.0
-STATE_DIRNAME = "binding_state"
-_STATE_MODE = 0o600
-_DIR_MODE = 0o700
-#: nonce 直接做文件名，只允许 URL 安全字符，长度下限挡住弱随机。
+#: nonce 直接进 URL 与数据库主键，只允许 URL 安全字符；长度下限挡住弱随机。
 _NONCE_RE = re.compile(r"^[A-Za-z0-9_-]{16,128}$")
 
 
@@ -57,21 +54,47 @@ class BindingState:
     app_id: str = ""
 
 
-class StateStore:
-    """一次性 state 的持久化。进程重启不丢，取用即删除。"""
+class PgBindingStateStore:
+    """一次性 state 落 PostgreSQL。进程重启不丢，取用即删除。
+
+    **一次性靠 ``DELETE … RETURNING``**：并发消费同一个 nonce 时，只有一个请求能
+    拿到行（行锁 + 删除），另一个拿到空——不需要额外的"已用"标记。
+    """
 
     def __init__(
         self,
-        root: str | os.PathLike[str],
+        dsn: str,
         *,
         ttl: float = STATE_TTL,
         now=time.time,
+        connect: Callable[[], Any] | None = None,
     ) -> None:
-        self.root = Path(root) / STATE_DIRNAME
+        if not dsn:
+            raise CredentialError("PgBindingStateStore 需要 MYBMO_DATABASE_URL")
+        self._dsn = dsn
         self._ttl = ttl
         self._now = now
-        self.root.mkdir(parents=True, exist_ok=True)
-        os.chmod(self.root, _DIR_MODE)
+        self._connect_override = connect
+
+    @contextmanager
+    def _conn(self) -> Iterator[Any]:
+        if self._connect_override is not None:
+            conn = self._connect_override()
+            try:
+                yield conn
+                conn.commit()
+            except BaseException:
+                conn.rollback()
+                raise
+            finally:
+                conn.close()
+            return
+
+        import psycopg
+        from psycopg.rows import dict_row
+
+        with psycopg.connect(self._dsn, row_factory=dict_row) as conn:
+            yield conn
 
     def issue(
         self, *, subject: str, tenant: str, alias: str, app_id: str = ""
@@ -89,53 +112,51 @@ class StateStore:
             expires_at=now + self._ttl,
             app_id=app_id,
         )
-        path = self._path(state.nonce)
-        payload = {
-            "nonce": state.nonce,
-            "subject": state.subject,
-            "tenant": state.tenant,
-            "alias": state.alias,
-            "app_id": state.app_id,
-            "issued_at": state.issued_at,
-            "expires_at": state.expires_at,
-        }
-        path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
-        os.chmod(path, _STATE_MODE)
+        with self._conn() as conn:
+            # 顺手清过期行：签发是低频动作，代价可忽略，省掉一个定时任务
+            conn.execute(
+                "DELETE FROM binding_states WHERE expires_at <= now()"
+            )
+            conn.execute(
+                "INSERT INTO binding_states"
+                " (nonce, tenant_id, subject, alias, app_id, issued_at, expires_at)"
+                " VALUES (%s, %s, %s, %s, %s, to_timestamp(%s), to_timestamp(%s))",
+                (
+                    state.nonce,
+                    tenant,
+                    subject,
+                    alias,
+                    app_id,
+                    state.issued_at,
+                    state.expires_at,
+                ),
+            )
         return state
 
     def consume(self, nonce: str) -> BindingState | None:
         """取用并销毁。返回 ``None`` 表示不存在、已用过或已过期。"""
         if not nonce or not _NONCE_RE.match(nonce):
             return None
-        path = self._path(nonce)
-        if not path.is_file():
-            return None
-        # 先读后删：删除即作废，哪怕后面解析失败也不能重放。
-        try:
-            raw = path.read_text(encoding="utf-8")
-        except OSError:
-            return None
-        path.unlink()
-        try:
-            data = json.loads(raw)
-        except ValueError:
-            return None
-        if not isinstance(data, dict):
-            return None
-        if float(data.get("expires_at") or 0) <= self._now():
+        with self._conn() as conn:
+            row = conn.execute(
+                "DELETE FROM binding_states"
+                " WHERE nonce = %s AND expires_at > now()"
+                " RETURNING nonce, tenant_id, subject, alias, app_id,"
+                " extract(epoch FROM issued_at) AS issued_at,"
+                " extract(epoch FROM expires_at) AS expires_at",
+                (nonce,),
+            ).fetchone()
+        if row is None:
             return None
         return BindingState(
-            nonce=str(data.get("nonce", nonce)),
-            subject=str(data.get("subject", "")),
-            tenant=str(data.get("tenant", "")),
-            alias=str(data.get("alias", "")),
-            issued_at=float(data.get("issued_at") or 0.0),
-            expires_at=float(data.get("expires_at") or 0.0),
-            app_id=str(data.get("app_id", "")),
+            nonce=str(row["nonce"]),
+            subject=str(row["subject"]),
+            tenant=str(row["tenant_id"]),
+            alias=str(row["alias"]),
+            issued_at=float(row["issued_at"] or 0.0),
+            expires_at=float(row["expires_at"] or 0.0),
+            app_id=str(row["app_id"] or ""),
         )
-
-    def _path(self, nonce: str) -> Path:
-        return self.root / f"{nonce}.json"
 
 
 class BindingManager:
@@ -147,7 +168,7 @@ class BindingManager:
 
     def __init__(
         self,
-        states: StateStore,
+        states: PgBindingStateStore,
         *,
         redirect_uri: str,
         context_for: Callable[[str], TenantContext],

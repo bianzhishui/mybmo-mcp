@@ -13,10 +13,12 @@ from pathlib import Path
 
 import pytest
 from tests.support.memory import (
+    MemoryBindingStateStore,
     attach_memory_context,
 )
 
 from mybmo_mcp.auth.app_secrets import AppSecret
+from mybmo_mcp.auth.binding import BindingManager
 from mybmo_mcp.auth.models import Credential
 from mybmo_mcp.auth.tenancy import Principal
 from mybmo_mcp.config import Settings
@@ -53,6 +55,10 @@ def runtime(tmp_path: Path):
     ctx = attach_memory_context(rt, ME.tenant_id or "local")
     # ADR 0006 D3：绑定用的应用密钥必须在服务器上预登记（这里模拟 CLI 已登记）
     ctx.app_secrets.save(AppSecret(app_id=APP_ID, secret_key="sk-1"))
+    # state 落库在运行期走 PG；测试注入内存实现，避免依赖数据库
+    rt.__dict__["binding"] = BindingManager(
+        MemoryBindingStateStore(), redirect_uri=CALLBACK, context_for=rt.context_for_tenant
+    )
     set_runtime(rt)
     yield rt
     set_runtime(None)
@@ -75,8 +81,6 @@ async def test_bind_account_returns_url_bound_to_caller(runtime: Runtime) -> Non
     assert data["expires_in_seconds"] > 0
     assert CALLBACK.split("://")[1] in data["authorize_url"].replace("%2F", "/")
     assert "state=" in data["authorize_url"]
-    # state 落盘，等回调时消费
-    assert (runtime.settings.mybmo_data_dir / "binding_state").is_dir()
 
 
 async def test_bind_account_rejects_alias_owned_by_someone_else(runtime: Runtime) -> None:

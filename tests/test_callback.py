@@ -11,10 +11,15 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-from tests.support.memory import MemoryAppSecretStore, MemoryCredentialStore, MemoryTenancyStore
+from tests.support.memory import (
+    MemoryAppSecretStore,
+    MemoryBindingStateStore,
+    MemoryCredentialStore,
+    MemoryTenancyStore,
+)
 
 from mybmo_mcp.auth.app_secrets import AppSecret
-from mybmo_mcp.auth.binding import BindingManager, StateStore
+from mybmo_mcp.auth.binding import BindingManager
 from mybmo_mcp.auth.callback import complete_binding
 from mybmo_mcp.auth.models import STATUS_ACTIVE
 from mybmo_mcp.auth.oauth import TokenBundle
@@ -62,7 +67,7 @@ def build_manager(tmp_path: Path, oauth: FakeOAuth | None = None) -> BindingMana
         credentials=None,
     )
     return BindingManager(
-        StateStore(tmp_path / "data"),
+        MemoryBindingStateStore(tmp_path / "data"),
         redirect_uri=CB,
         context_for=lambda _tenant: ctx,
         oauth=oauth or FakeOAuth(),

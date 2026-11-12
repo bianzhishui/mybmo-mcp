@@ -80,7 +80,7 @@ JWKS 拉取失败时拒绝而非放行——故障期间"先信旧密钥"等于�
   │─────────────────>│ 密钥只进 app_secrets（密文），不经对话
   │  auth bind       │                                   │
   │─────────────────>│ 按 appId 取密钥 → 预写 pending 占位凭据
-  │<── 授权 URL ─────│ 生成一次性 state(nonce, sub+租户+alias+appId)
+  │<── 授权 URL ─────│ 生成一次性 state（落 binding_states，15 分钟 TTL）
   │ 浏览器打开 ────────────────────────────────────────>│
   │                  │<── 回调 authCode+state+appId+userId ─│
   │                  │ state → alias → 取回应用密钥
@@ -145,6 +145,8 @@ credentials      (tenant_id, alias, app_id, user_name, baidu_user_id, status,
                   nonce, cipher, key_version, created_at, updated_at)
                                                       -- 凭据本体，见 migrations/003
 app_secrets      (tenant_id, app_id, nonce, cipher, created_at, updated_at)
+binding_states   (nonce PK, tenant_id, subject, alias, app_id, issued_at, expires_at)
+                                                      -- 一次性绑定 state；DELETE … RETURNING 保证不重放
 account_grants   (user_id, account_id, permission, created_at)  -- 只 read | write
 audit_log        (id, call_id, started_at, finished_at, duration_ms, tenant_id,
                   user_sub, user_name, app, account_alias, account_name, capability,

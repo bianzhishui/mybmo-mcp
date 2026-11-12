@@ -5,10 +5,15 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-from tests.support.memory import MemoryAppSecretStore, MemoryCredentialStore, MemoryTenancyStore
+from tests.support.memory import (
+    MemoryAppSecretStore,
+    MemoryBindingStateStore,
+    MemoryCredentialStore,
+    MemoryTenancyStore,
+)
 
 from mybmo_mcp.auth.app_secrets import AppSecret
-from mybmo_mcp.auth.binding import BindingManager, StateStore
+from mybmo_mcp.auth.binding import BindingManager
 from mybmo_mcp.auth.models import STATUS_ACTIVE
 from mybmo_mcp.auth.oauth import TokenBundle
 from mybmo_mcp.baidu.errors import CredentialError
@@ -58,7 +63,7 @@ def build_manager(
         credentials=None,
     )
     manager = BindingManager(
-        StateStore(tmp_path / "data", now=now),
+        MemoryBindingStateStore(tmp_path / "data", now=now),
         redirect_uri=CB,
         context_for=lambda _tenant: ctx,
         oauth=oauth or FakeOAuth(),
@@ -79,7 +84,7 @@ def test_authorize_url_carries_one_time_nonce(tmp_path: Path) -> None:
 
 
 def test_state_can_only_be_consumed_once(tmp_path: Path) -> None:
-    states = StateStore(tmp_path / "data")
+    states = MemoryBindingStateStore(tmp_path / "data")
     state = states.issue(subject="s", tenant="t", alias="axd")
 
     assert states.consume(state.nonce) is not None
@@ -88,7 +93,7 @@ def test_state_can_only_be_consumed_once(tmp_path: Path) -> None:
 
 def test_expired_state_is_rejected(tmp_path: Path) -> None:
     clock = [1000.0]
-    states = StateStore(tmp_path / "data", ttl=10, now=lambda: clock[0])
+    states = MemoryBindingStateStore(tmp_path / "data", ttl=10, now=lambda: clock[0])
     state = states.issue(subject="s", tenant="t", alias="axd")
 
     clock[0] = 1020.0
@@ -98,7 +103,7 @@ def test_expired_state_is_rejected(tmp_path: Path) -> None:
 
 @pytest.mark.parametrize("nonce", ["", "../../etc/passwd", "short", "a" * 200])
 def test_suspicious_nonce_is_rejected(tmp_path: Path, nonce: str) -> None:
-    states = StateStore(tmp_path / "data")
+    states = MemoryBindingStateStore(tmp_path / "data")
 
     assert states.consume(nonce) is None
 
