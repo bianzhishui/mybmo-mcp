@@ -17,7 +17,7 @@
 
 线上以 `oidc` 运行。授权表**双后端**：默认文件式 `data/tenancy.json`；
 `MYBMO_TENANCY_BACKEND=pg` 时读 PostgreSQL（线上已切 PG），见
-[`multi-tenant-persistence`](changes/multi-tenant-persistence/proposal.md)。
+[`multi-tenant-persistence`](changes/archive/2026-11-11-multi-tenant-persistence/proposal.md)。
 
 ## 约束
 
@@ -65,12 +65,14 @@
 - 399 个能力、70 条精写说明、598 个模型；**25 条已实测**（`verified` 标记）；测试 295 passed
 - `oidc` 模式跑通授权码 + PKCE；9 个 MCP 工具（含 `bind_account` / `share_account`）
 - 已绑定 1 个真实百度账户；电商推广线**写操作**（计划暂停/复制/加图、词包增删改绑）与
-  报表异步任务均已实测，见 [`live-validation`](changes/live-validation/proposal.md)（32/32 完成）
+  报表异步任务均已实测，见 [`live-validation`](changes/archive/2026-11-11-live-validation/proposal.md)（32/32 完成）
 - 授权表已切 PostgreSQL：users 2 / accounts 1 / grants 1，判权实测（owner=admin、write 拒绝）
 
 ## 变更状态
 
+已完成的变更归档在 `changes/archive/`，`changes/` 只留在进行中的。
+
 | 变更 | 状态 | 备注 |
 |---|---|---|
-| [`live-validation`](changes/live-validation/proposal.md) | ✅ 已完成 | 32/32 任务；结论进 `docs/baidu-behavior.md` 等 |
-| [`multi-tenant-persistence`](changes/multi-tenant-persistence/proposal.md) | ✅ 已完成（MCC 暂缓） | PG 后端已上线，文件后端可回滚 |
+| [`live-validation`](changes/archive/2026-11-11-live-validation/proposal.md) | ✅ 已完成 | 32/32 任务；结论进 `docs/baidu-behavior.md` 等 |
+| [`multi-tenant-persistence`](changes/archive/2026-11-11-multi-tenant-persistence/proposal.md) | ✅ 已完成（MCC 暂缓） | PG 后端已上线，文件后端可回滚 |

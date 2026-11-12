@@ -1,7 +1,7 @@
 # 百度接口行为实测
 
 只记**结论与依据**，不记尝试过程。验证方法见
-[`openspec/changes/live-validation/design.md`](../openspec/changes/live-validation/design.md)。
+[`openspec/changes/live-validation/design.md`](../openspec/changes/archive/2026-11-11-live-validation/design.md)。
 
 **状态标记**：
 
