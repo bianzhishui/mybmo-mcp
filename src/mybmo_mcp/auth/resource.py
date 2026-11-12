@@ -141,9 +141,10 @@ class JwtVerifier:
     ) -> None:
         if not issuer:
             raise ValueError("issuer 不能为空：多用户模式下必须配置 CASDOOR_ISSUER")
+        # audience 允许为空 = 「客户端自治」模式（ADR 0008）：只要令牌的 aud 包含
+        # 它自己的 client_id（即确实是发给这个客户端的）就放行，租户由 client_id 解析。
+        # 配了 MYBMO_OIDC_AUDIENCE 就回到白名单模式，作为额外收紧。
         audiences = _normalize_audiences(audience)
-        if not audiences:
-            raise ValueError("audience 不能为空：必须配置 MYBMO_OIDC_AUDIENCE")
         self._issuer = issuer.rstrip("/")
         self._audiences = audiences
         # 组织白名单：本服务只服务一个 Casdoor 组织（pandabase），
@@ -165,8 +166,8 @@ class JwtVerifier:
 
     @property
     def audience(self) -> str:
-        """兼容单值调用方：返回第一个。校验请用 :attr:`audiences`。"""
-        return self._audiences[0]
+        """兼容单值调用方：返回第一个（未配白名单时为空串）。"""
+        return self._audiences[0] if self._audiences else ""
 
     def verify(self, token: str, *, now: float | None = None) -> VerifiedToken:
         """同步校验。抛 :class:`TokenError` 表示不可接受。"""
@@ -183,30 +184,29 @@ class JwtVerifier:
             # 早于 decode()，所以必须在这里接住，否则会穿透成 500。
             raise TokenError(f"令牌格式错误：{exc}") from exc
 
+        decode_kwargs: dict[str, Any] = {
+            "algorithms": ["RS256", "ES256"],
+            "issuer": self._issuer,
+            "leeway": self._clock_skew,
+            "options": {
+                "require": ["iss", "aud", "exp", "sub"],
+                "verify_iss": True,
+                # 白名单模式下由 PyJWT 精确比对；自治模式下关了，改由下面手工判定
+                "verify_aud": bool(self._audiences),
+            },
+        }
+        if self._audiences:
+            decode_kwargs["audience"] = list(self._audiences)
         try:
-            claims = jwt.decode(
-                token,
-                signing_key.key,
-                algorithms=["RS256", "ES256"],
-                audience=list(self._audiences),
-                issuer=self._issuer,
-                leeway=self._clock_skew,
-                options={
-                    "require": ["iss", "aud", "exp", "sub"],
-                    # PyJWT 默认会按配置的 aud 做严格比较，但 issuer 只要不在列表里
-                    # 就会拒绝；这里显式声明要精确匹配，避免"看起来验了其实没验"。
-                    "verify_iss": True,
-                    "verify_aud": True,
-                },
-            )
+            claims = jwt.decode(token, signing_key.key, **decode_kwargs)
         except jwt.ExpiredSignatureError as exc:
             raise TokenError("令牌已过期，请重新登录") from exc
         except jwt.InvalidAudienceError as exc:
             allowed = "、".join(self._audiences)
             raise TokenError(
                 f"令牌的 audience 不在允许的客户端列表里（允许 {allowed}）。"
-                "Casdoor 把 aud 填成 client_id，所以每个要调用本服务的客户端都得"
-                "显式注册并加入 MYBMO_OIDC_AUDIENCE，见 docs/auth-contract.md"
+                "Casdoor 把 aud 填成 client_id；这批 client_id 由 MYBMO_OIDC_AUDIENCE 收紧，"
+                "见 docs/auth-contract.md"
             ) from exc
         except jwt.InvalidIssuerError as exc:
             raise TokenError(f"令牌的 issuer 不受信任（期望 {self._issuer}）") from exc
@@ -222,13 +222,33 @@ class JwtVerifier:
                     "组织与服务的对应关系见 docs/auth-contract.md"
                 )
 
+        client_id = str(claims.get("client_id") or claims.get("azp") or "").strip()
+        if not self._audiences:
+            # 自治模式：令牌必须是**发给这个客户端自己的**，否则就是拿别人资源的令牌来用
+            if not client_id:
+                raise TokenError(
+                    "令牌既不在白名单模式下校验，也没有 client_id（azp），无法判断来源"
+                )
+            aud = claims.get("aud")
+            aud_list = [aud] if isinstance(aud, str) else list(aud or [])
+            if aud_list and client_id not in [str(a) for a in aud_list]:
+                raise TokenError(
+                    f"令牌的 aud（{aud_list}）不包含它自己的 client_id（{client_id}）。"
+                    "常见原因：客户端带了 RFC 8707 的 resource 参数，Casdoor 会把 aud "
+                    "换成资源地址——去掉 resource 即可"
+                )
+
         scope_text = str(claims.get("scope") or claims.get("scp") or "")
         scopes = tuple(sorted({s for s in scope_text.replace(",", " ").split() if s}))
 
         return VerifiedToken(
             subject=str(claims["sub"]),
-            client_id=str(claims.get("client_id") or claims.get("azp") or ""),
-            audience=_matched_audience(claims.get("aud"), self._audiences),
+            client_id=client_id,
+            audience=(
+                _matched_audience(claims.get("aud"), self._audiences)
+                if self._audiences
+                else client_id
+            ),
             scopes=scopes,
             expires_at=int(claims["exp"]) if claims.get("exp") else None,
             claims=claims,

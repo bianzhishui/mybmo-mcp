@@ -28,7 +28,7 @@ class CredentialService:
     def __init__(
         self,
         registry: AccountRegistry,
-        oauth: BaiduOAuth,
+        oauth: BaiduOAuth | None,
         *,
         lock_dir: str | Path,
         lock_timeout: float = lock.DEFAULT_TIMEOUT,
@@ -142,7 +142,12 @@ class CredentialService:
         """
         if credential.app_id and credential.secret_key:
             return BaiduOAuth(credential.app_id, credential.secret_key)
-        # 兼容：凭据里没有应用凭据的历史数据，退回全局那一组
+        if self._oauth is None:
+            # 多租户（ADR 0008）不再有"全局应用"；只有 local/file 或测试会注入它
+            raise CredentialError(
+                f"账户 {credential.alias} 没有自带应用凭据，而服务没有配置默认应用；"
+                "请重新绑定（应用密钥已废弃服务级配置，见 ADR 0006 D1）"
+            )
         return self._oauth
 
     async def _resolve(self, alias: str | None) -> Credential:

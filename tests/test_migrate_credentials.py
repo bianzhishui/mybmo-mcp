@@ -77,6 +77,7 @@ def test_migrate_moves_credentials_and_apps(tmp_path: Path) -> None:
     migrations = [
         (ROOT / "migrations" / "001_init.sql").read_text(encoding="utf-8"),
         (ROOT / "migrations" / "003_credentials.sql").read_text(encoding="utf-8"),
+        (ROOT / "migrations" / "005_tenant_client.sql").read_text(encoding="utf-8"),
     ]
     with psycopg.connect(DSN, autocommit=True) as conn:
         conn.execute(f"CREATE SCHEMA {schema}")
@@ -97,7 +98,7 @@ def test_migrate_moves_credentials_and_apps(tmp_path: Path) -> None:
         assert report.ok, report.failed
         assert sorted(report.moved) == sorted(["axd", f"app:{APP}"])
 
-        target = PgCredentialStore(dsn, KEY)
+        target = PgCredentialStore(dsn, KEY, tenant_id="t_default")
         assert load_script().diff_credentials(expected, target.load("axd")) == []
         # 源文件必须原样保留
         assert FileVault(data_dir, KEY).load("axd") == expected

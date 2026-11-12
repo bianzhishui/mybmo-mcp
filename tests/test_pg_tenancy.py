@@ -17,7 +17,10 @@ from mybmo_mcp.auth.pg_tenancy import PgTenancyStore
 from mybmo_mcp.auth.tenancy import AccessDenied, Principal, TenancyError
 
 ROOT = Path(__file__).resolve().parents[1]
-MIGRATION = (ROOT / "migrations" / "001_init.sql").read_text(encoding="utf-8")
+MIGRATIONS = [
+    (ROOT / "migrations" / "001_init.sql").read_text(encoding="utf-8"),
+    (ROOT / "migrations" / "005_tenant_client.sql").read_text(encoding="utf-8"),
+]
 DSN = os.environ.get("MYBMO_TEST_DATABASE_URL", "")
 
 pytestmark = pytest.mark.skipif(not DSN, reason="需要 MYBMO_TEST_DATABASE_URL 才能跑 PG 集成测试")
@@ -34,7 +37,8 @@ def store():
     with psycopg.connect(DSN, autocommit=True) as conn:
         conn.execute(f"CREATE SCHEMA {schema}")
         conn.execute(f"SET search_path TO {schema}")
-        conn.execute(MIGRATION)
+        for sql in MIGRATIONS:
+            conn.execute(sql)
 
     def connect():
         # 与生产路径一致：必须用 dict_row，仓储层按列名取值
@@ -42,7 +46,7 @@ def store():
 
         return psycopg.connect(DSN, options=f"-c search_path={schema}", row_factory=dict_row)
 
-    yield PgTenancyStore(DSN, connect=connect)
+    yield PgTenancyStore(DSN, tenant_id="t_default", connect=connect)
 
     with psycopg.connect(DSN, autocommit=True) as conn:
         conn.execute(f"DROP SCHEMA {schema} CASCADE")

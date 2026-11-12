@@ -107,6 +107,15 @@ mybmo-mcp auth bind --alias main --app-id <appId> --subject <sub>
 mybmo-mcp auth unbind main                # 换应用前先解绑
 ```
 
+**租户**：一个 Casdoor `client_id` 对应一个租户。首次见到未知 client_id 会自动开户
+（id `t_<12hex>`、名 `租户-xxxx`），不需要先建。存量租户要绑一次：
+
+```bash
+mybmo-mcp tenant list                        # 看租户与 client_id 绑定情况
+mybmo-mcp tenant set-client t_default 709a8e…  # 给已有租户绑 client_id
+mybmo-mcp tenant rename t_default 玛卡快消      # 改显示名
+```
+
 从文件搬到库（**搬完逐条回读校验，源文件保留**）：
 
 ```bash
@@ -179,6 +188,7 @@ python scripts/migrate_credentials_to_pg.py
 | [`ADR 0005`](docs/decisions/0005-sdk-poc.md) | `baiduads-sdk` 可行性验证：为什么只做元数据源 |
 | [`ADR 0006`](docs/decisions/0006-multi-app-credentials.md) | 应用凭据随凭据走；租户内一个百度账户只绑一个应用（含真实绑定实测结论） |
 | [`ADR 0007`](docs/decisions/0007-credentials-in-postgres.md) | 凭据落 PostgreSQL（`credentials` 表 + 整块密文），不再存加密文件 |
+| [`ADR 0008`](docs/decisions/0008-tenant-per-client.md) | 租户按 Casdoor `client_id` 解析，首次访问自动开户 |
 | [`.env.example`](.env.example) | 全部环境变量与取值说明 |
 
 接口元数据分两层，不要混：`baidu/capabilities.json` 由

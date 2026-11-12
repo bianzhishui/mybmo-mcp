@@ -2,17 +2,22 @@ from __future__ import annotations
 
 import time
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
+from mybmo_mcp.auth.app_secrets import AppSecret, FileAppSecretStore
 from mybmo_mcp.auth.binding import BindingManager, StateStore
-from mybmo_mcp.auth.models import STATUS_ACTIVE, STATUS_UNCONFIRMED
+from mybmo_mcp.auth.models import STATUS_ACTIVE
 from mybmo_mcp.auth.oauth import TokenBundle
+from mybmo_mcp.auth.tenancy import MODE_LOCAL, TenancyStore
 from mybmo_mcp.auth.vault import FileVault
 from mybmo_mcp.baidu.errors import CredentialError
 
 KEY = b"k" * 32
 CB = "https://mcp.example.com/callback"
+APP = "20426c0457c842036585e268d456fe45"
+TENANT = "t_default"
 
 
 class FakeOAuth:
@@ -39,15 +44,25 @@ class FakeOAuth:
 def build_manager(
     tmp_path: Path, oauth: FakeOAuth | None = None, *, now=time.time
 ) -> tuple[BindingManager, FileVault]:
+    """绑定管理器 + 一个"单租户"上下文（file 后端，租户无实质意义）。"""
     vault = FileVault(tmp_path / "data", KEY)
-    states = StateStore(tmp_path / "data", now=now)
+    apps = FileAppSecretStore(tmp_path / "data", KEY)
+    apps.save(AppSecret(app_id=APP, secret_key="sk-1"))
+    tenancy = TenancyStore(tmp_path / "data" / "tenancy.json", mode=MODE_LOCAL)
+    ctx = SimpleNamespace(
+        tenant_id=TENANT,
+        store=vault,
+        tenancy=tenancy,
+        app_secrets=apps,
+        registry=None,
+        access=None,
+        credentials=None,
+    )
     manager = BindingManager(
-        oauth or FakeOAuth(),
-        vault,
-        states,
-        app_id="app-1",
-        secret_key="sk-1",
+        StateStore(tmp_path / "data", now=now),
         redirect_uri=CB,
+        context_for=lambda _tenant: ctx,
+        oauth=oauth or FakeOAuth(),
     )
     return manager, vault
 
@@ -55,10 +70,12 @@ def build_manager(
 def test_authorize_url_carries_one_time_nonce(tmp_path: Path) -> None:
     manager, _ = build_manager(tmp_path)
 
-    url, state = manager.authorize_url(subject="sub-1", tenant="t1", alias="axd")
+    url, state = manager.authorize_url(
+        subject="sub-1", tenant=TENANT, alias="axd", app_id=APP
+    )
 
     assert state.nonce in url
-    assert "appId=app-1" in url
+    assert f"appId={APP}" in url
     assert state.alias == "axd"
 
 
@@ -89,7 +106,7 @@ def test_suspicious_nonce_is_rejected(tmp_path: Path, nonce: str) -> None:
 
 async def test_complete_with_valid_state_stores_active_credential(tmp_path: Path) -> None:
     manager, vault = build_manager(tmp_path)
-    _, state = manager.authorize_url(subject="s", tenant="t", alias="axd")
+    _, state = manager.authorize_url(subject="s", tenant=TENANT, alias="axd", app_id=APP)
 
     credential, _ = await manager.complete(auth_code="code", state=state.nonce, user_id=1001)
 
@@ -99,34 +116,28 @@ async def test_complete_with_valid_state_stores_active_credential(tmp_path: Path
     assert vault.load("axd").access_token == "at-1"
 
 
-async def test_complete_without_state_falls_back_and_marks_unconfirmed(tmp_path: Path) -> None:
-    manager, vault = build_manager(tmp_path)
-
-    credential, _ = await manager.complete(auth_code="code", state="forged", user_id=1001)
-
-    assert credential.alias == "acct_1001"
-    assert credential.status == STATUS_UNCONFIRMED
-    assert "待人工确认" in vault.load("acct_1001").note
-
-
-async def test_replayed_state_is_refused_instead_of_duplicating(tmp_path: Path) -> None:
-    """state 已被消费 → 走 appId 兜底；但同一百度账户已经绑过，必须拒绝。
-
-    这比"降级成 acct_<userId> 的 unconfirmed 副本"好：副本会让同一账户出现
-    两套并行令牌，且没人认领（ADR 0006 D6）。
-    """
+async def test_missing_state_is_refused(tmp_path: Path) -> None:
+    """多租户下 state 是租户的唯一来源：缺失就失败，不猜（ADR 0008 D5）。"""
     manager, _ = build_manager(tmp_path)
-    _, state = manager.authorize_url(subject="s", tenant="t", alias="axd")
+
+    with pytest.raises(CredentialError, match="授权链接已失效"):
+        await manager.complete(auth_code="code", state="forged", user_id=1001)
+
+
+async def test_replayed_state_is_refused(tmp_path: Path) -> None:
+    manager, _ = build_manager(tmp_path)
+    _, state = manager.authorize_url(subject="s", tenant=TENANT, alias="axd", app_id=APP)
     await manager.complete(auth_code="code", state=state.nonce, user_id=1001)
 
-    with pytest.raises(CredentialError, match="只能绑定一个应用"):
+    with pytest.raises(CredentialError, match="授权链接已失效"):
         await manager.complete(
-            auth_code="code-2", state=state.nonce, user_id=1001, app_id="app-1"
+            auth_code="code-2", state=state.nonce, user_id=1001, app_id=APP
         )
 
 
 async def test_missing_master_name_fails_loudly(tmp_path: Path) -> None:
     manager, _ = build_manager(tmp_path, FakeOAuth(user_name=""))
+    _, state = manager.authorize_url(subject="s", tenant=TENANT, alias="axd", app_id=APP)
 
     with pytest.raises(CredentialError, match="81020"):
-        await manager.complete(auth_code="code", state="", user_id=1001)
+        await manager.complete(auth_code="code", state=state.nonce, user_id=1001)

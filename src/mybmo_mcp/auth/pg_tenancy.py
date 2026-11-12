@@ -31,8 +31,6 @@ from mybmo_mcp.auth.tenancy import (
     validate_alias,
 )
 
-DEFAULT_TENANT = "t_default"
-
 
 class PgTenancyStore:
     """授权表存在 PostgreSQL 里的实现。"""
@@ -41,7 +39,7 @@ class PgTenancyStore:
         self,
         dsn: str,
         *,
-        tenant_id: str = DEFAULT_TENANT,
+        tenant_id: str,
         mode: str = MODE_OIDC,
         connect: Callable[[], Any] | None = None,
     ) -> None:
@@ -106,10 +104,12 @@ class PgTenancyStore:
                 conn.commit()
                 display_name = fallback_name
         if row is None:
-            # 未登记不自动创建：登录成功但没有任何账户，是可解释的状态
+            # 未登记不自动创建（登录成功但没有任何账户，是可解释的状态）。
+            # 但**租户是已知的**——它由令牌的 client_id 解析而来（ADR 0008），
+            # 不能返回空串，否则后续按租户查凭据会查不到东西。
             return Principal(
-                sub=sub, org=org, app=app, display_name=fallback_name, tenant_id="",
-                source=self._mode,
+                sub=sub, org=org, app=app, display_name=fallback_name,
+                tenant_id=self._tenant_id, source=self._mode,
             )
         return Principal(
             sub=row["idp_subject"],

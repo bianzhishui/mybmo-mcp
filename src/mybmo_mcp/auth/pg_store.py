@@ -23,7 +23,6 @@ from mybmo_mcp.auth import crypto
 from mybmo_mcp.auth.models import Credential, validate_alias
 from mybmo_mcp.baidu.errors import CredentialError
 
-DEFAULT_TENANT = "t_default"
 #: v2：AAD 带上租户——落库后"行"更容易被搬动，绑租户能挡住跨租户复制密文
 AAD_PREFIX = "mybmo-mcp/credential/v2/"
 KEY_VERSION = 1
@@ -41,7 +40,7 @@ class PgCredentialStore:
         dsn: str,
         master_key: bytes,
         *,
-        tenant_id: str = DEFAULT_TENANT,
+        tenant_id: str,
         connect: Callable[[], Any] | None = None,
     ) -> None:
         if not dsn:

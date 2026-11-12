@@ -48,6 +48,8 @@ from mybmo_mcp.auth.tenancy import (
     TenancyError,
     TenancyStore,
 )
+from mybmo_mcp.auth.tenant_context import TenantContext
+from mybmo_mcp.auth.tenant_map import PgTenantMap
 from mybmo_mcp.auth.vault import FileVault
 from mybmo_mcp.baidu.capabilities import CapabilityRegistry
 from mybmo_mcp.baidu.errors import CredentialError
@@ -127,51 +129,117 @@ class Runtime:
     principal: Principal | None = None
 
     @cached_property
-    def store(self) -> CredentialStore:
-        """凭据存储。``MYBMO_CREDENTIAL_BACKEND=pg`` 时走 PostgreSQL，否则加密文件。
+    def tenant_map(self) -> PgTenantMap:
+        """``client_id`` → 租户（ADR 0008）。只有 pg 后端有租户维度。"""
+        if not (
+            self.settings.mybmo_tenancy_backend == "pg"
+            and self.settings.mybmo_database_url
+        ):
+            raise CredentialError(
+                "多租户映射需要 MYBMO_TENANCY_BACKEND=pg 且配置 MYBMO_DATABASE_URL"
+            )
+        return PgTenantMap(self.settings.mybmo_database_url)
 
-        见 docs/decisions/0007-credentials-in-postgres.md。两条后端实现同一套
-        ``CredentialStore`` 协议，上层不区分。
-        """
+    @cached_property
+    def _contexts(self) -> dict[str, TenantContext]:
+        """按租户缓存。一个进程同时服务多个租户，但同一租户复用连接与锁。"""
+        return {}
+
+    def context_for_tenant(self, tenant_id: str) -> TenantContext:
+        """取（必要时构造）某个租户的存储与判权组件。"""
+        if not tenant_id:
+            raise TenancyError("缺少租户：多租户模式下每个请求都必须先解析出 tenant_id")
+        cached = self._contexts.get(tenant_id)
+        if cached is not None:
+            return cached
+        ctx = self._build_context(tenant_id)
+        self._contexts[tenant_id] = ctx
+        return ctx
+
+    def context(self, principal: Principal | None = None) -> TenantContext:
+        """按身份取租户上下文。工具层统一从这里拿 store / tenancy / access。"""
+        target = principal if principal is not None else self.current_principal()
+        return self.context_for_tenant(target.tenant_id)
+
+    def _build_context(self, tenant_id: str) -> TenantContext:
+        master = self.settings.master_key_bytes()
+        dsn = self.settings.mybmo_database_url
         backend = (self.settings.mybmo_credential_backend or "file").strip().lower()
+
         if backend == "pg":
-            if not self.settings.mybmo_database_url:
+            if not dsn:
                 raise CredentialError(
                     "MYBMO_CREDENTIAL_BACKEND=pg 但缺少 MYBMO_DATABASE_URL，无法读取凭据"
                 )
-            return PgCredentialStore(
-                self.settings.mybmo_database_url,
-                self.settings.master_key_bytes(),
-                tenant_id=self.settings.mybmo_tenant_id,
+            store: CredentialStore = PgCredentialStore(dsn, master, tenant_id=tenant_id)
+            app_secrets: AppSecretStore = PgAppSecretStore(
+                dsn, master, tenant_id=tenant_id
             )
-        if backend not in ("file", ""):
+        elif backend in ("file", ""):
+            store = FileVault(self.settings.mybmo_data_dir, master)
+            app_secrets = FileAppSecretStore(self.settings.mybmo_data_dir, master)
+        else:
             raise CredentialError(
                 "MYBMO_CREDENTIAL_BACKEND 只能是 file 或 pg，"
                 f"当前是 {backend!r}（拒绝启动，避免静默走错后端）"
             )
-        return FileVault(self.settings.mybmo_data_dir, self.settings.master_key_bytes())
 
-    @cached_property
-    def registry(self) -> AccountRegistry:
-        return AccountRegistry(self.store)
+        if self.settings.mybmo_tenancy_backend == "pg" and dsn:
+            tenancy: TenancyStore | PgTenancyStore = PgTenancyStore(
+                dsn, tenant_id=tenant_id, mode=self.settings.mybmo_auth_mode
+            )
+        else:
+            tenancy = TenancyStore(
+                self.settings.mybmo_data_dir / "tenancy.json",
+                mode=self.settings.mybmo_auth_mode,
+            )
 
-    @cached_property
-    def tenancy(self) -> TenancyStore | PgTenancyStore:
-        """授权表。``MYBMO_TENANCY_BACKEND=pg`` 时走 PostgreSQL，否则读文件。"""
+        registry = AccountRegistry(store)
+        return TenantContext(
+            tenant_id=tenant_id,
+            store=store,
+            tenancy=tenancy,
+            app_secrets=app_secrets,
+            registry=registry,
+            access=AccountAccess(registry, tenancy),
+            credentials=CredentialService(
+                registry,
+                None,
+                lock_dir=self.settings.mybmo_data_dir / "locks",
+            ),
+        )
+
+    def identity_stats(self) -> dict[str, int]:
+        """探活用：租户/用户/账户/分享计数。pg 走映射表汇总，file 走 tenancy.json。"""
         if (
             self.settings.mybmo_tenancy_backend == "pg"
             and self.settings.mybmo_database_url
         ):
-            return PgTenancyStore(
-                self.settings.mybmo_database_url, mode=self.settings.mybmo_auth_mode
-            )
-        return TenancyStore(
-            self.settings.mybmo_data_dir / "tenancy.json", mode=self.settings.mybmo_auth_mode
+            return self.tenant_map.stats()
+        # 刻意不构造 TenantContext：那会连带要求主密钥，而探活要能在"还没配密钥"
+        # 的状态下正常回答（见 health 的 credentials=unconfigured 分支）
+        tenancy = TenancyStore(
+            self.settings.mybmo_data_dir / "tenancy.json",
+            mode=self.settings.mybmo_auth_mode,
         )
+        return tenancy.stats()
 
-    @cached_property
-    def access(self) -> AccountAccess:
-        return AccountAccess(self.registry, self.tenancy)
+    def preflight(self) -> None:
+        """启动自检：pg 模式下每个租户都必须绑了 ``client_id``。
+
+        不检就会变成"服务起来了但所有请求 403"，看起来像鉴权坏了。
+        """
+        if (
+            self.settings.mybmo_tenancy_backend != "pg"
+            or not self.settings.mybmo_database_url
+        ):
+            return
+        missing = self.tenant_map.unbound()
+        if missing:
+            raise TenancyError(
+                "以下租户还没有绑定 Casdoor client_id，请求无法解析到它们："
+                f"{'、'.join(missing)}。修复：mybmo-mcp tenant set-client <租户> <client_id>"
+            )
 
     @cached_property
     def oauth(self) -> BaiduOAuth:
@@ -188,33 +256,6 @@ class Runtime:
         return BaiduOAuth(self.settings.baidu_app_id, self.settings.baidu_secret_key)
 
     @cached_property
-    def app_secrets(self) -> AppSecretStore:
-        """应用密钥登记表。与凭据后端同源（ADR 0007 D3）。
-
-        密钥只经 CLI 写入（隐藏输入），MCP 工具层只收 appId。
-        """
-        backend = (self.settings.mybmo_credential_backend or "file").strip().lower()
-        if backend == "pg":
-            if not self.settings.mybmo_database_url:
-                raise CredentialError(
-                    "MYBMO_CREDENTIAL_BACKEND=pg 但缺少 MYBMO_DATABASE_URL，无法读取应用密钥"
-                )
-            return PgAppSecretStore(
-                self.settings.mybmo_database_url,
-                self.settings.master_key_bytes(),
-                tenant_id=self.settings.mybmo_tenant_id,
-            )
-        return FileAppSecretStore(
-            self.settings.mybmo_data_dir, self.settings.master_key_bytes()
-        )
-
-    @cached_property
-    def credentials(self) -> CredentialService:
-        return CredentialService(
-            self.registry, self.oauth, lock_dir=self.settings.mybmo_data_dir / "locks"
-        )
-
-    @cached_property
     def binding(self) -> BindingManager:
         """百度账户绑定：签发授权链接 + 处理回调。
 
@@ -228,12 +269,9 @@ class Runtime:
                 "没有它生成不了授权链接。取值见 docs/auth-contract.md"
             )
         return BindingManager(
-            None,
-            self.store,
             StateStore(self.settings.mybmo_data_dir),
             redirect_uri=callback,
-            app_secrets=self.app_secrets,
-            tenancy=self.tenancy,
+            context_for=self.context_for_tenant,
         )
 
     @cached_property
@@ -262,6 +300,20 @@ class Runtime:
 
     # ---------- 身份 ----------
 
+    def _tenant_for_client(self, client_id: str) -> str:
+        """令牌的 client_id → 租户。pg 后端走映射表（未知则自动开户）。
+
+        ``file`` 后端没有租户维度，退回配置值——只服务单租户（CLI 与测试用，
+        文件后端后续会移除）。
+        """
+        if self.settings.mybmo_tenancy_backend != "pg":
+            return self.settings.mybmo_tenant_id
+        if not client_id:
+            raise TenancyError(
+                "令牌缺少 client_id（azp / aud），无法确定属于哪个租户"
+            )
+        return self.tenant_map.resolve(client_id)
+
     def current_principal(self) -> Principal:
         """定出这次调用的身份。三级来源，优先级递减。
 
@@ -273,9 +325,10 @@ class Runtime:
 
         bearer = _principal_from_bearer_token()
         if bearer is not None:
-            sub, org, app, name = bearer
-            return self.tenancy.resolve_principal(
-                sub, org=org, app=app, fallback_name=name
+            sub, org, client_id, name = bearer
+            tenant_id = self._tenant_for_client(client_id)
+            return self.context_for_tenant(tenant_id).tenancy.resolve_principal(
+                sub, org=org, app=client_id, fallback_name=name
             )
 
         if self.settings.mybmo_auth_mode != MODE_LOCAL:
@@ -290,18 +343,12 @@ class Runtime:
     def verifier(self) -> JwtVerifier | None:
         """多用户模式才有校验器。local 模式返回 ``None``，SDK 也就不装鉴权中间件。
 
-        ``audience`` 取 ``MYBMO_OIDC_AUDIENCE`` 而不是资源地址——IdP 把 ``aud``
-        填成 client_id，见 docs/auth-contract.md。可以填多个（逗号分隔），每个显式注册的客户端一个；
-        不配就拒绝启动。
+        ``audience`` 现在是**可选**的收紧项（ADR 0008）：不配就只要求"令牌的 aud
+        包含它自己的 client_id"（即确认令牌是发给这个客户端的），租户由 client_id 解析；
+        配了则额外要求命中白名单。IdP 把 ``aud`` 填成 client_id，见 docs/auth-contract.md。
         """
         if self.settings.mybmo_auth_mode == MODE_LOCAL:
             return None
-        if not self.settings.mybmo_oidc_audience:
-            raise TenancyError(
-                "多用户模式缺少 MYBMO_OIDC_AUDIENCE。它是 IdP 里本服务应用的 "
-                "clientId，不是服务地址——aud 校验对象是「允许调用本服务的客户端」，"
-                "理由见 docs/auth-contract.md"
-            )
         return JwtVerifier(
             issuer=self.settings.casdoor_issuer,
             audience=self.settings.mybmo_oidc_audience,
@@ -340,12 +387,10 @@ class Runtime:
         principal: Principal | None = None,
         permission: str = PERMISSION_READ,
     ) -> BaiduTransport:
+        target = principal if principal is not None else self.current_principal()
+        ctx = self.context(target)
         source = _AccountCredentials(
-            self.credentials,
-            self.access,
-            principal if principal is not None else self.current_principal(),
-            alias,
-            permission,
+            ctx.credentials, ctx.access, target, alias, permission
         )
         return BaiduTransport(source, client=self.client)
 

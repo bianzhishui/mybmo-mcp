@@ -40,27 +40,28 @@ async def list_accounts() -> dict[str, Any]:
     async def _run() -> dict[str, Any]:
         runtime = get_runtime()
         principal = runtime.current_principal()
-        entries = runtime.access.entries(principal)
+        ctx = runtime.context(principal)
+        entries = ctx.access.entries(principal)
         return {
-            "identity": runtime.tenancy.describe(principal),
+            "identity": ctx.tenancy.describe(principal),
             "count": len(entries),
-            "accounts": [_view(runtime, principal, entry) for entry in entries],
+            "accounts": [_view(ctx, principal, entry) for entry in entries],
         }
 
     return await guarded(_run)
 
 
-def _view(runtime: Any, principal: Any, entry: Any) -> dict[str, Any]:
+def _view(ctx: Any, principal: Any, entry: Any) -> dict[str, Any]:
     """列表行 + 归属信息。
 
     ``is_owner`` 很关键：自己绑的账户与别人分享的是两种心智模型——
     前者可以改、可以分享，后者只能按档位用。
     """
     view = entry.to_dict()
-    owner = runtime.tenancy.owner_of(entry.alias)
+    owner = ctx.tenancy.owner_of(entry.alias)
     view["owner"] = owner
     view["is_owner"] = owner == principal.sub
-    view["my_permission"] = runtime.tenancy.permission_for(principal, entry.alias)
+    view["my_permission"] = ctx.tenancy.permission_for(principal, entry.alias)
     return view
 
 
@@ -76,11 +77,12 @@ async def auth_status(account: str | None = None) -> list[dict[str, Any]]:
     async def _run() -> list[dict[str, Any]]:
         runtime = get_runtime()
         principal = runtime.current_principal()
-        entries = runtime.access.entries(principal)
+        ctx = runtime.context(principal)
+        entries = ctx.access.entries(principal)
         if account:
             # 走授权层而不是直接查凭据库：无权的 alias 与不存在的 alias 给同一条错误，
             # 否则这个工具就成了账户名探测器。
-            entries = [runtime.access.resolve(principal, account)]
+            entries = [ctx.access.resolve(principal, account)]
         now = time.time()
         return [
             {
@@ -110,14 +112,15 @@ async def bind_account(alias: str, app_id: str = "") -> dict[str, Any]:
     async def _run() -> dict[str, Any]:
         runtime = get_runtime()
         principal = runtime.current_principal()
+        ctx = runtime.context(principal)
         name = validate_alias(alias)
-        owner = runtime.tenancy.owner_of(name)
+        owner = ctx.tenancy.owner_of(name)
         if owner and owner != principal.sub:
             raise CredentialError(
                 f"账户别名 {name} 已属于别人（owner={owner}）——换一个别名，"
                 "或请 owner 用分享把该账户授给你"
             )
-        existing = set(runtime.store.scan()[0])
+        existing = set(ctx.store.scan()[0])
         if name in existing and owner is None:
             raise CredentialError(
                 f"凭据库里已有 {name}，但授权表没有它的归属记录；"
@@ -127,7 +130,7 @@ async def bind_account(alias: str, app_id: str = "") -> dict[str, Any]:
         manager = runtime.binding
         resolved_app = app_id.strip()
         if not resolved_app:
-            known = [app.app_id for app in runtime.app_secrets.list()]
+            known = [app.app_id for app in ctx.app_secrets.list()]
             if len(known) == 1:
                 resolved_app = known[0]
             else:
@@ -138,7 +141,7 @@ async def bind_account(alias: str, app_id: str = "") -> dict[str, Any]:
                 )
         url, state = manager.authorize_url(
             subject=principal.sub,
-            tenant=principal.tenant_id or "t_default",
+            tenant=principal.tenant_id,
             alias=name,
             app_id=resolved_app,
         )
@@ -170,6 +173,7 @@ async def share_account(
     async def _run() -> dict[str, Any]:
         runtime = get_runtime()
         principal = runtime.current_principal()
+        ctx = runtime.context(principal)
         name = validate_alias(alias)
         target = (sub or "").strip()
         if not target:
@@ -177,18 +181,18 @@ async def share_account(
         level = (permission or "read").strip().lower()
         if level not in ("read", "write"):
             raise CredentialError("分享只能给 read 或 write；admin 是 owner 的天然权利，不能转授")
-        owner = runtime.tenancy.owner_of(name)
+        owner = ctx.tenancy.owner_of(name)
         if not principal.unrestricted and owner != principal.sub:
             raise CredentialError(
                 f"只有账户 owner 能分享：{name} 的 owner 是 "
                 f"{owner or '未登记'}，不是 {principal.sub}"
             )
-        runtime.tenancy.share(name, sub=target, permission=level)
+        ctx.tenancy.share(name, sub=target, permission=level)
         return {
             "alias": name,
             "shared_with": target,
             "permission": level,
-            "shares": runtime.tenancy.shares_of(name),
+            "shares": ctx.tenancy.shares_of(name),
         }
 
     return await guarded(_run)
@@ -200,14 +204,15 @@ async def revoke_share(alias: str, sub: str) -> dict[str, Any]:
     async def _run() -> dict[str, Any]:
         runtime = get_runtime()
         principal = runtime.current_principal()
+        ctx = runtime.context(principal)
         name = validate_alias(alias)
-        owner = runtime.tenancy.owner_of(name)
+        owner = ctx.tenancy.owner_of(name)
         if not principal.unrestricted and owner != principal.sub:
             raise CredentialError(
                 f"只有账户 owner 能撤销分享：{name} 的 owner 是 {owner or '未登记'}"
             )
-        removed = runtime.tenancy.revoke(name, sub=(sub or "").strip())
-        return {"alias": name, "revoked": removed, "shares": runtime.tenancy.shares_of(name)}
+        removed = ctx.tenancy.revoke(name, sub=(sub or "").strip())
+        return {"alias": name, "revoked": removed, "shares": ctx.tenancy.shares_of(name)}
 
     return await guarded(_run)
 
@@ -218,13 +223,14 @@ async def list_shares(alias: str) -> dict[str, Any]:
     async def _run() -> dict[str, Any]:
         runtime = get_runtime()
         principal = runtime.current_principal()
+        ctx = runtime.context(principal)
         name = validate_alias(alias)
-        owner = runtime.tenancy.owner_of(name)
+        owner = ctx.tenancy.owner_of(name)
         if not principal.unrestricted and owner != principal.sub:
             raise CredentialError(
                 f"只有账户 owner 能查看分享列表：{name} 的 owner 是 {owner or '未登记'}"
             )
-        return {"alias": name, "owner": owner, "shares": runtime.tenancy.shares_of(name)}
+        return {"alias": name, "owner": owner, "shares": ctx.tenancy.shares_of(name)}
 
     return await guarded(_run)
 

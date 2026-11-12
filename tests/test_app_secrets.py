@@ -26,6 +26,7 @@ ROOT = Path(__file__).resolve().parents[1]
 MIGRATIONS = [
     (ROOT / "migrations" / "001_init.sql").read_text(encoding="utf-8"),
     (ROOT / "migrations" / "003_credentials.sql").read_text(encoding="utf-8"),
+    (ROOT / "migrations" / "005_tenant_client.sql").read_text(encoding="utf-8"),
 ]
 DSN = os.environ.get("MYBMO_TEST_DATABASE_URL", "")
 KEY = b"k" * 32
@@ -120,7 +121,7 @@ def pg_store(pg_schema: str) -> PgAppSecretStore:
     def connect():
         return psycopg.connect(DSN, options=f"-c search_path={pg_schema}", row_factory=dict_row)
 
-    return PgAppSecretStore(DSN, KEY, connect=connect)
+    return PgAppSecretStore(DSN, KEY, tenant_id="t_default", connect=connect)
 
 
 @pg_only

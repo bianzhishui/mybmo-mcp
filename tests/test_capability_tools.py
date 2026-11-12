@@ -53,6 +53,18 @@ class FakeRuntime:
     def current_principal(self) -> Principal:
         return self.principal or Principal.local_admin()
 
+    def context(self, principal: Principal | None = None):
+        target = principal or self.current_principal()
+        return SimpleNamespace(
+            tenant_id=target.tenant_id or "local",
+            store=None,
+            tenancy=None,
+            app_secrets=None,
+            registry=None,
+            access=self.access,
+            credentials=None,
+        )
+
     def transport_for(
         self, alias: str | None = None, *, permission: str = "read", **_: Any
     ) -> FakeTransport:

@@ -51,6 +51,7 @@ async def query_audit(
     async def _run() -> dict[str, Any]:
         runtime = get_runtime()
         principal = runtime.current_principal()
+        ctx = runtime.context(principal)
 
         sink = runtime.audit
         if not isinstance(sink, PgAuditSink):
@@ -71,7 +72,7 @@ async def query_audit(
         if not unrestricted:
             owned = [
                 item.alias
-                for item in runtime.tenancy.accounts()
+                for item in ctx.tenancy.accounts()
                 if item.owner == principal.sub
             ]
 
@@ -84,7 +85,7 @@ async def query_audit(
             )
 
         if account and not unrestricted:
-            if account not in owned and runtime.tenancy.permission_for(principal, account) is None:
+            if account not in owned and ctx.tenancy.permission_for(principal, account) is None:
                 raise AccessDenied(
                     f"当前身份（{principal.sub}）看不到账户 {account} 的审计",
                     sub=principal.sub,

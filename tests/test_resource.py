@@ -253,9 +253,19 @@ def test_empty_issuer_is_refused() -> None:
         JwtVerifier(issuer="", audience=AUDIENCE)
 
 
-def test_empty_audience_is_refused() -> None:
-    with pytest.raises(ValueError, match="audience 不能为空"):
-        JwtVerifier(issuer=ISSUER, audience="")
+def test_empty_audience_switches_to_client_id_mode(
+    keypair: tuple[Any, dict[str, Any]], monkeypatch
+) -> None:
+    """不配白名单 = 自治模式（ADR 0008）：令牌发给这个 client 自己就放行。"""
+    private, jwk = keypair
+    verifier = JwtVerifier(issuer=ISSUER, audience="")
+    monkeypatch.setattr(type(verifier._jwks), "get", lambda self, now=None: _StubJwks(private, jwk))
+
+    verified = verifier.verify(make_token(keypair, aud=CLAUDE_ID, client_id=CLAUDE_ID))
+
+    assert verified.client_id == CLAUDE_ID
+    assert verified.audience == CLAUDE_ID
+    assert verifier.audiences == ()
 
 
 def test_scopes_are_the_three_documented() -> None:
@@ -298,6 +308,32 @@ def test_client_outside_allowlist_is_rejected(
 
     with pytest.raises(TokenError, match="不在允许的客户端列表里"):
         verifier.verify(make_token(keypair, aud="dcr_wh7gkj"))
+
+
+def test_client_id_mode_rejects_token_meant_for_another_resource(
+    keypair: tuple[Any, dict[str, Any]], monkeypatch
+) -> None:
+    """aud 是资源地址（客户端带了 RFC 8707 的 resource）时必须拒。
+
+    否则等于"谁都能拿发给别的资源的令牌来调用本服务"。
+    """
+    private, jwk = keypair
+    verifier = JwtVerifier(issuer=ISSUER, audience="")
+    monkeypatch.setattr(type(verifier._jwks), "get", lambda self, now=None: _StubJwks(private, jwk))
+
+    with pytest.raises(TokenError, match="不包含它自己的 client_id"):
+        verifier.verify(make_token(keypair, aud=AUDIENCE, client_id=CLAUDE_ID))
+
+
+def test_client_id_mode_requires_a_client_id(
+    keypair: tuple[Any, dict[str, Any]], monkeypatch
+) -> None:
+    private, jwk = keypair
+    verifier = JwtVerifier(issuer=ISSUER, audience="")
+    monkeypatch.setattr(type(verifier._jwks), "get", lambda self, now=None: _StubJwks(private, jwk))
+
+    with pytest.raises(TokenError, match="没有 client_id"):
+        verifier.verify(make_token(keypair, aud=AUDIENCE, client_id=""))
 
 
 def test_audience_string_is_split_deduped_and_trimmed() -> None:

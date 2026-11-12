@@ -84,12 +84,13 @@ def test_oidc_mode_without_issuer_fails_loudly(tmp_path: Path) -> None:
         build_server(with_auth=True)
 
 
-def test_oidc_mode_without_audience_fails_loudly(tmp_path: Path) -> None:
-    """audience 必须显式配 client_id。猜一个默认值比报错更危险。"""
+def test_oidc_mode_without_audience_uses_client_id_mode(tmp_path: Path) -> None:
+    """aud 白名单是可选的收紧项（ADR 0008）：不配就只要求令牌 aud 含自身 client_id。"""
     set_runtime(Runtime(settings=make_settings(tmp_path, mybmo_oidc_audience="")))
 
-    with pytest.raises(TenancyError, match="缺少 MYBMO_OIDC_AUDIENCE"):
-        build_server(with_auth=True)
+    server = build_server(with_auth=True)
+
+    assert server is not None
 
 
 def test_oidc_mode_without_resource_url_fails_loudly(tmp_path: Path) -> None:
@@ -143,11 +144,11 @@ def test_unknown_sub_gets_a_principal_with_no_grants(tmp_path: Path) -> None:
     )
     runtime = Runtime(settings=settings)
 
-    principal = runtime.tenancy.resolve_principal("u_unknown")
+    principal = runtime.context_for_tenant("local").tenancy.resolve_principal("u_unknown")
 
     assert principal.sub == "u_unknown"
     assert principal.tenant_id == ""
-    assert runtime.tenancy.permission_for(principal, "axd") is None
+    assert runtime.context_for_tenant("local").tenancy.permission_for(principal, "axd") is None
 
 
 def test_identity_resolves_even_without_tenancy_file(tmp_path: Path) -> None:
@@ -157,11 +158,11 @@ def test_identity_resolves_even_without_tenancy_file(tmp_path: Path) -> None:
     """
     runtime = Runtime(settings=make_settings(tmp_path))
 
-    principal = runtime.tenancy.resolve_principal("u_zhang")
+    principal = runtime.context_for_tenant("local").tenancy.resolve_principal("u_zhang")
 
     assert principal.sub == "u_zhang"
     with pytest.raises(TenancyError, match="缺少授权表"):
-        runtime.tenancy.permission_for(principal, "axd")
+        runtime.context_for_tenant("local").tenancy.permission_for(principal, "axd")
 
 
 def test_known_sub_gets_tenant_and_display_name(tmp_path: Path) -> None:
@@ -182,11 +183,12 @@ def test_known_sub_gets_tenant_and_display_name(tmp_path: Path) -> None:
     )
     runtime = Runtime(settings=settings)
 
-    principal = runtime.tenancy.resolve_principal("u_zhang")
+    principal = runtime.context_for_tenant("local").tenancy.resolve_principal("u_zhang")
 
     assert principal.tenant_id == "t_acme"
     assert principal.display_name == "张三"
-    assert runtime.tenancy.permission_for(principal, "axd") == PERMISSION_ADMIN
+    tenancy = runtime.context_for_tenant("local").tenancy
+    assert tenancy.permission_for(principal, "axd") == PERMISSION_ADMIN
 
 
 def test_explicit_principal_wins_for_tests(tmp_path: Path) -> None:

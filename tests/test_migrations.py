@@ -24,17 +24,18 @@ def test_discover_finds_initial_migration() -> None:
 
     found = runner.discover()
 
-    assert [version for version, _ in found] == [1, 2, 3, 4]
+    assert [version for version, _ in found] == [1, 2, 3, 4, 5]
     assert found[0][1].name == "001_init.sql"
     assert found[1][1].name == "002_audit_log.sql"
     assert found[2][1].name == "003_credentials.sql"
     assert found[3][1].name == "004_drop_users_role.sql"
+    assert found[4][1].name == "005_tenant_client.sql"
 
 
 def test_dry_run_lists_pending_versions() -> None:
     runner = load_runner()
 
-    assert runner.apply("postgresql://unused", dry_run=True) == [1, 2, 3, 4]
+    assert runner.apply("postgresql://unused", dry_run=True) == [1, 2, 3, 4, 5]
 
 
 def test_migration_sql_declares_core_tables() -> None:

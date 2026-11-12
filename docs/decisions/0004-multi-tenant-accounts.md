@@ -63,6 +63,9 @@ audit_log       (id, tenant_id, account_id, user_id, capability, request_id,
 
 ### D3 用户来源：Casdoor + 本地 `users` 映射，不依赖 org claim
 
+> 2026-11-12 补记：租户本身改由令牌的 `client_id` 解析（ADR 0008），
+> `users.tenant_id` 仍然是"这个身份属于哪个租户"的事实来源，但它由 client_id 决定。
+
 Casdoor Organization 与 `tenant` 一对一，但**租户判定以本地 `users` 表为准**：
 
 ```text
@@ -162,4 +165,6 @@ Casdoor 侧的 org 主要用于管理台分组与登录页展示。
 - [ ] `mutating` 灰区（导出任务、审核提交）的裁决清单
 - [ ] `wait` 的超时上限：60 秒是否够，报表可能要几分钟
 - [ ] MCC 子账户的发现：是用户手工添加，还是调 `MccFeedService.getUserListByMccid` 自动拉取
-- [ ] 租户自助注册流程：是否允许自助开户，还是运营后台创建
+- [x] 租户自助注册流程：**允许**（2026-11-12，见 [ADR 0008](0008-tenant-per-client.md)）。
+      一个 Casdoor `client_id` 对应一个租户，首次见到未知 client_id 自动开户；
+      准入闸门是组织白名单（想收紧可配 `MYBMO_OIDC_AUDIENCE`）

@@ -194,7 +194,8 @@ async def execute_capability(
         )
 
     try:
-        entry = runtime.access.resolve(principal, account, permission=permission)
+        ctx = runtime.context(principal)
+        entry = ctx.access.resolve(principal, account, permission=permission)
     except AccessDenied as exc:
         # 优先用异常里带回的 alias：不传 account 时它已经被解析成具体账户了，
         # 记成空字符串会让「谁想动哪个账户被拒」这条线索断掉。

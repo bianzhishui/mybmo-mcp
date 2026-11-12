@@ -3,6 +3,7 @@ from __future__ import annotations
 import time
 from collections.abc import Iterator
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -52,6 +53,19 @@ class FakeRuntime:
 
     def current_principal(self) -> Principal:
         return self.principal or Principal.local_admin()
+
+    def context(self, principal: Principal | None = None):
+        """工具层现在按租户取组件；测试里租户无意义，直接给同一套。"""
+        target = principal or self.current_principal()
+        return SimpleNamespace(
+            tenant_id=target.tenant_id or "local",
+            store=getattr(self, "store", None),
+            tenancy=self.tenancy,
+            app_secrets=getattr(self, "app_secrets", None),
+            registry=self.registry,
+            access=self.access,
+            credentials=getattr(self, "credentials", None),
+        )
 
 
 @pytest.fixture

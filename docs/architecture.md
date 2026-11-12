@@ -133,7 +133,8 @@ JWKS 拉取失败时拒绝而非放行——故障期间"先信旧密钥"等于�
 > 每类后端都是同一套协议的两个实现，调用方零改动。
 
 ```sql
-tenants          (id, name, plan, status, created_at)
+tenants          (id, name, plan, status, client_id, created_at)
+                                                      -- client_id 唯一：一个租户 = 一个 Casdoor 应用
 users            (id, tenant_id, idp_subject, email, display_name,
                   status, created_at)                   -- 无 role：权限只来自 grants
 baidu_accounts   (id, tenant_id, alias, owner_user_id, kind, baidu_user_id, user_name,

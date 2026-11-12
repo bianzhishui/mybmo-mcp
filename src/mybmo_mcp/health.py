@@ -40,7 +40,7 @@ def health_payload() -> dict[str, Any]:
         payload["capabilities"] = None
 
     try:
-        identity = runtime.tenancy.stats()
+        identity = runtime.identity_stats()
         payload["tenants"] = identity["tenants"]
         payload["users"] = identity["users"]
         payload["accounts"] = identity["accounts"]

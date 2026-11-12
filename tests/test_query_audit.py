@@ -54,7 +54,7 @@ def make_runtime(tmp_path: Path, principal: Principal) -> tuple[Runtime, Recordi
     runtime = Runtime(settings=settings, principal=principal)
     FileVault(tmp_path, KEY).save(Credential(alias="main", user_name="账户", access_token="at"))
 
-    tenancy: TenancyStore = runtime.tenancy
+    tenancy: TenancyStore = runtime.context_for_tenant("local").tenancy
     tenancy.register_account("main", owner=OWNER, user_name="baidu-示例账户")
     tenancy.share("main", sub=OTHER, permission="read")
 

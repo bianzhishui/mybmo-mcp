@@ -60,7 +60,8 @@ def seed_account(runtime: Runtime, alias: str, *, owner: str | None) -> None:
     vault = FileVault(runtime.settings.mybmo_data_dir, KEY)
     vault.save(Credential(alias=alias, user_name=f"账户-{alias}", access_token="at"))
     if owner is not None:
-        runtime.tenancy.register_account(alias, owner=owner, user_name=f"账户-{alias}")
+        tenancy = runtime.context_for_tenant("local").tenancy
+        tenancy.register_account(alias, owner=owner, user_name=f"账户-{alias}")
 
 
 async def test_bind_account_returns_url_bound_to_caller(runtime: Runtime) -> None:
@@ -131,7 +132,7 @@ async def test_bind_account_without_callback_config_fails_clearly(tmp_path: Path
 async def test_list_accounts_shows_ownership(runtime: Runtime) -> None:
     seed_account(runtime, "mine", owner=ME.sub)
     seed_account(runtime, "shared", owner="bob-sub")
-    runtime.tenancy.share("shared", sub=ME.sub, permission="write")
+    runtime.context_for_tenant("local").tenancy.share("shared", sub=ME.sub, permission="write")
 
     result = await accounts_tools.list_accounts()
 

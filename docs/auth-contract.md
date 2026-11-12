@@ -79,6 +79,19 @@ POST /mcp   Authorization: Bearer <JWT>
 未认证请求返回 `401 + WWW-Authenticate: Bearer resource_metadata="…/.well-known/oauth-protected-resource"`，
 把客户端指向 Casdoor。**③+⑤ 的语义是"必须是 pandabase 组织下 mybmo-mcp 应用签出的令牌"。**
 
+### 阶段 3.5：`client_id` → 租户
+
+```text
+验签通过后取 client_id（azp 优先，退回 aud 的唯一值）
+  → tenants WHERE client_id = ?   命中即用
+  → 未命中：自动开户（id=t_<12hex>，name=租户-xxxx），并发首请求只建一条
+  → 之后所有存储查询都带这个 tenant_id
+```
+
+- **一个 client_id 对应一个租户**（`tenants.client_id` 唯一索引）
+- 准入闸门是**组织白名单**（`MYBMO_OIDC_ORGS`）；`MYBMO_OIDC_AUDIENCE` 是可选的收紧项
+- 详见 [ADR 0008](decisions/0008-tenant-per-client.md)
+
 ### 阶段 4：业务判权（授权表；`MYBMO_TENANCY_BACKEND=file` 时是 `data/tenancy.json`）
 
 见第五节数据卷布局与 `docs/architecture.md`。要点：账户**私有**，owner 隐式 admin，
@@ -119,8 +132,8 @@ MCP 侧的对应工具是 `bind_account(alias, app_id)`：只传 `appId`；只�
 
 1. **`aud` 默认为 client_id，但带 `resource` 参数时会变成资源地址。** Casdoor 收到
    RFC 8707 的 `resource` 就把它填进 `aud`（实测：带 `resource=https://baiduads.pandabase.top/`
-   时 `aud=["https://baiduads.pandabase.top/"]`，不带时 `aud=["709a8e…"]`）。本服务把
-   `MYBMO_OIDC_AUDIENCE` 当**白名单**用（只放 client_id），所以**客户端必须加
+   时 `aud=["https://baiduads.pandabase.top/"]`，不带时 `aud=["709a8e…"]`）。ADR 0008 之后
+   校验规则是「**`aud` 必须包含该令牌自己的 client_id**」，所以**客户端仍然必须加
    `--disable-resource-parameter`**，否则令牌必被拒、并触发"授权→401→再授权"的死循环。
 2. **JWKS 路径必须显式配置。** 实测在 `/.well-known/jwks`，不是常见的
    `{issuer}/api/v1/jwks`。推导值恰好能用是巧合，不是契约。

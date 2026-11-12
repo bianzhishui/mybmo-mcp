@@ -8,18 +8,23 @@ from __future__ import annotations
 
 import time
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
+from mybmo_mcp.auth.app_secrets import AppSecret, FileAppSecretStore
 from mybmo_mcp.auth.binding import BindingManager, StateStore
 from mybmo_mcp.auth.callback import complete_binding
-from mybmo_mcp.auth.models import STATUS_ACTIVE, STATUS_UNCONFIRMED
+from mybmo_mcp.auth.models import STATUS_ACTIVE
 from mybmo_mcp.auth.oauth import TokenBundle
+from mybmo_mcp.auth.tenancy import MODE_LOCAL, TenancyStore
 from mybmo_mcp.auth.vault import FileVault
 from mybmo_mcp.baidu.errors import CredentialError
 
 KEY = b"k" * 32
 CB = "https://baiduads.pandabase.top/oauth/baidu/callback"
+APP = "20426c0457c842036585e268d456fe45"
+TENANT = "t_default"
 
 
 class FakeOAuth:
@@ -45,19 +50,31 @@ class FakeOAuth:
 
 
 def build_manager(tmp_path: Path, oauth: FakeOAuth | None = None) -> BindingManager:
+    vault = FileVault(tmp_path / "data", KEY)
+    apps = FileAppSecretStore(tmp_path / "data", KEY)
+    apps.save(AppSecret(app_id=APP, secret_key="sk-1"))
+    ctx = SimpleNamespace(
+        tenant_id=TENANT,
+        store=vault,
+        tenancy=TenancyStore(tmp_path / "data" / "tenancy.json", mode=MODE_LOCAL),
+        app_secrets=apps,
+        registry=None,
+        access=None,
+        credentials=None,
+    )
     return BindingManager(
-        oauth or FakeOAuth(),
-        FileVault(tmp_path / "data", KEY),
         StateStore(tmp_path / "data"),
-        app_id="app-1",
-        secret_key="sk-1",
         redirect_uri=CB,
+        context_for=lambda _tenant: ctx,
+        oauth=oauth or FakeOAuth(),
     )
 
 
 async def test_success_returns_alias_and_chinese_name_only(tmp_path: Path) -> None:
     manager = build_manager(tmp_path)
-    _, state = manager.authorize_url(subject="sub-1", tenant="t1", alias="main")
+    _, state = manager.authorize_url(
+        subject="sub-1", tenant=TENANT, alias="main", app_id=APP
+    )
 
     outcome = await complete_binding(
         manager, {"authCode": "code-1", "state": state.nonce, "userId": "1001"}
@@ -103,7 +120,9 @@ async def test_error_param_from_baidu_is_reported(tmp_path: Path) -> None:
 async def test_alias_from_code_key_is_accepted(tmp_path: Path) -> None:
     """百度侧的参数名未实证，``code`` 也当授权码处理。"""
     manager = build_manager(tmp_path)
-    _, state = manager.authorize_url(subject="s", tenant="t", alias="axd")
+    _, state = manager.authorize_url(
+        subject="s", tenant=TENANT, alias="axd", app_id=APP
+    )
 
     outcome = await complete_binding(manager, {"code": "c-1", "state": state.nonce, "uid": "7"})
 
@@ -125,7 +144,10 @@ async def test_upstream_failure_hides_auth_code(tmp_path: Path) -> None:
         tmp_path, FakeOAuth(fail=CredentialError("accessToken 失败 code=110 message=invalid"))
     )
 
-    outcome = await complete_binding(manager, {"authCode": secret_code, "userId": "1"})
+    _, state = manager.authorize_url(subject="s", tenant=TENANT, alias="axd", app_id=APP)
+    outcome = await complete_binding(
+        manager, {"authCode": secret_code, "userId": "1", "state": state.nonce}
+    )
 
     assert outcome.ok is False
     assert outcome.status_code == 400
@@ -133,18 +155,19 @@ async def test_upstream_failure_hides_auth_code(tmp_path: Path) -> None:
     assert secret_code not in repr(outcome)
 
 
-async def test_missing_state_degrades_to_unconfirmed(tmp_path: Path) -> None:
+async def test_missing_state_is_refused(tmp_path: Path) -> None:
+    """多租户下没有 state 就不知道落哪个租户，一律失败（ADR 0008 D5）。"""
     outcome = await complete_binding(build_manager(tmp_path), {"authCode": "c", "userId": "1001"})
 
-    assert outcome.ok is True
-    assert outcome.data["alias"] == "acct_1001"
-    assert outcome.data["status"] == STATUS_UNCONFIRMED
-    assert any("unconfirmed" in hint for hint in outcome.hints)
+    assert outcome.ok is False
+    assert "授权链接已失效" in outcome.message
 
 
 async def test_missing_user_id_is_flagged_in_hints(tmp_path: Path) -> None:
     manager = build_manager(tmp_path)
-    _, state = manager.authorize_url(subject="s", tenant="t", alias="axd")
+    _, state = manager.authorize_url(
+        subject="s", tenant=TENANT, alias="axd", app_id=APP
+    )
 
     outcome = await complete_binding(manager, {"authCode": "c", "state": state.nonce})
 
@@ -160,12 +183,14 @@ async def test_non_numeric_user_id_fails_with_actionable_hint(tmp_path: Path) ->
     )
 
     assert outcome.ok is False
-    assert "重新执行一次绑定" in outcome.message
+    assert "授权链接已失效" in outcome.message
 
 
 async def test_missing_master_name_fails(tmp_path: Path) -> None:
+    manager = build_manager(tmp_path, FakeOAuth(user_name=""))
+    _, state = manager.authorize_url(subject="s", tenant=TENANT, alias="axd", app_id=APP)
     outcome = await complete_binding(
-        build_manager(tmp_path, FakeOAuth(user_name="")), {"authCode": "c", "userId": "1"}
+        manager, {"authCode": "c", "userId": "1", "state": state.nonce}
     )
 
     assert outcome.ok is False

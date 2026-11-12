@@ -36,7 +36,6 @@ AAD_PREFIX = "mybmo-mcp/app/v1/"
 APPS_DIRNAME = "apps"
 _DIR_MODE = crypto.DIR_MODE
 _FILE_MODE = crypto.FILE_MODE
-DEFAULT_TENANT = "t_default"
 
 
 def validate_app_id(app_id: str) -> str:
@@ -164,7 +163,7 @@ class PgAppSecretStore:
         dsn: str,
         master_key: bytes,
         *,
-        tenant_id: str = DEFAULT_TENANT,
+        tenant_id: str,
         connect: Callable[[], Any] | None = None,
     ) -> None:
         if not dsn:

@@ -209,6 +209,8 @@ def build_server(*, with_auth: bool = True) -> MCPServer:
     也就没有 bearer 令牌可校验。装配由 :func:`_auth_kwargs` 决定，
     local 模式返回空字典（不装中间件），oidc 模式返回 ``auth`` + ``token_verifier``。
     """
+    # 启动自检：pg 模式下每个租户都必须绑了 client_id，否则请求全 403 像"鉴权坏了"
+    get_runtime().preflight()
     kwargs = _auth_kwargs() if with_auth else {}
     server = MCPServer(
         name="mybmo-mcp",
@@ -321,7 +323,10 @@ def auth_bind(
     ] = "",
     tenant: Annotated[
         str,
-        typer.Option("--tenant", help="租户 ID；local 模式默认 local"),
+        typer.Option(
+            "--tenant",
+            help="租户 ID。多租户下必填——回调只能靠 state 里的 tenant 知道落哪个租户",
+        ),
     ] = "",
     app_id: Annotated[
         str,
@@ -351,9 +356,21 @@ def auth_bind(
         )
         raise typer.Exit(code=2)
 
-    # tenant 是 state 里唯一能证明"这次绑定属于哪个租户"的字段。
-    # 留空不会立刻报错，但真做多租户时会静默写错租户，所以必须有默认值。
-    tenant = tenant or runtime.settings.mybmo_tenant_id
+    # tenant 是 state 里唯一能证明"这次绑定属于哪个租户"的字段，多租户下不能猜。
+    tenant = tenant or (runtime.settings.mybmo_tenant_id if local_mode else "")
+    if not tenant:
+        typer.echo(
+            "错误：多租户模式必须用 --tenant 指定租户（回调阶段只认 state 里的租户，"
+            "留空会导致绑定无法落库）。先用 `mybmo-mcp tenant list` 查租户。",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    if not app_id:
+        typer.echo(
+            "错误：必须用 --app-id 指定用哪个应用授权（先 `mybmo-mcp app secret set <appId>`）",
+            err=True,
+        )
+        raise typer.Exit(code=2)
 
     try:
         manager = runtime.binding
@@ -471,7 +488,57 @@ def app_secret_remove(
 
 
 app_app.add_typer(secret_app, name="secret")
+tenant_app = typer.Typer(
+    name="tenant",
+    help="租户管理。一个租户对应一个 Casdoor client_id；首次见到未知 client_id 会自动开户。",
+    add_completion=False,
+    rich_markup_mode=None,
+)
+
+
+@tenant_app.command("list")
+def tenant_list() -> None:
+    """列出租户（含未绑定 client_id 的）。"""
+    runtime = get_runtime()
+    rows = runtime.tenant_map.list()
+    if not rows:
+        typer.echo("还没有任何租户。首次带令牌的请求会自动开户。")
+        return
+    for row in rows:
+        client = row.client_id or "(未绑定 client_id)"
+        typer.echo(
+            f"{row.id}  {row.name}  client_id={client}  users={row.users} accounts={row.accounts}"
+        )
+
+
+@tenant_app.command("set-client")
+def tenant_set_client(
+    tenant: Annotated[str, typer.Argument(help="租户 ID")],
+    client_id: Annotated[str, typer.Argument(help="Casdoor 应用的 client_id")],
+) -> None:
+    """给租户绑定/修复 client_id。
+
+    自动开户之外的唯一入口：存量租户（如 t_default）上线时要跑一次，
+    或者把某个租户换到另一个 Casdoor 应用上。
+    """
+    runtime = get_runtime()
+    runtime.tenant_map.set_client(tenant, client_id)
+    typer.echo(f"已绑定：{tenant} ← {client_id}")
+
+
+@tenant_app.command("rename")
+def tenant_rename(
+    tenant: Annotated[str, typer.Argument(help="租户 ID")],
+    name: Annotated[str, typer.Argument(help="新的租户名（自动开户给的是 租户-xxxx 短码）")],
+) -> None:
+    """改租户名。只是展示用，不影响任何判定。"""
+    runtime = get_runtime()
+    runtime.tenant_map.rename(tenant, name)
+    typer.echo(f"已改名：{tenant} → {name}")
+
+
 app.add_typer(auth_app, name="auth")
+app.add_typer(tenant_app, name="tenant")
 app.add_typer(app_app, name="app")
 
 
