@@ -14,12 +14,14 @@
 | 问题 | 结论 | 依据 |
 |---|---|---|
 | `userName` 取什么 | **已验证：令牌所属账户的中文名**（本账户为 `baidu-YF电商-玛卡快消01`），不是登录名 | 2026-11-11 绑定后 `list_accounts` 返回该值，且用它调 `CampaignService.getCampaign` / `KRService.getKRByQuery` 均成功 |
-| 回调带回哪些参数 | **已验证：带回授权码、`state` 与 `userId`**（`userId` 有值才可能换到令牌，`userId=0` 时百度报 `code=3`） | 2026-11-11 真实授权一次，凭据以 state 里的别名 `main` 落地、`status=active`；字段名仍按多候选兼容 |
+| 回调带回哪些参数 | **已验证：`authCode` + `state` + `appId` + `userId` + `signature` + `timestamp`**（`userId` 有值才可能换到令牌，`userId=0` 时百度报 `code=3`） | 2026-11-12 真实回调的完整 query。`appId` 让「state 丢了」也能定位应用；`signature` 暂不校验（算法未公开） |
 | 81020 的触发条件 | **已验证：请求头 `userName` 不是令牌所属账户中文名**。返回 `code=81020, position=_user, message="The username information in the request is incorrect."`，`header.status=2`、`succ=0` | 2026-11-11 用 `userName=绝对不存在的账户名` 调 `AccountService.getAccountInfo` |
-| 自定义 `state` 是否原样回传 | **已验证：原样回传**（绑定按 state 里的别名落库，未退化成 `acct_<userId>`） | 2026-11-11 真实授权一次，`/data/accounts/main.json` 生成、`binding_state/` 被消费 |
-| `refreshToken` 刷新后是否立即轮换 | **已知未知**：刷新本身可用（Casdoor 侧实测能换到新令牌），但「旧 refresh 是否立即失效」未验 | — |
+| 自定义 `state` 是否原样回传 | **已验证：原样回传**（绑定按 state 里的别名落库，未退化成 `acct_<userId>`） | 2026-11-11 首次验证；2026-11-12 再次确认：回调 query 里 `state` 与签发值逐字符一致，`binding_state/<nonce>.json` 被消费 |
+| `refreshToken` 刷新后是否立即轮换 | **已验证：会轮换**（旧 refreshToken 立即作废） | 2026-11-12 刷新 `main` 后比对：`refresh_rotated=True`。推论：**同一套令牌不能存成多份副本**，否则一份刷新会让另一份掉线 |
+| 重置 `secretKey` 是否让已签发令牌失效 | **已验证：全部失效**，access 与 refresh 一起废 | 2026-11-12 重置应用 A 密钥后：旧密钥刷新仍成功（重置未生效时）；生效后用新密钥刷新报 `50003 token验签失败`，业务接口报 `89406 The access token you provided is invalidate.`。结论：换密钥 = 一次全员重绑 |
 | `accessToken` 有效期 | **已验证：1 天**（`expiresIn=86400`），`refreshToken` 30 天。与「文档称 30 天」不符 | 2026-11-11 落库凭据：access 剩 1.0 天、refresh 剩 30.0 天 |
 | 应用级凭据能否跨账户使用 | **已知未知**：只有一个账户可测；推断同一 AppID 下多账户各自授权 | — |
+| 同一百度账号能否被同一应用重复授权 | **已验证：可以，且两套令牌并行有效** | 2026-11-12 同一账号两次授权：两条凭据 `refreshToken` 不同、同时可用（23.0h / 24.0h）。因此 `UNIQUE(tenant, baidu_user_id)` 是**业务约束**，不是百度侧限制 |
 
 ## 二、分页与上限
 

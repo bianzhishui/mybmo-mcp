@@ -159,12 +159,18 @@ POST /mcp   Authorization: Bearer <JWT>
 挂载点是 `/data`，由 infra 提供卷；里面放什么都由本仓库决定：
 
 ```
-/data/tenancy.json     授权表 v2（accounts 归属 + grants 分享；尚未落库）
+/data/tenancy.json     授权表 v2（accounts 归属 + grants 分享；`MYBMO_TENANCY_BACKEND=pg` 时不读）
 /data/audit/*.jsonl    按天分文件的审计（`MYBMO_AUDIT_BACKEND=file` 时；`pg` 时改写 audit_log 表）
 /data/subscribe/*.jsonl 百度事件推送的原始样本（脱敏后），只供人工分析
-/data/locks/           凭据刷新的文件锁
-/data/<加密凭据文件>    AES-GCM 密文，权限 600
+/data/binding_state/   一次性绑定 state（15 分钟 TTL，取用即删）
+/data/locks/           凭据刷新的文件锁（`CREDENTIAL_BACKEND=pg` 时改用行锁，此目录闲置）
+/data/accounts/*.json  加密凭据文件，AES-GCM 密文，权限 600（`CREDENTIAL_BACKEND=file` 时使用）
+/data/apps/*.json      应用密钥登记，同上（`CREDENTIAL_BACKEND=file` 时使用）
 ```
+
+生产用 `MYBMO_CREDENTIAL_BACKEND=pg`：凭据在 PostgreSQL 的 `credentials` / `app_secrets` 表，
+`/data/accounts` 与 `/data/apps` 为空。迁移用
+[`scripts/migrate_credentials_to_pg.py`](../scripts/migrate_credentials_to_pg.py)。
 
 ## 六、当前实例的取值（2026-11-11）
 

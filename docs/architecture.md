@@ -40,16 +40,24 @@ JWKS 拉取失败时拒绝而非放行——故障期间"先信旧密钥"等于�
 
 这不是用户登录，是**账户绑定**。服务端持有应用级凭据和账户级令牌。
 
+**应用凭据跟着凭据走**，不是服务级全局配置（[ADR 0006](decisions/0006-multi-app-credentials.md)）：
+一个百度账号下可以有多个应用，本项目限制「一个百度账户只绑一个应用」。
+凭据存在 PostgreSQL（[ADR 0007](decisions/0007-credentials-in-postgres.md)），
+`file` 后端保留给本地开发与单测。
+
 | 数据 | 存放位置 | 生命周期 |
 |---|---|---|
-| `AppID` / `SecretKey` | 环境变量 | 长期，轮换需人工 |
-| 百度 `refreshToken` | 凭据文件，按租户信封加密 | ~30 天，刷新可能轮换 |
-| 百度 `accessToken` | 内存 | ~24 小时 |
-| 账户中文名 `userName` | 凭据文件明文（非敏感） | 随账户 |
+| `AppID` / `SecretKey` | `app_secrets` 表（整块 AES-GCM 密文）；密钥只经 CLI 隐藏输入 | 长期；**重置即让该应用下所有令牌失效**，等于一次全员重绑 |
+| 百度 `refreshToken` / `accessToken` | `credentials.cipher`（密文）；明文列只放查询需要的字段 | refresh ~30 天且每次刷新轮换；access ~24 小时 |
+| 账户中文名 `userName` | `credentials.user_name`（明文列） | 随账户；**后台改名后刷新时自动校正**，否则全部接口报 81020 |
 
 绑定入口是 `GET /oauth/baidu/callback`：它是**两条免 Token 鉴权的业务路由**之一（另一条是
 `GET/POST /oauth/baidu/subscribe`，百度事件推送）。回调的安全性由一次性 state（15 分钟 TTL，
 取用即删）与"授权码只能换一次"共同保证，只写凭据、只回显别名与中文名，不回显任何令牌。
+
+实测（2026-11-12）：回调会原样带回 `state`，并附带 `appId` / `userId` / `signature` / `timestamp`。
+`appId` 让"state 丢了"时还能定位应用；`signature` 暂不校验（算法未公开，且伪造仍需有效授权码）。
+`uvicorn` 的 access log 会打印 query，已用日志过滤器把 query 摘掉——否则授权码会进容器日志。
 
 订阅端点只做**采样**：验共享密钥 → 打印并追加到 `data/subscribe/*.jsonl` → 回 200。
 不解析成任何业务动作——把公网推送直接翻译成"暂停计划/调预算"，等于绕开 ADR 0003 开了个写入口。
@@ -68,19 +76,26 @@ JWKS 拉取失败时拒绝而非放行——故障期间"先信旧密钥"等于�
 
 ```text
 管理员            mybmo-mcp                          百度 OAuth
+  │ app secret set   │                                   │
+  │─────────────────>│ 密钥只进 app_secrets（密文），不经对话
   │  auth bind       │                                   │
-  │─────────────────>│ 生成一次性 state(nonce, 绑定 sub+租户+exp)
-  │<── 授权 URL ─────│                                   │
+  │─────────────────>│ 按 appId 取密钥 → 预写 pending 占位凭据
+  │<── 授权 URL ─────│ 生成一次性 state(nonce, sub+租户+alias+appId)
   │ 浏览器打开 ────────────────────────────────────────>│
-  │                  │<──────── 回调 authCode + state ────│
-  │                  │ 校验 state → 换 accessToken/refreshToken
+  │                  │<── 回调 authCode+state+appId+userId ─│
+  │                  │ state → alias → 取回应用密钥
+  │                  │ 换 accessToken/refreshToken
   │                  │ 调 getUserInfo 取账户中文名
-  │                  │ 加密写入凭据库
+  │                  │ 查 1:1 唯一性 → 回填 pending 行并置 active
   │<── 绑定成功 ─────│
 ```
 
 要点：`state` 必须是一次性 nonce，不能是 `md5(appId_uid)` 这类可推导值；换令牌失败时
 **不回显 authCode**；落库前必须拿到 `userName`，否则后续所有调用必失败。
+
+**冲突在回调阶段才发现**：授权前拿不到 `baidu_user_id`，所以「该百度账户已绑过别的应用」只能
+在换到令牌后判定。此时**丢弃令牌、不落库**并提示先 `auth unbind`，不做自动替换——静默替换会让
+一组授权无声失效。
 
 ### 3.2 普通用户调用只读能力
 
@@ -111,18 +126,24 @@ JWKS 拉取失败时拒绝而非放行——故障期间"先信旧密钥"等于�
 
 详见 [ADR 0004](decisions/0004-multi-tenant-accounts.md)。
 
-> **当前实现**：授权表**双后端**——默认文件式 `data/tenancy.json`；
-> 设 `MYBMO_TENANCY_BACKEND=pg` 则走 PostgreSQL（库 `mybmo`，表见 `migrations/001_init.sql`）。
-> 两个实现同接口（`TenancyStore` / `PgTenancyStore`），调用方零改动。
+> **当前实现**：授权表与凭据都是**双后端**。
+> 授权表默认文件式 `data/tenancy.json`，设 `MYBMO_TENANCY_BACKEND=pg` 走 PostgreSQL；
+> 凭据默认加密文件 `data/accounts/*.json`，设 `MYBMO_CREDENTIAL_BACKEND=pg` 走
+> PostgreSQL 的 `credentials` / `app_secrets` 表（生产即此配置）。
+> 每类后端都是同一套协议的两个实现，调用方零改动。
 
 ```sql
 tenants          (id, name, plan, status, created_at)
 users            (id, tenant_id, idp_subject, email, display_name,
                   role, status, created_at)              -- owner | admin | member
 baidu_accounts   (id, tenant_id, alias, owner_user_id, kind, baidu_user_id, user_name,
-                  parent_account_id, app_id, secret_key_cipher,
-                  refresh_token_cipher, access_token_expires_at,
-                  status, created_at, updated_at)
+                  parent_account_id, app_id, access_token_expires_at,
+                  status, created_at, updated_at)     -- 归属与展示，不存令牌
+credentials      (tenant_id, alias, app_id, user_name, baidu_user_id, status,
+                  expires_at, refresh_expires_at, is_default,
+                  nonce, cipher, key_version, created_at, updated_at)
+                                                      -- 凭据本体，见 migrations/003
+app_secrets      (tenant_id, app_id, nonce, cipher, created_at, updated_at)
 account_grants   (user_id, account_id, permission, created_at)  -- 只 read | write
 audit_log        (id, call_id, started_at, finished_at, duration_ms, tenant_id,
                   user_sub, user_name, app, account_alias, account_name, capability,
@@ -130,18 +151,24 @@ audit_log        (id, call_id, started_at, finished_at, duration_ms, tenant_id,
                   request_params, response_body, request_bytes, response_bytes,
                   payload_digest)                        -- 见 migrations/002_audit_log.sql
 
-UNIQUE (tenant_id, alias)         -- 别名在租户内唯一，跨租户可重名
-UNIQUE (tenant_id, idp_subject)   -- 一个 IdP 身份在一个租户内只对应一个用户
+UNIQUE (tenant_id, alias)                              -- 别名在租户内唯一，跨租户可重名
+UNIQUE (tenant_id, idp_subject)                        -- 一个 IdP 身份在一个租户内只对应一个用户
+UNIQUE (tenant_id, baidu_user_id) WHERE baidu_user_id > 0   -- 一个百度账户只绑一个应用
+UNIQUE (tenant_id, app_id) WHERE app_id <> ''               -- 一个应用只服务一个账户
 ```
 
-账户两种形态：
+`credentials` 与 `baidu_accounts` 分工：**前者是凭据本体**（密文 + 过期时间），
+**后者是归属与展示**（谁绑定、中文名、用户名下的账户）。`baidu_accounts` 原有的
+`secret_key_cipher` / `refresh_token_cipher` 两列从未写入过，已随 `003` 迁移删除。
 
-| `kind` | 令牌 | 调用时的 `userName` |
-|---|---|---|
-| `standalone` 独立账户 | 自己的 `app_id` + `refresh_token` | 该账户中文名 |
-| `mcc_child` 管家子账户 | **复用** `parent_account_id` 的令牌 | **子账户**中文名（填错报 81020） |
+账户形态：
 
-`mcc_child` 不存令牌，取凭据时沿 `parent_account_id` 上溯一层。
+| `kind` | 令牌 | 调用时的 `userName` | 当前状态 |
+|---|---|---|---|
+| `standalone` 独立账户 | 自己的 `app_id` + `refresh_token` | 该账户中文名 | ✅ 已实现 |
+| `mcc_child` 管家子账户 | **复用** `parent_account_id` 的令牌 | **子账户**中文名（填错报 81020） | ⏸️ **本期不做**（ADR 0006 明确排除） |
+
+`kind` / `parent_account_id` 两列保留为将来做 MCC 的位置，当前恒为 `standalone` / `NULL`。
 
 **账户私有**：`owner_user_id` 是绑定者，owner 隐式拥有 admin；`account_grants` 只表达
 `read` / `write`（admin 不能转授）。没有 `owner_user_id` 的账户对任何人不可见（fail closed）。
@@ -155,26 +182,37 @@ UNIQUE (tenant_id, idp_subject)   -- 一个 IdP 身份在一个租户内只对�
 ## 五、凭据生命周期
 
 ```text
-绑定 → 加密写入 → 调用前检查过期 → 剩余 < 10min 触发刷新
-     → 刷新加锁（防轮换丢失）→ 新令牌先落库再使用
-     → 刷新失败：标记 reauth_required，通知用户重新绑定
+app secret set → 密钥进 app_secrets（密文）
+   → auth bind → 预写 pending 占位凭据 → 签发 state
+   → 回调 → 换令牌 → 查 1:1 唯一性 → 置 active
+   → 调用前检查过期 → 剩余 < 10min 触发刷新
+   → 刷新：行锁串行（PG）→ 换令牌 → 顺手校正 user_name
+   → 新令牌先落库再使用
+   → 刷新失败：标记 reauth_required，通知用户重新绑定
 ```
 
 红线：
 
 - 刷新失败**不重试旧令牌**
-- 并发刷新必须串行化，否则轮换后旧 refreshToken 失效，账户直接掉线
-- 日志、异常、审计中 `accessToken` / `refreshToken` / `SecretKey` 一律脱敏
+- 并发刷新必须串行化：PG 后端用 `SELECT … FOR UPDATE`（事务内写回，另开连接会等自己的锁而死锁）；
+  文件后端用 `flock`，只在同一台机器内有效
+- **`secretKey` 重置会让该应用下所有令牌立即失效**（实测 `50003` / `89406`），
+  运维上等于一次全员重绑，必须提前通知
+- 日志、异常、审计中 `accessToken` / `refreshToken` / `SecretKey` 一律脱敏；
+  access log 的 query 也要摘掉，否则 `authCode` 会落进容器日志
 
 ## 六、失败模式
 
 | 故障 | 表现 | 处理 |
 |---|---|---|
 | IdP 不可用 | 所有请求 401 | 已签发令牌在有效期内仍可验证（JWKS 缓存 10 分钟）；详情见 infra 仓库 |
-| 百度令牌过期 | 81020 / 110 错误 | 触发刷新；失败则 `reauth_required` |
+| 百度令牌过期 | 110 等鉴权错误 | 触发刷新；失败则 `reauth_required` |
+| 账户中文名被改 | **81020**，但 `auth_status` 显示 active | 刷新时自动校正 `user_name`；仍失败则 `auth unbind` 重绑 |
+| 应用密钥被重置 | 换令牌 `50003 token验签失败`、接口 `89406` | 用新密钥重绑该应用下所有账户 |
 | 百度接口限流 | `rquota` 异常 | 读取配额头，退避；写操作不自动重试 |
 | 网络超时（写） | 结果未知 | 先查后写，禁止重发 |
-| 凭据文件损坏 | 账户不可用 | 明确报错，不静默忽略 |
+| 凭据记录损坏 / 解密失败 | 该账户不可用 | 明确报错，不静默忽略（文件后端逐文件、PG 后端逐行报告） |
+| 唯一性冲突 | 绑定被拒 | 提示「该百度账户已绑定应用 X（别名 Y），先 `auth unbind Y`」 |
 
 
 ## 附：Docker 构建的两个排查动作
