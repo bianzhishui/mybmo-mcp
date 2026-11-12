@@ -49,10 +49,12 @@ ADR 0007 落库时保留了 `file` 后端（`data/accounts/*.json`、`data/apps/
 `scripts/migrate_credentials_to_pg.py`、`scripts/import_tenancy.py` 的使命已完成。
 `scripts/build_capabilities.py` 保留——它写的是**源码文件**，属构建期工具。
 
-### D5 `local` 认证模式下线（紧随其后）
+### D5 `local` 认证模式下线（✅ 已落地）
 
 `MODE_LOCAL` / `Principal.local_admin()` / `Principal.unrestricted` 一并删除。
 代价：stdio 本地调试不再有隐式身份，调试改走 HTTP + JWT 或 CLI 子命令。
+`MYBMO_AUTH_MODE` 配置项、`Principal.local_admin()`、`Principal.unrestricted` 均已删除；
+`/healthz` 也不再输出 `auth_mode`。
 
 ### D6 仍会写文件的三处，按批次处理
 

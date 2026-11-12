@@ -40,14 +40,13 @@ class PgTenancyStore:
         dsn: str,
         *,
         tenant_id: str,
-        mode: str = MODE_OIDC,
         connect: Callable[[], Any] | None = None,
     ) -> None:
         if not dsn:
             raise TenancyError("PgTenancyStore 需要 MYBMO_DATABASE_URL")
         self._dsn = dsn
         self._tenant_id = tenant_id
-        self._mode = mode
+        self._mode = MODE_OIDC
         self._connect_override = connect
 
     # ---------- 连接 ----------
@@ -149,8 +148,6 @@ class PgTenancyStore:
     # ---------- 查询 ----------
 
     def permission_for(self, principal: Principal, alias: str) -> str | None:
-        if principal.unrestricted:
-            return PERMISSION_ADMIN
         with self._conn() as conn, conn.cursor() as cur:
             row = self._account_row(cur, alias)
             if row is None:
@@ -333,10 +330,7 @@ class PgTenancyStore:
             )
 
     def describe(self, principal: Principal) -> dict[str, Any]:
-        if principal.unrestricted:
-            owned: dict[str, str] = {}
-            grants: dict[str, str] = {}
-        else:
+        if True:  # 不再有隐式全权身份（ADR 0009 D5）
             owned = {
                 a.alias: PERMISSION_ADMIN for a in self.accounts() if a.owner == principal.sub
             }

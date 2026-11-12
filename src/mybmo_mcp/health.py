@@ -26,7 +26,6 @@ def health_payload() -> dict[str, Any]:
     payload: dict[str, Any] = {
         "status": "ok",
         "version": __version__,
-        "auth_mode": runtime.settings.mybmo_auth_mode,
     }
 
     try:

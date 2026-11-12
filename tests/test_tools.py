@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import time
 from collections.abc import Iterator
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
@@ -11,8 +12,11 @@ from tests.support.memory import MemoryTenancyStore
 from mybmo_mcp.auth.access import AccountAccess
 from mybmo_mcp.auth.models import STATUS_ACTIVE, STATUS_REAUTH_REQUIRED
 from mybmo_mcp.auth.tenancy import Principal, TenancyStore
+from mybmo_mcp.config import Settings
 from mybmo_mcp.tools import accounts as accounts_tools
-from mybmo_mcp.tools.runtime import set_runtime
+from mybmo_mcp.tools.runtime import Runtime, set_runtime
+
+KEY_B64 = "a2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2s="
 
 
 class FakeEntry:
@@ -48,11 +52,16 @@ class FakeRuntime:
     def __init__(self, entries: list[FakeEntry] | None = None, tenancy: TenancyStore | None = None):
         self.registry = FakeRegistry(entries or [FakeEntry()])
         self.tenancy = tenancy or MemoryTenancyStore()
+        # 没有隐式全权身份之后，假账户必须真的归当前 principal 所有才可见
+        for entry in self.registry.list_accounts():
+            self.tenancy.register_account(
+                entry.alias, owner="u_zhang", user_name="示例账户"
+            )
         self.access = AccountAccess(self.registry, self.tenancy)  # type: ignore[arg-type]
         self.principal: Principal | None = None
 
     def current_principal(self) -> Principal:
-        return self.principal or Principal.local_admin()
+        return self.principal or Principal(sub="u_zhang", tenant_id="t_default")
 
     def context(self, principal: Principal | None = None):
         """工具层现在按租户取组件；测试里租户无意义，直接给同一套。"""
@@ -81,7 +90,7 @@ async def test_list_accounts_returns_envelope(runtime: FakeRuntime) -> None:
 
     assert result["ok"] is True
     assert result["data"]["accounts"][0]["alias"] == "axd"
-    assert result["data"]["identity"]["sub"] == "local"
+    assert result["data"]["identity"]["sub"] == "u_zhang"
 
 
 async def test_auth_status_reports_remaining_time(runtime: FakeRuntime) -> None:
@@ -111,21 +120,18 @@ async def test_auth_status_rejects_unknown_alias(runtime: FakeRuntime) -> None:
     assert "axd" in result["error"]["message"]
 
 
-async def test_local_mode_without_tenancy_file_sees_everything() -> None:
-    """stdio 单用户不要求 tenancy.json，否则默认安装就跑不起来。"""
-    set_runtime(FakeRuntime([FakeEntry("axd"), FakeEntry("bcd")]))  # type: ignore[arg-type]
-    try:
-        result = await accounts_tools.list_accounts()
-    finally:
-        set_runtime(None)
 
-    assert result["data"]["count"] == 2
-    assert result["data"]["identity"]["unrestricted"] is True
-
-
-def test_server_registers_all_tools() -> None:
+def test_server_registers_all_tools(tmp_path: Path) -> None:
     from mybmo_mcp.server import build_server
 
+    set_runtime(Runtime(settings=Settings(
+        _env_file=None,
+        mybmo_data_dir=tmp_path / "data",
+        mybmo_master_key=KEY_B64,
+        casdoor_issuer="https://auth.example",
+        mybmo_jwks_url="https://auth.example/.well-known/jwks",
+        mybmo_resource_url="https://mcp.example",
+    )))
     tools = build_server()._tool_manager.list_tools()
     names = {tool.name for tool in tools}
 

@@ -48,8 +48,7 @@ def make_runtime(tmp_path: Path, principal: Principal) -> tuple[Runtime, Recordi
         baidu_secret_key="sk-1",
         mybmo_data_dir=tmp_path,
         mybmo_master_key=KEY_B64,
-        mybmo_auth_mode="oidc",
-    )
+            )
     runtime = Runtime(settings=settings, principal=principal)
     ctx = attach_memory_context(runtime, principal.tenant_id or "t_default")
     ctx.store.save(Credential(alias="main", user_name="账户", access_token="at"))
@@ -113,17 +112,6 @@ async def test_stranger_cannot_query_account_without_access(tmp_path: Path) -> N
     assert result["ok"] is False
     assert "看不到账户 main" in result["error"]["message"]
 
-
-async def test_unrestricted_sees_everything(tmp_path: Path) -> None:
-    runtime, sink = make_runtime(tmp_path, Principal.local_admin())
-    set_runtime(runtime)
-    try:
-        await audit_tools.query_audit()
-    finally:
-        set_runtime(None)
-
-    call = sink.calls[0]
-    assert call["visible_subs"] is None and call["visible_aliases"] is None
 
 
 async def test_limit_is_clamped_and_state_validated(tmp_path: Path) -> None:

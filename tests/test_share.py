@@ -33,7 +33,7 @@ def make_runtime(tmp_path: Path, principal: Principal) -> Runtime:
     write_tenancy(tmp_path)
     settings = Settings(
         baidu_app_id="app-1", baidu_secret_key="sk-1", mybmo_data_dir=tmp_path,
-        mybmo_master_key=KEY_B64, mybmo_auth_mode="oidc",
+        mybmo_master_key=KEY_B64,
         mybmo_baidu_callback_url="https://x/oauth/baidu/callback",
     )
     rt = Runtime(settings=settings, principal=principal)

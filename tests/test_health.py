@@ -22,8 +22,7 @@ def make_settings(tmp_path: Path, *, with_key: bool) -> Settings:
         _env_file=None,
         mybmo_data_dir=tmp_path / "data",
         mybmo_master_key=KEY_B64 if with_key else "",
-        mybmo_auth_mode="local",
-    )
+            )
 
 
 @pytest.fixture(autouse=True)
@@ -40,7 +39,6 @@ def test_reports_ok_with_capabilities(tmp_path: Path) -> None:
     assert payload["status"] == "ok"
     assert payload["capabilities"] == 399
     assert payload["described"] >= 50
-    assert payload["auth_mode"] == "local"
     assert payload["credentials"] == "configured"
 
 
@@ -67,7 +65,6 @@ def test_health_does_not_leak_account_or_token_info(tmp_path: Path) -> None:
     assert keys == {
         "status",
         "version",
-        "auth_mode",
         "capabilities",
         "described",
         "verified",
@@ -79,9 +76,17 @@ def test_health_does_not_leak_account_or_token_info(tmp_path: Path) -> None:
     }
 
 
-def test_route_is_mounted_on_the_http_app() -> None:
+def test_route_is_mounted_on_the_http_app(tmp_path: Path) -> None:
     from mybmo_mcp.server import build_server
 
+    set_runtime(Runtime(settings=Settings(
+        _env_file=None,
+        mybmo_data_dir=tmp_path / "data",
+        mybmo_master_key=KEY_B64,
+        casdoor_issuer="https://auth.example",
+        mybmo_jwks_url="https://auth.example/.well-known/jwks",
+        mybmo_resource_url="https://mcp.example",
+    )))
     app = build_server().streamable_http_app()
     paths = {getattr(route, "path", None) for route in app.routes}
 

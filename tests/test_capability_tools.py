@@ -51,7 +51,7 @@ class FakeRuntime:
         self.principal: Principal | None = None
 
     def current_principal(self) -> Principal:
-        return self.principal or Principal.local_admin()
+        return self.principal or Principal(sub="u_zhang", tenant_id="t_default")
 
     def context(self, principal: Principal | None = None):
         target = principal or self.current_principal()

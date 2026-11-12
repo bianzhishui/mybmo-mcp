@@ -22,7 +22,6 @@ from mybmo_mcp import __version__
 from mybmo_mcp.auth.app_secrets import AppSecret
 from mybmo_mcp.auth.binding import STATE_TTL
 from mybmo_mcp.auth.callback import CallbackOutcome, complete_binding
-from mybmo_mcp.auth.tenancy import MODE_LOCAL, Principal
 from mybmo_mcp.baidu.errors import BaiduError
 from mybmo_mcp.health import health_payload
 from mybmo_mcp.subscribe import append_record, build_record, check_key, looks_like_baidu_key
@@ -343,21 +342,15 @@ def auth_bind(
     也就是说 state 存在数据目录里，跨进程共享，绑定命令本身可以随时退出。
     """
     runtime = get_runtime()
-    local_mode = runtime.settings.mybmo_auth_mode == MODE_LOCAL
-    if local_mode:
-        local_admin = Principal.local_admin()
-        subject = subject or local_admin.sub
-        tenant = tenant or local_admin.tenant_id
-    elif not subject:
+    if not subject:
         typer.echo(
-            "错误：oidc 模式必须用 --subject 指定该账户归属于谁的 sub，"
-            "否则绑出来的账户没人有权使用。",
+            "错误：必须用 --subject 指定该账户归属于谁的 sub，否则绑出来的账户没人有权使用。",
             err=True,
         )
         raise typer.Exit(code=2)
 
     # tenant 是 state 里唯一能证明"这次绑定属于哪个租户"的字段，多租户下不能猜。
-    tenant = tenant or (runtime.settings.mybmo_tenant_id if local_mode else "")
+    tenant = tenant.strip()
     if not tenant:
         typer.echo(
             "错误：多租户模式必须用 --tenant 指定租户（回调阶段只认 state 里的租户，"
@@ -395,11 +388,10 @@ def auth_bind(
     typer.echo("  1. 在浏览器打开上面的链接，用要绑定的百度账户登录并授权")
     typer.echo(f"  2. 百度会跳回 {callback}，由运行中的服务完成落库（页面会显示结果）")
     typer.echo("  3. 跑 list_accounts 确认该别名可见")
-    if not local_mode:
-        typer.echo(f"  4. 在 tenancy.json 里给 sub={state.subject} 授予该账户的档位")
+
     typer.echo(
         "  容器里执行：docker compose exec mcp mybmo-mcp auth bind --alias "
-        f"{state.alias}" + ("" if local_mode else f" --subject {state.subject}")
+        f"{state.alias} --subject {state.subject} --tenant {state.tenant}"
     )
 
 

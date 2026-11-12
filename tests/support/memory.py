@@ -144,8 +144,6 @@ class MemoryTenancyStore:
     # ---------- 判权 ----------
 
     def permission_for(self, principal: Principal, alias: str) -> str | None:
-        if principal.unrestricted:
-            return PERMISSION_ADMIN
         account = self._accounts.get(alias)
         if account is not None and account.owner == principal.sub:
             return PERMISSION_ADMIN
@@ -158,8 +156,6 @@ class MemoryTenancyStore:
         return best
 
     def visible(self, principal: Principal, aliases: list[str]) -> list[str]:
-        if principal.unrestricted:
-            return list(aliases)
         return [alias for alias in aliases if self.permission_for(principal, alias) is not None]
 
     def require(self, principal: Principal, alias: str, permission: str) -> None:
@@ -230,10 +226,7 @@ class MemoryTenancyStore:
         return {g.sub: g.permission for g in self._grants if g.alias == alias}
 
     def describe(self, principal: Principal) -> dict[str, Any]:
-        if principal.unrestricted:
-            owned: dict[str, str] = {}
-            grants: dict[str, str] = {}
-        else:
+        if True:
             owned = {
                 account.alias: PERMISSION_ADMIN
                 for account in self._accounts.values()

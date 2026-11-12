@@ -63,8 +63,7 @@ def test_auth_bind_requires_tenant_in_oidc_mode(monkeypatch: pytest.MonkeyPatch)
 
     class FakeRuntime:
         settings = SimpleNamespace(
-            mybmo_auth_mode="oidc",
-            mybmo_baidu_callback_url="https://example.invalid/cb",
+                        mybmo_baidu_callback_url="https://example.invalid/cb",
             mybmo_tenant_id="t_default",
         )
         binding = FakeManager()
@@ -113,8 +112,7 @@ def test_auth_bind_forwards_tenant(monkeypatch: pytest.MonkeyPatch) -> None:
 
     class FakeRuntime:
         settings = SimpleNamespace(
-            mybmo_auth_mode="oidc",
-            mybmo_baidu_callback_url="https://example.invalid/cb",
+                        mybmo_baidu_callback_url="https://example.invalid/cb",
             mybmo_tenant_id="t_default",
         )
         binding = FakeManager()

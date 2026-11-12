@@ -182,7 +182,7 @@ async def share_account(
         if level not in ("read", "write"):
             raise CredentialError("分享只能给 read 或 write；admin 是 owner 的天然权利，不能转授")
         owner = ctx.tenancy.owner_of(name)
-        if not principal.unrestricted and owner != principal.sub:
+        if owner != principal.sub:
             raise CredentialError(
                 f"只有账户 owner 能分享：{name} 的 owner 是 "
                 f"{owner or '未登记'}，不是 {principal.sub}"
@@ -207,7 +207,7 @@ async def revoke_share(alias: str, sub: str) -> dict[str, Any]:
         ctx = runtime.context(principal)
         name = validate_alias(alias)
         owner = ctx.tenancy.owner_of(name)
-        if not principal.unrestricted and owner != principal.sub:
+        if owner != principal.sub:
             raise CredentialError(
                 f"只有账户 owner 能撤销分享：{name} 的 owner 是 {owner or '未登记'}"
             )
@@ -226,7 +226,7 @@ async def list_shares(alias: str) -> dict[str, Any]:
         ctx = runtime.context(principal)
         name = validate_alias(alias)
         owner = ctx.tenancy.owner_of(name)
-        if not principal.unrestricted and owner != principal.sub:
+        if owner != principal.sub:
             raise CredentialError(
                 f"只有账户 owner 能查看分享列表：{name} 的 owner 是 {owner or '未登记'}"
             )

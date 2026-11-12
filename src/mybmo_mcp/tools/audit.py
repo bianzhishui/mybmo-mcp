@@ -67,16 +67,15 @@ async def query_audit(
         start = max(0, int(offset or 0))
 
         # ---- 可见范围 ----
-        unrestricted = principal.unrestricted
         owned: list[str] = []
-        if not unrestricted:
+        if True:  # 不再有隐式全权身份（ADR 0009 D5）：一律按"自己 + 自己的账户"过滤
             owned = [
                 item.alias
                 for item in ctx.tenancy.accounts()
                 if item.owner == principal.sub
             ]
 
-        if user and not unrestricted and user != principal.sub:
+        if user and user != principal.sub:
             raise AccessDenied(
                 f"不能查别人的调用记录：当前身份是 {principal.sub}",
                 sub=principal.sub,
@@ -84,7 +83,7 @@ async def query_audit(
                 required="read",
             )
 
-        if account and not unrestricted:
+        if account:
             if account not in owned and ctx.tenancy.permission_for(principal, account) is None:
                 raise AccessDenied(
                     f"当前身份（{principal.sub}）看不到账户 {account} 的审计",
@@ -95,8 +94,8 @@ async def query_audit(
 
         total, rows = sink.query(
             tenant_id=principal.tenant_id or "",
-            visible_subs=None if unrestricted else [principal.sub],
-            visible_aliases=None if unrestricted else owned,
+            visible_subs=[principal.sub],
+            visible_aliases=owned,
             started_after=started_after,
             started_before=started_before,
             account=account,
@@ -117,7 +116,7 @@ async def query_audit(
             "limit": size,
             "offset": start,
             "next_offset": start + size if start + size < total else None,
-            "scope": _describe(principal, account, unrestricted),
+            "scope": _describe(principal, account),
             "rows": [_jsonable(row) for row in rows],
         }
 
@@ -135,11 +134,11 @@ def _jsonable(row: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
-def _describe(principal: Any, account: str | None, unrestricted: bool) -> dict[str, Any]:
+def _describe(principal: Any, account: str | None) -> dict[str, Any]:
     return {
         "sub": principal.sub,
         "tenant_id": principal.tenant_id,
-        "scope": "all" if unrestricted else "self+owned",
+        "scope": "self+owned",
         "account": account or "",
     }
 

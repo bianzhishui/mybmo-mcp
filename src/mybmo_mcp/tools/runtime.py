@@ -37,7 +37,6 @@ from mybmo_mcp.auth.resource import SCOPE_READ, JwtVerifier
 from mybmo_mcp.auth.service import CredentialService
 from mybmo_mcp.auth.store import CredentialStore
 from mybmo_mcp.auth.tenancy import (
-    MODE_LOCAL,
     PERMISSION_READ,
     Principal,
     TenancyError,
@@ -160,9 +159,7 @@ class Runtime:
         master = self.settings.master_key_bytes()
         store: CredentialStore = PgCredentialStore(dsn, master, tenant_id=tenant_id)
         app_secrets: AppSecretStore = PgAppSecretStore(dsn, master, tenant_id=tenant_id)
-        tenancy: TenancyStore = PgTenancyStore(
-            dsn, tenant_id=tenant_id, mode=self.settings.mybmo_auth_mode
-        )
+        tenancy: TenancyStore = PgTenancyStore(dsn, tenant_id=tenant_id)
 
         registry = AccountRegistry(store)
         return TenantContext(
@@ -283,13 +280,10 @@ class Runtime:
                 sub, org=org, app=client_id, fallback_name=name
             )
 
-        if self.settings.mybmo_auth_mode != MODE_LOCAL:
-            raise TenancyError(
-                f"当前处于多用户模式（mode={self.settings.mybmo_auth_mode}），"
-                "但这次调用没有携带身份。请求应经过鉴权中间件，"
-                "不能回退成本地隐式身份——那等于任何人都是管理员"
-            )
-        return Principal.local_admin()
+        raise TenancyError(
+            "这次调用没有携带身份。请求必须经过鉴权中间件（Bearer JWT）——"
+            "本服务已没有 local 模式的隐式身份（ADR 0009 D5）"
+        )
 
     @cached_property
     def verifier(self) -> JwtVerifier | None:
@@ -299,8 +293,6 @@ class Runtime:
         包含它自己的 client_id"（即确认令牌是发给这个客户端的），租户由 client_id 解析；
         配了则额外要求命中白名单。IdP 把 ``aud`` 填成 client_id，见 docs/auth-contract.md。
         """
-        if self.settings.mybmo_auth_mode == MODE_LOCAL:
-            return None
         return JwtVerifier(
             issuer=self.settings.casdoor_issuer,
             audience=self.settings.mybmo_oidc_audience,

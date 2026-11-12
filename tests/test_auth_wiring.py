@@ -13,7 +13,6 @@ import pytest
 
 from mybmo_mcp.auth.resource import JwtVerifier
 from mybmo_mcp.auth.tenancy import (
-    MODE_LOCAL,
     MODE_OIDC,
     PERMISSION_READ,
     Principal,
@@ -51,14 +50,6 @@ def make_settings(tmp_path: Path, *, mode: str = MODE_OIDC, **overrides) -> Sett
 
 # ---------- 装配 ----------
 
-
-def test_local_mode_mounts_no_auth(tmp_path: Path) -> None:
-    """stdio 下没有 HTTP 层，装鉴权中间件只会让 SDK 期待一个永远不存在的令牌。"""
-    set_runtime(Runtime(settings=make_settings(tmp_path, mode=MODE_LOCAL)))
-
-    server = build_server(with_auth=True)
-
-    assert server.settings.auth is None
 
 
 def test_oidc_mode_mounts_resource_server(tmp_path: Path) -> None:

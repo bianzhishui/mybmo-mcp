@@ -48,8 +48,7 @@ def runtime(tmp_path: Path):
         baidu_secret_key="sk-1",
         mybmo_data_dir=tmp_path,
         mybmo_master_key=KEY_B64,
-        mybmo_auth_mode="oidc",
-        mybmo_baidu_callback_url=CALLBACK,
+                mybmo_baidu_callback_url=CALLBACK,
     )
     rt = Runtime(settings=settings, principal=ME)
     ctx = attach_memory_context(rt, ME.tenant_id or "local")
@@ -118,8 +117,7 @@ async def test_bind_account_without_callback_config_fails_clearly(tmp_path: Path
         baidu_secret_key="sk-1",
         mybmo_data_dir=tmp_path,
         mybmo_master_key=KEY_B64,
-        mybmo_auth_mode="oidc",
-        mybmo_baidu_callback_url="",
+                mybmo_baidu_callback_url="",
     )
     rt = Runtime(settings=settings, principal=ME)
     ctx = attach_memory_context(rt, ME.tenant_id or "local")

@@ -27,7 +27,7 @@ PERMISSION_ADMIN = "admin"
 PERMISSIONS: tuple[str, ...] = (PERMISSION_READ, PERMISSION_WRITE, PERMISSION_ADMIN)
 _RANK = {PERMISSION_READ: 1, PERMISSION_WRITE: 2, PERMISSION_ADMIN: 3}
 
-MODE_LOCAL = "local"
+#: 身份来源只有 OIDC 一种（local 模式已随 ADR 0009 D5 下线）
 MODE_OIDC = "oidc"
 
 #: 授权表格式版本。
@@ -112,23 +112,6 @@ class Principal:
     #: 签发本次令牌的应用（``azp`` / ``client_id``）。grant 里写了 ``app`` 时按它再收窄一层。
     app: str = ""
 
-    #: 本地单用户模式下的隐式全权身份。只允许 :meth:`local_admin` 构造出来。
-    unrestricted: bool = False
-
-    @classmethod
-    def local_admin(cls) -> Principal:
-        """stdio 单用户模式：本机进程即本人，对全部账户有 admin。
-
-        这不是"跳过鉴权"，而是"身份就是本机用户"——stdio 没有别的调用者。
-        HTTP 模式下绝不能回退到这个身份，:meth:`Runtime.current_principal` 会拦住。
-        """
-        return cls(
-            sub="local",
-            tenant_id="local",
-            display_name="本地用户",
-            source=MODE_LOCAL,
-            unrestricted=True,
-        )
 
     def to_public(self) -> dict[str, Any]:
         return {
@@ -138,7 +121,6 @@ class Principal:
             "tenant_id": self.tenant_id,
             "display_name": self.display_name,
             "source": self.source,
-            "unrestricted": self.unrestricted,
         }
 
 
