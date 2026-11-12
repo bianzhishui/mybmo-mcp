@@ -88,11 +88,23 @@ class PgTenancyStore:
     ) -> Principal:
         with self._conn() as conn, conn.cursor() as cur:
             cur.execute(
-                "SELECT idp_subject, display_name FROM users"
+                "SELECT id, idp_subject, display_name FROM users"
                 " WHERE tenant_id = %s AND idp_subject = %s",
                 (self._tenant_id, sub),
             )
             row = cur.fetchone()
+            display_name = str(row["display_name"] or "") if row is not None else ""
+            if row is not None and not display_name and fallback_name:
+                # 自愈：用户行是绑定时建的（register_account → _user_id），
+                # 那时只有 sub、拿不到名字，所以 display_name 落成空串。
+                # 第一次带着 name 的请求到这里补一次；只补空值，不覆盖人工填的。
+                cur.execute(
+                    "UPDATE users SET display_name = %s"
+                    " WHERE id = %s AND tenant_id = %s AND display_name = ''",
+                    (fallback_name, row["id"], self._tenant_id),
+                )
+                conn.commit()
+                display_name = fallback_name
         if row is None:
             # 未登记不自动创建：登录成功但没有任何账户，是可解释的状态
             return Principal(
@@ -102,7 +114,7 @@ class PgTenancyStore:
         return Principal(
             sub=row["idp_subject"],
             tenant_id=self._tenant_id,
-            display_name=row["display_name"] or fallback_name,
+            display_name=display_name or fallback_name,
             source=self._mode,
             org=org,
             app=app,

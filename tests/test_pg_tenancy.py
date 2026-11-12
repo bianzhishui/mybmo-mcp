@@ -115,3 +115,21 @@ def test_describe_shape(store: PgTenancyStore) -> None:
     assert owner_view["grants"] == {}
     assert bob_view["owned"] == {}
     assert bob_view["grants"] == {"main": "read"}
+
+
+def test_resolve_principal_backfills_empty_display_name(store) -> None:
+    """用户行是绑定时建的，那时拿不到名字；第一次带 name 的请求要补上并落库。"""
+    store.register_account("main", owner=ALICE)
+
+    first = store.resolve_principal(ALICE, fallback_name="张三")
+    assert first.display_name == "张三"
+
+    # 再问一次、换一个 fallback：说明已经落库，不是每次都用令牌里的名字
+    second = store.resolve_principal(ALICE, fallback_name="别的人")
+    assert second.display_name == "张三"
+
+
+def test_resolve_principal_without_name_keeps_it_empty(store) -> None:
+    store.register_account("main", owner=ALICE)
+
+    assert store.resolve_principal(ALICE).display_name == ""
