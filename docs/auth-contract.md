@@ -163,6 +163,8 @@ MCP 侧的对应工具是 `bind_account(alias, app_id)`：只传 `appId`；只�
 |---|---|---|
 | `CASDOOR_ISSUER` | 令牌 `iss`，必须精确匹配 | oidc 模式拒绝启动 |
 | `MYBMO_OIDC_AUDIENCE` | 允许的 client_id 白名单。**生产只有 `709a8e16656a223a1ab7`（mybmo-mcp）** | oidc 模式拒绝启动 |
+| `MYBMO_MCP_READONLY` | 是否额外挂只读入口（ADR 0011） | 不设 = 关闭，装配与行为不变 |
+| `MYBMO_MCP_READONLY_PATH` | 只读入口路径，默认 `/mcp/readonly` | 配成 `/mcp` 或其上级 → 拒绝启动 |
 | `MYBMO_TEST_DATABASE_URL` | 仅测试用：设了才会跑 PG 仓储层集成测试 |
 | `MYBMO_TENANCY_BACKEND` | `file`（默认）/ `pg`；`pg` 时授权表读 PostgreSQL |
 | `MYBMO_DATABASE_URL` | `pg` 后端必填，`postgresql://...` |
@@ -181,6 +183,7 @@ MCP 侧的对应工具是 `bind_account(alias, app_id)`：只传 `appId`；只�
 |---|---|
 | `GET /healthz` | 不需要鉴权；**即使 `credentials=unconfigured` 也返回 200**，用字段表达降级，不靠状态码。编排与监控依赖这一点 |
 | `POST /mcp` | 需要 Bearer 令牌；未认证返回 401 且带 `WWW-Authenticate` 与 `resource_metadata` |
+| `POST /mcp/readonly` | **可选**（`MYBMO_MCP_READONLY=1` 才存在，否则 404）。只读入口：7 个工具，`execute_capability` 对 `mutating != "false"` 一律拒绝并回 `denied` 审计。鉴权、`aud`、组织、授权表与 `/mcp` **完全共用**，OAuth 元数据也是同一份（`MYBMO_RESOURCE_URL` 是主机级，无路径）——所以客户端**不需要**新的授权流程。注意 `mcp-remote` 的缓存键含 URL：`/mcp` 与 `/mcp/readonly` 各需授权一次（全系统共 2 次，之后同一 OS 用户下全员复用） |
 | `GET /oauth/baidu/callback` | **百度授权回调，不需要本服务令牌**——跳转过来的是浏览器，带不了 Bearer。安全性靠一次性 state + 15 分钟 TTL + "授权码只能换一次"。反代必须把这个路径也转到容器 |
 | `GET/POST /oauth/baidu/subscribe` | **百度事件推送接收端，不需要本服务令牌**，靠共享密钥（`MYBMO_BAIDU_SUBSCRIBE_SECRET`）把关：未配 → 503，验不过 → 401 且不落盘。命中后**只打印并追加到 `data/subscribe/YYYY-MM-DD.jsonl`，不解析成任何业务动作**（ADR 0003） |
 | `/.well-known/oauth-protected-resource` | 由 MCP SDK 发布，不需要自己实现 |

@@ -3,7 +3,8 @@
 ## 是什么
 
 百度营销开放平台的 MCP 能力网关。412 个接口收进 10 个工具，用检索代替枚举；百度令牌只活在
-服务端，客户端拿的是本服务自己的身份。
+服务端，客户端拿的是本服务自己的身份。可选再挂一个**只读入口**（7 个工具、写能力在入口处被拒），
+给多 Agent 链路里非实施角色用——写边界由结构保证，见 [ADR 0011](../docs/decisions/0011-readonly-endpoint.md)。
 
 部署、身份与数据库在 [`pandabase-infra`](https://github.com/bianzhishui/pandabase-infra)，
 本仓库只承载业务代码与业务决策。
@@ -31,6 +32,7 @@
 | 单机、单人维护 | 不引需要专职运维的组件；不追求 HA |
 | IdP 组织之间有边界（built-in / pandabase） | 在鉴权层校验（aud 白名单 + `MYBMO_OIDC_ORGS`）；授权表只表达"用户 × 账户 × 档位" |
 | 百度账户归绑定者私有 | `tenancy.json` 的 `accounts[].owner`；owner 隐式 admin，分享只能 read/write |
+| 执行环境没有工具级白名单 | 想"只有实施角色能写"就得在服务端多开一条只读入口（`MYBMO_MCP_READONLY`） |
 
 ## 边界
 
@@ -78,3 +80,4 @@
 | [`live-validation`](changes/archive/2026-11-11-live-validation/proposal.md) | ✅ 已完成 | 32/32 任务；结论进 `docs/baidu-behavior.md` 等 |
 | [`multi-tenant-persistence`](changes/archive/2026-11-11-multi-tenant-persistence/proposal.md) | ✅ 已完成（MCC 暂缓） | PG 后端已上线，文件后端可回滚 |
 | [`audit-log-persistence`](changes/archive/2026-11-12-audit-log-persistence/proposal.md) | ✅ 已完成 | `audit_log` 表 + `query_audit` 工具已上线 |
+| [`readonly-endpoint`](changes/readonly-endpoint/proposal.md) | 🚧 代码与文档已完成，待上线实测 | 只读入口 `/mcp/readonly`（7 工具），见 [ADR 0011](../docs/decisions/0011-readonly-endpoint.md) |

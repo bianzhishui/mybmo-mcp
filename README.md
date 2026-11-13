@@ -9,6 +9,8 @@
 
 部署、身份与数据库在 [`pandabase-infra`](https://github.com/bianzhishui/pandabase-infra)，本仓库只管业务。
 线上实例：`https://baiduads.pandabase.top/mcp`（OAuth Bearer，令牌由 `auth.pandabase.top` 签发）。
+置 `MYBMO_MCP_READONLY=1` 会**额外**挂一个只读入口 `https://baiduads.pandabase.top/mcp/readonly`
+（7 个只读工具，写能力在入口处被拒，见 [ADR 0011](docs/decisions/0011-readonly-endpoint.md)）。
 
 ## 快速开始
 
@@ -59,9 +61,13 @@ curl -fsS https://baiduads.pandabase.top/healthz
 
 镜像仍由本仓库构建（Dockerfile 打的是 Python 产物）；网络、Casdoor、PostgreSQL、Caddy、
 证书与备份由 [`pandabase-infra`](https://github.com/bianzhishui/pandabase-infra) 提供。
-**反代不做鉴权**，`/mcp` 的令牌校验必须在本进程内完成。
+**反代不做鉴权**，`/mcp` 的令牌校验必须在本进程内完成。启用只读入口时，
+`/mcp/readonly` 也要在反代转发范围内（它和 `/mcp` 同一端口、同一份鉴权）。
 
 ## 十个工具
+
+`/mcp` 有 10 个；只读入口 `/mcp/readonly` 只有 7 个（去掉下面标 ⚠️ 的三个写工具，
+并且 `execute_capability` 只接受 `mutating=false` 的能力）。
 
 | 工具 | 作用 |
 |---|---|
@@ -70,14 +76,17 @@ curl -fsS https://baiduads.pandabase.top/healthz
 | `execute_capability` | 执行任意接口。参数自动对齐驼峰，未知字段直接拒绝并给候选 |
 | `list_accounts` | 当前身份可见的百度账户（别名、中文名、是否可用） |
 | `auth_status` | 令牌有效期、是否需要重新授权 |
-| `bind_account` | 发起百度账户绑定，返回授权链接——**用户自己在浏览器完成**，绑完他就是 owner |
-| `share_account` | 把账户分享给别人（**仅 owner**，只能 read/write） |
-| `revoke_share` | 撤销分享（仅 owner） |
+| `bind_account` ⚠️ | 发起百度账户绑定，返回授权链接——**用户自己在浏览器完成**，绑完他就是 owner |
+| `share_account` ⚠️ | 把账户分享给别人（**仅 owner**，只能 read/write） |
+| `revoke_share` ⚠️ | 撤销分享（仅 owner） |
 | `list_shares` | 看账户分享给了谁（仅 owner） |
 | `query_audit` | 查调用审计（按人/账户/接口/时间/入参），带用户隔离 |
 
 **本服务只提供能力，不做业务编排，也不拦写操作。** 拓词、报表汇总、写前确认属于
 调用方（skill / agent 工作流）的职责，理由见 [ADR 0003](docs/decisions/0003-capability-only.md)。
+
+唯一的"拦"是**只读入口**：它不是按身份判权，而是整条入口只装配读能力
+（`mutating` 白名单 + 少三个改授权的工具），见 [ADR 0011](docs/decisions/0011-readonly-endpoint.md)。
 
 ## 三条硬规则
 
@@ -184,6 +193,7 @@ mybmo-mcp tenant rename t_default 玛卡快消      # 改显示名
 | [`ADR 0008`](docs/decisions/0008-tenant-per-client.md) | 租户按 Casdoor `client_id` 解析，首次访问自动开户 |
 | [`ADR 0009`](docs/decisions/0009-postgres-only.md) | 运行期只保留 PostgreSQL 后端（移除 file） |
 | [`ADR 0010`](docs/decisions/0010-table-convention.md) | 表规范：`id` 首列 + `created_at`/`updated_at` 末两列 |
+| [`ADR 0011`](docs/decisions/0011-readonly-endpoint.md) | 只读 MCP 入口是装配形态，不是策略层 |
 | [`.env.example`](.env.example) | 全部环境变量与取值说明 |
 
 接口元数据分两层，不要混：`baidu/capabilities.json` 由

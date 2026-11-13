@@ -36,6 +36,20 @@ JWKS 拉取失败时拒绝而非放行——故障期间"先信旧密钥"等于�
 未认证请求返回 401，并带上指向 `/.well-known/oauth-protected-resource` 的 `WWW-Authenticate`
 （由 MCP SDK 发布）。
 
+**这一层按"身份"判，不按"入口"判。** 入口有两个，但鉴权只有一套：
+
+| 入口 | 工具面 | 说明 |
+|---|---|---|
+| `/mcp` | 10 个（含三个改授权的账户工具） | 默认入口，行为从未变过 |
+| `/mcp/readonly` | 7 个，且 `execute_capability` 只接受 `mutating == "false"` | 可选（`MYBMO_MCP_READONLY=1`），见 [ADR 0011](decisions/0011-readonly-endpoint.md) |
+
+两个入口共用同一份 `token_verifier`、同一份 tenancy、同一份 OAuth 元数据
+（`MYBMO_RESOURCE_URL` 是主机级、无路径），所以只读入口**不引入新身份**，
+也不需要多一步授权流程。区别只在装配：只读实例根本不注册写工具。
+
+写边界因此有两道，且互不替代：**入口**决定"这套工具存不存在"，
+**授权表**决定"这个身份能用哪个账户的哪一档"。
+
 ### 第二层：本服务 → 百度
 
 这不是用户登录，是**账户绑定**。服务端持有应用级凭据和账户级令牌。
