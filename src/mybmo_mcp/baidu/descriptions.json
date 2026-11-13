@@ -1180,7 +1180,8 @@
         "filters 形状 `{field, op, values}`，op 支持 eq/in/ge/gt/le/lt/bt；`imageId` 用 eq/in（values 传字符串或数字都可以）",
         "可筛字段：imageId / width / height / size / format / resolution(\"960*640\") / addtime / isCollect",
         "⚠️ **最终一致**：刚上传或刚改名后立即查，可能读到旧值甚至空列表（实测改名后立刻查仍是旧名）",
-        "`imageName` 只有上传时设置过才返回；没设名称的图不返回该字段"
+        "`imageName` 只有上传时设置过才返回；没设名称的图不返回该字段",
+        "⚠️ **别传 `fields`**：它只回白名单内字段（imageId/url/width/height/size/format/signature/addTime/modTime/sourceType/isCollect…），`auditStatus`/`reason` 会被**静默过滤掉**。不传 `fields` 时默认返回里带审核结论——实测 15505964077 → `auditStatus: 2`、`reason: \"已通过搜索推广机审策略\"`"
       ],
       "params": {
         "filters": "[{field, op, values}]",
@@ -1389,7 +1390,7 @@
       "mutating": "false",
       "notes": [
         "eshopType 必填（1 度小店/4 百度健康商城）、limit 必填（[offset,size]）",
-        "filters 仅支持 ('name|id','like') 与 ('id','equal')；isIntelligent 是否 AI 投手",
+        "`filters` 的 `field` 要传**字面量** `name|id`（不是 `name`、也不是 `id`）+ `op:like`；或 `field:id` + `op:equal`。实测写 `field:name` 会**返回空数组**（看着像「过滤不生效」，其实是字段名不对）。isIntelligent 是否 AI 投手",
         "返回 id 即 productId，用于 targetType=1 商品推广；商品推广计划必填 productId"
       ],
       "verified": {

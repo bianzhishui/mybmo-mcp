@@ -148,7 +148,8 @@ roi 商品支付ROI | useLiftBudget 一键起量
 ### 2.8 `getProduct`（查询商品信息）
 
 入参（`eshopType`、`limit` 必填）：`eshopType`（1 度小店/4 百度健康商城）、`limit`（[offset,size]）、
-`filters`（仅支持 `('name|id','like')`、`('id','equal')`）、`isDesc`、`isIntelligent`（是否 AI 投手）。
+`filters`（`field` 传**字面量** `name|id` + `op:like`，或 `field:id` + `op:equal`）、`isDesc`、`isIntelligent`（是否 AI 投手）。
+> ⚠️ 实测（2026-11-13）：`field:name` + `op:like` 会**返回空数组**——不是「过滤不生效」，是字段名必须写 `name|id` 这个字面量。
 返回：`eshopType`、`id`、`name`、`logo`、`salesVolume`、`price`、`updateTime`、`transInfos[]`、
 `recommendDesc[]`、`outerId`、`shopId`、`category`/`subCategory`/`thirdCategory`、`subEshopType`。
 

@@ -54,6 +54,7 @@
 | `filters` | `{field, op, values}`；op：`eq / in / ge / gt / le / lt / bt` |
 | 可筛字段 | `imageId`（eq/in）、`width`/`height`/`size`（eq/in/ge/gt/le/lt/bt）、`format`、`resolution`（`"960*640"`）、`addtime`（bt/eq）、`isCollect` |
 | `imageName` | **只有上传时设置过才返回**，没设名称的图不返回该字段 |
+| ⚠️ `fields` | **别传**：只回白名单内字段（imageId/url/width/height/size/format/signature/addTime/sourceType/isCollect…），`auditStatus` / `reason` 会被**静默过滤掉**；不传 `fields` 时默认返回带审核结论（实测 `15505964077` → `auditStatus: 2`、`reason: "已通过搜索推广机审策略"`） |
 | 分页 | `pageNo` 默认 1；`pageSize` 默认 40，范围 (0, 1000) |
 | ⚠️ **最终一致** | 刚上传/刚改名后立即查询，可能读到**旧值甚至空列表**（实测改名后立刻查仍是旧名） |
 
