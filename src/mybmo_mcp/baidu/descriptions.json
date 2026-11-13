@@ -820,6 +820,9 @@
         "⚠️ **material 是整体替换**：传什么就是什么。所以「读-改-写」前必须把 material 读全——`fengchaoTitle` 必须显式列进字段表并带 brand 才读得到；漏读某个子字段（如 `fengchaoTitle`）写回时就会被清空（2026-11-11 真实踩过：漏读 fengchaoTitle → 6 条风巢标题消失，已用抓包原文恢复，后台确认正常）",
         "⚠️ **material 是整体替换**：传什么就是什么。所以「读-改-写」前必须把 material 读全——`fengchaoTitle` 可读（须显式列进字段表）；但 `fengchaoDescription` **读接口取不到**，改 material 时只能从后台保存的完整 payload 取，否则会被清空（2026-11-11 真实踩过漏读清空）",
         "安全流程：按 51 字段表读全 → 断言 material 的 title/description/pictures/videos/fengchaoTitle 非空 → 只改目标字段 → 整体回传 → 回读逐字段比对（详见 docs/campaign-shopping.md）",
+        "`material.pictures` 尺寸规则与 addCampaignShopping **共用一套**（同一个计划资源、同一套后端物料校验）：官方允许商品推广 370×245 / 1140×640 / 750×1000、自定义直播推广仅 1140×640，张数**同样 ≤18 张**（商品推广与自定义直播推广都是 18）；非标尺寸报 901217（failures.field=pictures）。实测只覆盖 750×1000 通过、800×800 被拒，官方这三档**别当穷举白名单**硬编码；18 张也未压测（只见计划 2079251858 恰好 18 张）",
+        "⚠️ 尺寸校验发生在计划侧、不在上传侧：`ImageManageService.uploadImage` 对 800×800 照收（只入库不判尺寸），拿来当 pictures 投放时才被 901217 拒",
+        "⚠️ 回传 material 时把 `iType` / `astat` / `ideaId` 一起带上：实测 2026-11-13 带 pictures 但缺这几个创意类型字段报 901202「创意类型错误」（call_id b48e7a57b79c）——会卡在尺寸校验之前，别误判成图片问题",
         "campaignShoppingId 必填；可写字段见 docs/ec-shopping-official.md 2.3（新增时必填的 targetType/eshopType/productId/transType 更新时不改）",
         "回传前必须把读回来的对象裁剪成可写字段（去掉 reAuditStatus/auditId/smallSize/largeSize/posterSource 等只读字段），否则报「不是该能力的参数」"
       ],
@@ -1147,7 +1150,9 @@
         "addImage=true 才进「我的图库」并生成 imageId；false 仅上传不留存（返回里没有 imageId）",
         "**按内容 MD5 去重**：同一张图重复上传返回**同一个 imageId**（实测同一 1×1 PNG 两次上传 → 24365854069）",
         "返回 imageId / url / width / height / size / signature；url 是 feed-image 域名，可直接预览",
-        "⚠️ SDK schema 里的 `productLine` / `needMola` 两个参数**接口不认**：productLine 报 1519，needMola=true 报 901301「get mola URL failed」——别传"
+        "⚠️ SDK schema 里的 `productLine` / `needMola` 两个参数**接口不认**：productLine 报 1519，needMola=true 报 901301「get mola URL failed」——别传",
+        "⚠️ **不校验宽高/比例**：1×1 PNG、800×800 都能传成功（只返回 width/height，不判定）。尺寸合规是**投放时**由创意/计划接口（如 CampaignShoppingService 的 `material.pictures`）校验的——传得进去 ≠ 用得上",
+        "size 字段是**字节数**（不是尺寸）；要拿宽高看 width/height 或走 getImageList"
       ],
       "params": {
         "items": "图片数组（content 必填，imageName/imgmd5 选填）",
@@ -1288,6 +1293,7 @@
         "budget [50, 9999999.99]，0=不限；放量模式(campaignType=4)必须 >0。ocpcBid [0.2, 99999]（两位小数）",
         "transType 枚举：度小店 [14,90]、健康商城 [90]、直播间 [80,81,82,83,84]",
         "material：title 1-12 条(每条 9-60 字符)、description 0-6 条(9-80，商品推广必传)、pictures ≤18 张、videos ≤12(≥6 秒/≤500MB/需封面)、broadcastCovers 直播封面 1 张(1140×640)",
+        "`material.pictures` 尺寸与张数（计划级规则，与 updateCampaignShopping 共用）：商品推广 370×245 / 1140×640 / 750×1000，自定义直播推广仅 1140×640；**张数 ≤18**（商品推广与自定义直播推广都是 18，字段声明上限 36 是另一个数）。非标尺寸报 901217（failures.field=pictures）。⚠️ `uploadImage` 不校验宽高，800×800 能传进图库但投放时被拒；这三档是官方口径、实测只验过 750×1000 通过 / 800×800 被拒，别当穷举白名单；18 张未压测",
         "⚠️ `material.userPortrait`（品牌头像，Picture，120×120）**官方文档与 schema 都没标必填，但商品推广新建实测必带**：不带它返回 901217「物料错误：创意设置品牌头像错误」，failures 里 field=userPortrait；补上合法的 120×120 头像后该错消失（2026-11-13 实测：call_id f544250ba6ae 缺它失败 / 98b453c47249 带上 imageId 15505964077 成功建计划 2387079078）。直播推广（targetType=2）与其他账户尚未验证，别一律当成协议必填",
         "audience 是扁平 Map<String,String>（见 getCampaignShopping 与 docs/ec-shopping-official.md 第三节）；实测只传 sex/age/region/regionType/keywords/keywordsExtend/intelligentWeight 会报 901216「兴趣错误」（field=interests），需同时带上 crowd/customAge/interests/etradecrowds/excludeCrowd 等键",
         "写成功后用 getCampaignShopping 回读复核；详见 docs/ec-shopping-official.md 2.2"

@@ -102,8 +102,10 @@ roi 商品支付ROI | useLiftBudget 一键起量
 | `campaignType` | Integer | 出价模式 1 控成本 / 4 放量 |
 
 `material` 关键限制：`title` [1,12] 每条 9-60 字符；`description` [0,6] 每条 9-80（商品推广必传，直播不传）；
-`pictures` [1,36]（商品/直播必传其一；图片 ID 不重复；商品尺寸 370×245/1140×640/750×1000，≤18 张）；
+`pictures` 声明集合 [1,36]，但**实际可用 ≤18 张**（商品推广与自定义直播推广都是 18；36 只是字段声明上限，
+别当可用张数）；图片 ID 不重复；商品尺寸 370×245/1140×640/750×1000，自定义直播推广仅 1140×640；
 `videos` [0,12]（≥6 秒、≤500MB、16:9 或 9:16，需封面）；`broadcastCovers` [0,1]（直播用，1140×640）。
+`addCampaignShopping` 与 `updateCampaignShopping` 是同一个计划资源，上述尺寸/张数规则**两者一致**。
 
 > ⚠ **`material.userPortrait`（品牌头像，Picture，120×120）官方没标必填，实测必带**（2026-11-13，账户
 > `baidu-YF电商-玛卡快消01`，商品推广 `targetType=1`/`ideaType=1`）：

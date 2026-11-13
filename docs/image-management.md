@@ -32,6 +32,11 @@
 实测：1×1 透明 PNG（70 字节）→ `imageId 24365854069`、`url https://feed-image.baidu.com/0/pic/…png`、
 `size 70`；同内容二次上传仍返回 `24365854069`。
 
+> ⚠️ **本接口不校验宽高/比例**：1×1 PNG（70B）、800×800 商品主图都上传成功，接口只回报 `width/height`，不做判定。
+> 尺寸合规是**投放时**由创意/计划接口校验的——例如电商计划 `material.pictures` 要求商品推广
+> 370×245 / 1140×640 / 750×1000（非标尺寸报 `901217`，见 `docs/campaign-shopping.md` 第二节）。
+> 所以「上传成功」不等于「能用」，别把它当尺寸合规的凭证；`size` 是字节数，不是尺寸。
+
 ## 三、查询 `ImageManageService.getImageList` ✅
 
 ```jsonc
