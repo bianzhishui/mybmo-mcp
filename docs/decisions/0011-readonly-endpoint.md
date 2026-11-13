@@ -6,7 +6,7 @@
 - 关联：[ADR 0003](0003-capability-only.md)（只做能力层）、
   [ADR 0004](0004-multi-tenant-accounts.md)（多租户账户）、
   [`archive/2026-11-13-readonly-endpoint`](../../openspec/changes/archive/2026-11-13-readonly-endpoint/proposal.md)、
-  需求单 [`docs/req-mybmo-mcp-readonly-endpoint.md`](../req-mybmo-mcp-readonly-endpoint.md)
+  对方需求单 `openspec/changes/archive/2026-11-13-readonly-endpoint/req-from-mybmo-agents.md`
 
 ## 背景
 

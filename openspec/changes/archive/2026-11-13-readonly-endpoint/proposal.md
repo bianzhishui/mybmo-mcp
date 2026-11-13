@@ -2,7 +2,7 @@
 
 > **状态**：✅ 已完成并上线（2026-11-13）。`MYBMO_MCP_READONLY=1` 正在 pandabase-dev01 运行，
 > 8 条验收用例全部通过（含真实令牌与真实拓词）。需求来源：
-> [`docs/req-mybmo-mcp-readonly-endpoint.md`](../../../../docs/req-mybmo-mcp-readonly-endpoint.md)
+> [`req-from-mybmo-agents.md`](req-from-mybmo-agents.md)（对方需求单原文，按归档规则保留）
 > （提出方 `mybmo-agents`，与 `mybmo-agents:docs/dsh-multi-agent-v1.md` §5.2 / §5.3 关联）。
 
 ## 为什么

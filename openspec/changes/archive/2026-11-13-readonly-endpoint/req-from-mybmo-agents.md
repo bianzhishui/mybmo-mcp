@@ -1,9 +1,14 @@
-# 需求：mybmo-mcp 提供只读 MCP 入口（`/mcp/readonly`）
+# 需求（外部来件）：mybmo-mcp 提供只读 MCP 入口（`/mcp/readonly`）
 
-> **状态**：✅ 已实现并上线（2026-11-13，pandabase-dev01），归档在
-> [`openspec/changes/archive/2026-11-13-readonly-endpoint/`](../openspec/changes/archive/2026-11-13-readonly-endpoint/proposal.md)；
-> 决策见 [ADR 0011](decisions/0011-readonly-endpoint.md)（只读入口是装配形态，不是策略层）。
-> 我方回信见 [`reply-to-mybmo-agents.md`](../openspec/changes/archive/2026-11-13-readonly-endpoint/reply-to-mybmo-agents.md)。
+> **这是什么**：`mybmo-agents` 递来的需求单**原文副本**，按归档规则原样保留（未做改写），
+> 用于追溯"对方当时怎么提的、我们改了什么"。
+> **状态**：✅ 已实现并上线（2026-11-13，pandabase-dev01）。
+> 同目录：[`proposal.md`](proposal.md)（我方变更说明）、[`design.md`](design.md)（决策与实测坑）、
+> [`tasks.md`](tasks.md)（可勾选任务）、[`reply-to-mybmo-agents.md`](reply-to-mybmo-agents.md)（回信）。
+> 决策记录：[ADR 0011](../../../../docs/decisions/0011-readonly-endpoint.md)。
+>
+> 说明：§四「建议实现」与 §五「行为契约」中的两处**未被采纳**（改用统一失败信封而非
+> `ToolError`；父 app 用 `Route` 复用而非 `Mount`），差异与理由见 `design.md` D4 / D6。
 
 > 提出方：`mybmo-agents`（电商推广多 Agent 工作流）
 > 关联设计：`mybmo-agents:docs/dsh-multi-agent-v1.md` §5.2 / §5.3

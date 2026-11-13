@@ -1,7 +1,7 @@
 # 任务：只读 MCP 入口 `/mcp/readonly`
 
 > 勾选标准：能被 `tools/list`、一条测试或线上实测证明。
-> 对应需求单 `docs/req-mybmo-mcp-readonly-endpoint.md` §六 的 8 条用例。
+> 对应需求单 [`req-from-mybmo-agents.md`](req-from-mybmo-agents.md) §六 的 8 条用例。
 
 ## 1. 配置
 
@@ -77,7 +77,7 @@
 - [x] 6.3 `docs/architecture.md`：信任边界图里加第二个入口
 - [x] 6.4 `README.md`：端点与两个新开关；说明 `mcp-remote` 按 URL 缓存令牌 ⇒ 两个入口各授权一次、全员复用
 - [x] 6.5 `openspec/project.md` 变更状态表 + `openspec/changes/README.md` 当前表
-- [x] 6.6 `docs/req-mybmo-mcp-readonly-endpoint.md` 顶部补一行"已立项：`changes/readonly-endpoint/`"
+- [x] 6.6 需求单顶部补状态行（该文件随后移入本归档目录，改名 `req-from-mybmo-agents.md`）
 
 ## 7. 上线与回滚
 

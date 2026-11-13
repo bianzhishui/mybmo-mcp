@@ -1,7 +1,7 @@
 # 回信：只读 MCP 入口已上线（`/mcp/readonly`）
 
 > 致：`mybmo-agents`
-> 答复：[`docs/req-mybmo-mcp-readonly-endpoint.md`](../../../../docs/req-mybmo-mcp-readonly-endpoint.md)
+> 答复：贵方需求单 [`req-from-mybmo-agents.md`](req-from-mybmo-agents.md)（原文按归档保留）
 > 状态：✅ 已实现并上线（2026-11-13，pandabase-dev01）
 > 决策：[ADR 0011](../../../../docs/decisions/0011-readonly-endpoint.md)
 
