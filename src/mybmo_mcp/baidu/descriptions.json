@@ -37,7 +37,7 @@
         "还剩多少钱"
       ],
       "notes": [
-        "需要账户管理类权限。⚠️ 遇到 89406 先按「令牌失效」排查（如 secretKey 被重置会让该应用下所有令牌失效，见 docs/architecture.md）；「权限域没开是否也报 89406」尚未实测，属已知未知，勿直接断言是权限问题——先用只读接口验证令牌本身",
+        "需要账户管理类权限。⚠️ 遇到 89406 先按「令牌失效」排查（如 secretKey 被重置会让该应用下所有令牌失效）；「权限域没开是否也报 89406」尚未实测，属已知未知，勿直接断言是权限问题——先用只读接口验证令牌本身",
         "productIds 区分产品线，不传取全部产品线"
       ],
       "params": {
@@ -495,7 +495,7 @@
         "reportType 必填；一站式多渠道账户报告实测取值 1783967（timeUnit: HOUR/DAY/WEEK/MONTH/SUMMARY，区间上限 824 天）",
         "实测 createReportTask 与 getTaskStatus 的响应都是**单元素数组**，taskId/taskStatus/fileUrl 在 [0] 里",
         "支持 execute_capability(wait=True)：元数据已声明，轮询到 taskStatus=SUCCESS 后返回终态（含 fileUrl、tableHeader、dataStartRow）",
-        "reportType 全表与异步流程细节见 docs/reports.md"
+        "reportType 实测过的取值：1783967 一站式多渠道账户报告；电商线 600001 账户 / 600002 计划 / 600037 商品·全部 / 600004 商品·计划维度 / 600003 直播间·计划维度 / 600033 直播间·全部 / 600014 智投 / 600031 创意视频·全部 / 600012 创意视频·计划维度 / 600027 创意组合·全部 / 600010 创意组合·计划维度 / 600029 创意元素·全部 / 600011 创意元素·计划维度。其余 reportType 未实测，先小范围试一个再批量建任务"
       ],
       "params": {
         "startDate": "起始日期，格式 YYYY-MM-DD",
@@ -553,7 +553,7 @@
         "reportType 必填；一站式多渠道账户报告实测取值 1783967，timeUnit 用 HOUR/DAY/WEEK/MONTH/SUMMARY",
         "时间区间上限 824 天，超了报 901606「时间区间不能超过824天」",
         "默认排序不稳定（实测相邻两页日期不连续），分页取全量前务必用 sorts 指定排序字段",
-        "已实测 reportType 枚举（timeUnit=DAY）：1783967 一站式多渠道账户报告；600001 电商账户、600002 电商计划、600037 电商商品·全部、600004 电商商品·计划维度、600003 电商直播间·计划维度、600033 电商直播间·全部、600014 电商智投、600031 电商创意视频·全部、600012 电商创意视频·计划维度、600027 电商创意组合·全部、600010 电商创意组合·计划维度、600029 电商创意元素·全部、600011 电商创意元素·计划维度。列字典与更多未测 reportType 见 docs/reports.md；列名不确定时传 withColumnMeta=true 运行时探。",
+        "已实测 reportType 枚举（timeUnit=DAY）：1783967 一站式多渠道账户报告；600001 电商账户、600002 电商计划、600037 电商商品·全部、600004 电商商品·计划维度、600003 电商直播间·计划维度、600033 电商直播间·全部、600014 电商智投、600031 电商创意视频·全部、600012 电商创意视频·计划维度、600027 电商创意组合·全部、600010 电商创意组合·计划维度、600029 电商创意元素·全部、600011 电商创意元素·计划维度。列名字典未本地收录，不确定时传 withColumnMeta=true 运行时探（会一并返回列元数据）。",
         "电商 600xxx 已实测 13 个（账户/计划/商品/视频/创意组合/创意元素，含计划维度）；其中 600014 智投报告、600003/600033 直播间报告在本账户无数据但枚举有效。⚠️ 智投项目维度的 600028/600030/600032/600034/600038 未实测（需 projectShoppingId，账户无智投项目），勿当作已验证"
       ],
       "params": {
@@ -777,12 +777,12 @@
         "**词包绑定关系存在 `audience.fcKeywordWtpids`**：逗号分隔的关键词包 ID 列表（实测 \"1352096810890,1615571277581\" 对应两个包），解绑就是把这个 ID 从这里去掉",
         "风巢相关字段：`audience.fcKeywordWtpids`（关键词包 ID，fc=风巢）可读；`material.fengchaoTitle` 可读（需带 brand 且显式列进字段表，读回动态位显示为 `#{文案}`）；`material.fengchaoDescription` **读不回**（2026-11-13 实测：显式列进字段表且带 brand，扫全部 35 个计划均不返回；本接口对未知字段静默忽略，故读接口取不到，只能写）",
         "⚠️ **material 只有在请求里带上 `brand` 等核心素材字段时才会被组装**；且 `fengchaoTitle` 必须**显式列进 campaignShoppingFields** 才会返回。只请求 fengchaoTitle（不带 brand）会得到空 material",
-        "**读全字段请照抄后台的标准字段表**（直接作为 campaignShoppingFields 全传，实列 51 项）：[\"targetType\", \"anchorId\", \"intelligentType\", \"campaignShoppingName\", \"ideaType\", \"campaignType\", \"budget\", \"ocpcBid\", \"roi\", \"startTime\", \"endTime\", \"eshopType\", \"excludeCrowd\", \"excludeTrans\", \"productName\", \"productId\", \"schedule\", \"sex\", \"age\", \"fcKeywordWtpids\", \"transType\", \"customAge\", \"regionType\", \"region\", \"interests\", \"keywords\", \"keywordsExtend\", \"crowd\", \"etradecrowds\", \"brand\", \"userPortrait\", \"title\", \"fengchaoTitle\", \"description\", \"pictures\", \"videos\", \"broadcastCovers\", \"customMaterials\", \"intelligentWeight\", \"diagnosticLabel\", \"status\", \"pause\", \"liftBudget\", \"liftMode\", \"useLiftBudget\", \"aiOptimizer\", \"liftStatus\", \"campaignSource\", \"atpShoppingId\", \"picAndVideoName\", \"elementFixStatus\"]。漏字段读不到，而写回时 material 整体替换 → 读不全就等于写坏。（完整读写规则见 docs/campaign-shopping.md 第一节）",
+        "**读全字段请照抄后台的标准字段表**（直接作为 campaignShoppingFields 全传，实列 51 项）：[\"targetType\", \"anchorId\", \"intelligentType\", \"campaignShoppingName\", \"ideaType\", \"campaignType\", \"budget\", \"ocpcBid\", \"roi\", \"startTime\", \"endTime\", \"eshopType\", \"excludeCrowd\", \"excludeTrans\", \"productName\", \"productId\", \"schedule\", \"sex\", \"age\", \"fcKeywordWtpids\", \"transType\", \"customAge\", \"regionType\", \"region\", \"interests\", \"keywords\", \"keywordsExtend\", \"crowd\", \"etradecrowds\", \"brand\", \"userPortrait\", \"title\", \"fengchaoTitle\", \"description\", \"pictures\", \"videos\", \"broadcastCovers\", \"customMaterials\", \"intelligentWeight\", \"diagnosticLabel\", \"status\", \"pause\", \"liftBudget\", \"liftMode\", \"useLiftBudget\", \"aiOptimizer\", \"liftStatus\", \"campaignSource\", \"atpShoppingId\", \"picAndVideoName\", \"elementFixStatus\"]。漏字段读不到，而写回时 material 整体替换 → 读不全就等于写坏。字段名拼错会被**静默忽略**（不报错，material 悄悄变空），照抄这张表最稳",
         "两条组装规则：① 不带 `brand` 时 `material` 整个为空；② `fengchaoTitle` 必须显式列进字段表才返回",
-        "官方字段与含义（详见 docs/ec-shopping-official.md 2.1）：campaignShoppingId 计划ID｜status 计划状态｜campaignShoppingName 计划名称｜pause 是否暂停｜targetType 推广目标(1商品/2直播)｜eshopType 店铺类型(1度小店/4健康商城)｜productId/productName 商品ID/名称｜anchorId 主播ID｜budget 预算(0=不限)｜transType 转化目标｜ocpcBid 出价｜startTime/endTime 起止日期(9999-01-01=长期)｜schedule 推广时段｜ideaType 创意来源(1自定义/2直播间实况)｜atpShoppingId 定向包ID｜sex/age/customAge 性别/年龄/自定义年龄｜regionType/region 地域类型/地域｜keywords 意图词｜keywordsExtend 意图搜索行为(1全网/2历史搜索)｜crowd 自定义人群｜excludeTrans 排除已转化(1同账户/4同主体)｜excludeCrowd 排除自定义人群｜fcKeywordWtpids 关键词包｜intelligentWeight 智能放量(1用/0不用)｜brand 品牌名｜userPortrait 品牌图片｜title/description 标题/描述｜pictures/videos 图片/视频｜broadcastCovers 直播封面｜roi 商品支付ROI｜useLiftBudget 一键起量",
+        "官方字段与含义：campaignShoppingId 计划ID｜status 计划状态｜campaignShoppingName 计划名称｜pause 是否暂停｜targetType 推广目标(1商品/2直播)｜eshopType 店铺类型(1度小店/4健康商城)｜productId/productName 商品ID/名称｜anchorId 主播ID｜budget 预算(0=不限)｜transType 转化目标｜ocpcBid 出价｜startTime/endTime 起止日期(9999-01-01=长期)｜schedule 推广时段｜ideaType 创意来源(1自定义/2直播间实况)｜atpShoppingId 定向包ID｜sex/age/customAge 性别/年龄/自定义年龄｜regionType/region 地域类型/地域｜keywords 意图词｜keywordsExtend 意图搜索行为(1全网/2历史搜索)｜crowd 自定义人群｜excludeTrans 排除已转化(1同账户/4同主体)｜excludeCrowd 排除自定义人群｜fcKeywordWtpids 关键词包｜intelligentWeight 智能放量(1用/0不用)｜brand 品牌名｜userPortrait 品牌图片｜title/description 标题/描述｜pictures/videos 图片/视频｜broadcastCovers 直播封面｜roi 商品支付ROI｜useLiftBudget 一键起量",
         "status 取值：0 有效/1 暂停时段/2 暂停/3 预算不足/10 账户预算不足/11 余额为零/20 审核中/21 审核不通过/22 部分有效/30 商品已失效；campaignType 出价模式 1 控成本/4 放量；campaignSource 0 常规/1 批量/2 复制/3 AI；intelligentType 0 自定义投放/1 智能投放",
         "transType 转化类型：14 订单支付成功/90 商品支付成功/80 直播间成单/81 涨粉/82 观看/83 商品按钮点击/84 停留/10090 商品支付ROI",
-        "audience 各字段取值见 docs/ec-shopping-official.md 第三节：age/customAge 互斥；region 9999999=不限；keywords ≤2000 个；keywordsExtend 1 全网/2 历史搜索；excludeTrans 1 同账户/4 同主体；etradecrowds 定向包不支持"
+        "audience 各字段取值：age/customAge 互斥；region 9999999=不限；keywords ≤2000 个；keywordsExtend 1 全网/2 历史搜索；excludeTrans 1 同账户/4 同主体；etradecrowds 定向包不支持"
       ],
       "params": {
         "campaignShoppingFields": "需要返回的字段名列表，必填",
@@ -819,11 +819,11 @@
         "`fengchaoDescription` **读不回、只能写**（2026-11-13 实测）",
         "⚠️ **material 是整体替换**：传什么就是什么。所以「读-改-写」前必须把 material 读全——`fengchaoTitle` 必须显式列进字段表并带 brand 才读得到；漏读某个子字段（如 `fengchaoTitle`）写回时就会被清空（2026-11-11 真实踩过：漏读 fengchaoTitle → 6 条风巢标题消失，已用抓包原文恢复，后台确认正常）",
         "⚠️ **material 是整体替换**：传什么就是什么。所以「读-改-写」前必须把 material 读全——`fengchaoTitle` 可读（须显式列进字段表）；但 `fengchaoDescription` **读接口取不到**，改 material 时只能从后台保存的完整 payload 取，否则会被清空（2026-11-11 真实踩过漏读清空）",
-        "安全流程：按 51 字段表读全 → 断言 material 的 title/description/pictures/videos/fengchaoTitle 非空 → 只改目标字段 → 整体回传 → 回读逐字段比对（详见 docs/campaign-shopping.md）",
+        "安全流程：按 51 字段表读全 → 断言 material 的 title/description/pictures/videos/fengchaoTitle 非空 → 只改目标字段 → 整体回传 → 回读逐字段比对（material 是整体替换，漏读即写坏）",
         "`material.pictures` 尺寸规则与 addCampaignShopping **共用一套**（同一个计划资源、同一套后端物料校验）：官方允许商品推广 370×245 / 1140×640 / 750×1000、自定义直播推广仅 1140×640，张数**同样 ≤18 张**（商品推广与自定义直播推广都是 18）；非标尺寸报 901217（failures.field=pictures）。实测只覆盖 750×1000 通过、800×800 被拒，官方这三档**别当穷举白名单**硬编码；18 张也未压测（只见计划 2079251858 恰好 18 张）",
         "⚠️ 尺寸校验发生在计划侧、不在上传侧：`ImageManageService.uploadImage` 对 800×800 照收（只入库不判尺寸），拿来当 pictures 投放时才被 901217 拒",
         "⚠️ 回传 material 时把 `iType` / `astat` / `ideaId` 一起带上：实测 2026-11-13 带 pictures 但缺这几个创意类型字段报 901202「创意类型错误」（call_id b48e7a57b79c）——会卡在尺寸校验之前，别误判成图片问题",
-        "campaignShoppingId 必填；可写字段见 docs/ec-shopping-official.md 2.3（新增时必填的 targetType/eshopType/productId/transType 更新时不改）",
+        "campaignShoppingId 必填。可写：campaignShoppingName / campaignType / anchorId / budget / ocpcBid / ideaType / startTime / endTime / schedule / audience / material / pause / status / promotionUrl / productId / productName / eshopType / customMaterials / diagnosticLabel / adgroupShoppingId / repayShowDesc / repayShowStatus；`targetType` / `eshopType` / `productId` / `transType` 是新增时定的，更新不要动",
         "回传前必须把读回来的对象裁剪成可写字段（去掉 reAuditStatus/auditId/smallSize/largeSize/posterSource 等只读字段），否则报「不是该能力的参数」"
       ],
       "params": {
@@ -1295,8 +1295,8 @@
         "material：title 1-12 条(每条 9-60 字符)、description 0-6 条(9-80，商品推广必传)、pictures ≤18 张、videos ≤12(≥6 秒/≤500MB/需封面)、broadcastCovers 直播封面 1 张(1140×640)",
         "`material.pictures` 尺寸与张数（计划级规则，与 updateCampaignShopping 共用）：商品推广 370×245 / 1140×640 / 750×1000，自定义直播推广仅 1140×640；**张数 ≤18**（商品推广与自定义直播推广都是 18，字段声明上限 36 是另一个数）。非标尺寸报 901217（failures.field=pictures）。⚠️ `uploadImage` 不校验宽高，800×800 能传进图库但投放时被拒；这三档是官方口径、实测只验过 750×1000 通过 / 800×800 被拒，别当穷举白名单；18 张未压测",
         "⚠️ `material.userPortrait`（品牌头像，Picture，120×120）**官方文档与 schema 都没标必填，但商品推广新建实测必带**：不带它返回 901217「物料错误：创意设置品牌头像错误」，failures 里 field=userPortrait；补上合法的 120×120 头像后该错消失（2026-11-13 实测：call_id f544250ba6ae 缺它失败 / 98b453c47249 带上 imageId 15505964077 成功建计划 2387079078）。直播推广（targetType=2）与其他账户尚未验证，别一律当成协议必填",
-        "audience 是扁平 Map<String,String>（见 getCampaignShopping 与 docs/ec-shopping-official.md 第三节）；实测只传 sex/age/region/regionType/keywords/keywordsExtend/intelligentWeight 会报 901216「兴趣错误」（field=interests），需同时带上 crowd/customAge/interests/etradecrowds/excludeCrowd 等键",
-        "写成功后用 getCampaignShopping 回读复核；详见 docs/ec-shopping-official.md 2.2"
+        "audience 是扁平 Map<String,String>（键见 getCampaignShopping 的 audience 说明）；实测只传 sex/age/region/regionType/keywords/keywordsExtend/intelligentWeight 会报 901216「兴趣错误」（field=interests），需同时带上 crowd/customAge/interests/etradecrowds/excludeCrowd 等键",
+        "写成功后用 getCampaignShopping 回读复核（51 字段表全传，断言 material 各子字段与 audience 关键键都在）"
       ],
       "params": {
         "campaignShoppingTypes": "计划对象数组，集合 [1,20]；每项必填 campaignShoppingName / targetType / budget / transType / ocpcBid / audience / ideaType / material / campaignType",
@@ -1446,7 +1446,7 @@
       "notes": [
         "limit 必填（[offset,size]）、projectShoppingFields 必填（查询字段）",
         "返回：projectShoppingId/projectShoppingName/pause/status/astat/targetType/eshopType/productId/productName/anchorId/budget(项目共享预算)/transType/campaignType/ocpcBid/roi/startTime/endTime/schedule/audience/ideaTypes(数组)/material/promotionUrl 等",
-        "详见 docs/ec-shopping-official.md 第六节"
+        "与计划（CampaignShopping）的差别：创意来源是 `ideaTypes`（**数组**，不是单个 ideaType）；`budget` 是项目共享预算；另有 elementGenerator / repayShowStatus / repayShowDesc / bizType / liveStatus / liveProductId / quickCreate。字段名拼错是否被静默忽略未测（计划侧会被静默忽略）"
       ],
       "verified": {
         "at": "2026-11-13",
@@ -1462,7 +1462,7 @@
       ],
       "notes": [
         "projectShoppingTypes[] 必填：projectShoppingName / targetType / budget / campaignType / audience / ideaTypes / material",
-        "字段语义与电商计划基本一致（见 docs/ec-shopping-official.md 第六节）"
+        "material/audience 与电商计划同构：audience 是扁平 Map<String,String>（键同计划：sex/age/customAge/regionType/region/interests/keywords/keywordsExtend/crowd/etradecrowds/excludeCrowd/excludeTrans/intelligentWeight/fcKeywordWtpids）；material 也含 brand/userPortrait/title/description/pictures/videos/broadcastCovers，尺寸与张数规则同计划（商品推广图片 ≤18 张）。差别：`ideaTypes` 是数组、`budget` 是项目共享预算"
       ]
     },
     "ProjectShoppingService.updateProjectShopping": {
@@ -1472,7 +1472,7 @@
       ],
       "notes": [
         "projectShoppingTypes[]：projectShoppingId 定位，其余只传要改的字段；targetType/budget/campaignType/audience/ideaTypes/material 按官方为必填",
-        "详见 docs/ec-shopping-official.md 第六节"
+        "budget 是项目共享预算，改动影响项目下所有计划；material 与计划一样是整体替换语义（传什么就是什么，改前按同构字段读全）"
       ]
     },
     "ProjectShoppingService.deleteProjectShopping": {
@@ -1527,7 +1527,7 @@
       ],
       "notes": [
         "atpName 必填、audience 必填（Map<String,String>，不支持 etradecrowds 电商推荐人群）；atpDesc 可选",
-        "返回 atpIds；audience 字段见 docs/ec-shopping-official.md 第三节"
+        "返回 atpIds。audience 键与计划一致（扁平 Map<String,String>）：age 与 customAge 互斥（一方有值另一方只能传 0）、region 9999999=不限、interests 只传最下级 ID、keywords ≤2000 个且每个 ≤40 字节、crowd/excludeCrowd 为自定义人群 ID（≤3000 个）、keywordsExtend 1 全网/2 历史搜索、excludeTrans 1 同账户/4 同主体；定向包**不支持 etradecrowds**"
       ]
     },
     "AtpService.updateAtp": {

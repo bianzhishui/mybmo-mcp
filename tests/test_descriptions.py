@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -135,6 +136,25 @@ def test_param_description_on_ref_target_does_not_pollute_model(
     assert "description" not in closure["Picture"]
     assert "description" not in material["properties"]["pictures"]
     assert "description" not in material["properties"]["pictures"]["items"]
+
+
+_REPO_PATH = re.compile(r"(docs/|tmp/|openspec/|scripts/|\.md\b)")
+
+
+def test_notes_are_self_contained(raw_descriptions: dict[str, Any]) -> None:
+    """notes/params 会原样发给 MCP 调用方，而调用方**没有仓库文件系统**。
+
+    所以不许出现 ``docs/xxx.md``、``tmp/`` 这类仓库内路径：那是死链，等于把信息丢了。
+    细节该内联就内联，实在放不下的就别写，让调用方用 schema + 运行时探测。
+    """
+    offenders: list[str] = []
+    for key, entry in raw_descriptions["capabilities"].items():
+        texts = [*(entry.get("notes") or []), *((entry.get("params") or {}).values())]
+        texts.append(entry.get("description") or "")
+        texts.append((entry.get("verified") or {}).get("basis") or "")
+        offenders += [f"{key}: {str(text)[:70]}" for text in texts if _REPO_PATH.search(str(text))]
+
+    assert not offenders, "描述里引用了仓库内文件（MCP 调用方读不到）：\n" + "\n".join(offenders)
 
 
 def test_described_count_matches_file(
