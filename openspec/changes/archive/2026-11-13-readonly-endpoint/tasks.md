@@ -113,4 +113,4 @@
       `main`（owner=admin, my_permission=admin）
 - [x] 7.5 回滚：删 `MYBMO_MCP_READONLY` 即回到单入口，无需改镜像
       （2026-11-13 用同镜像 + 生产 env 起临时容器实测：`/mcp` → 401、`/mcp/readonly` → 404）
-- [ ] 7.6 完成后按 `changes/README.md` 归档为 `archive/2026-MM-DD-readonly-endpoint/`
+- [x] 7.6 已归档为 `openspec/changes/archive/2026-11-13-readonly-endpoint/`

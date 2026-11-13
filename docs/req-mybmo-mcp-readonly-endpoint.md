@@ -1,7 +1,9 @@
 # 需求：mybmo-mcp 提供只读 MCP 入口（`/mcp/readonly`）
 
-> **状态**：已立项 → [`openspec/changes/readonly-endpoint/`](../openspec/changes/readonly-endpoint/proposal.md)
-> （决策见 [ADR 0011](decisions/0011-readonly-endpoint.md)：只读入口是装配形态，不是策略层）
+> **状态**：✅ 已实现并上线（2026-11-13，pandabase-dev01），归档在
+> [`openspec/changes/archive/2026-11-13-readonly-endpoint/`](../openspec/changes/archive/2026-11-13-readonly-endpoint/proposal.md)；
+> 决策见 [ADR 0011](decisions/0011-readonly-endpoint.md)（只读入口是装配形态，不是策略层）。
+> 我方回信见 [`reply-to-mybmo-agents.md`](../openspec/changes/archive/2026-11-13-readonly-endpoint/reply-to-mybmo-agents.md)。
 
 > 提出方：`mybmo-agents`（电商推广多 Agent 工作流）
 > 关联设计：`mybmo-agents:docs/dsh-multi-agent-v1.md` §5.2 / §5.3

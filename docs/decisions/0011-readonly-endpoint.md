@@ -5,7 +5,7 @@
 - 决策者：项目负责人
 - 关联：[ADR 0003](0003-capability-only.md)（只做能力层）、
   [ADR 0004](0004-multi-tenant-accounts.md)（多租户账户）、
-  [`changes/readonly-endpoint`](../../openspec/changes/readonly-endpoint/proposal.md)、
+  [`archive/2026-11-13-readonly-endpoint`](../../openspec/changes/archive/2026-11-13-readonly-endpoint/proposal.md)、
   需求单 [`docs/req-mybmo-mcp-readonly-endpoint.md`](../req-mybmo-mcp-readonly-endpoint.md)
 
 ## 背景
@@ -65,5 +65,8 @@ ADR 0003 定下"能力层不做业务编排、不做写审批"，`mutating` 只�
 
 ## 未决问题
 
-- [ ] 反代（`pandabase-infra`）是否已把 `/mcp/readonly` 纳入转发范围——属另一仓库
+- [x] 反代：**无需改动**。这台机是共享宿主机形态，`baiduads.pandabase.top` 站点用的是兜底
+      `handle { reverse_proxy }`，`/mcp/readonly` 天然在转发范围内（2026-11-13 实测公网 401 打通）
 - [ ] 将来若按"用户/角色"裁剪工具，是否仍以第二实例承载（还是引入真正的策略层）
+- [ ] 想做到"客户端只授权一次"就得去掉 `mcp-remote`、让 DSH 直连 streamable-http 并自带令牌刷新；
+      本次决定不付这个成本（见变更包 design「已知副作用」）

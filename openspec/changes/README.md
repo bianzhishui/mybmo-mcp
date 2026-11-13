@@ -20,9 +20,11 @@ changes/
 
 ## 当前
 
+`changes/` 下当前没有进行中的变更。
+
 | 变更 | 目录 | 完成于 |
 |---|---|---|
 | 真实链路验证 | `archive/2026-11-11-live-validation/` | 2026-11-11 |
 | 多租户落库 | `archive/2026-11-11-multi-tenant-persistence/` | 2026-11-11（MCC 子账户暂缓） |
 | 调用审计落库 | `archive/2026-11-12-audit-log-persistence/` | 2026-11-12 |
-| 只读 MCP 入口 | `readonly-endpoint/`（进行中） | — |
+| 只读 MCP 入口 | `archive/2026-11-13-readonly-endpoint/` | 2026-11-13 |

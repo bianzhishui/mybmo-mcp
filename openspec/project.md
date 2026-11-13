@@ -80,4 +80,4 @@
 | [`live-validation`](changes/archive/2026-11-11-live-validation/proposal.md) | ✅ 已完成 | 32/32 任务；结论进 `docs/baidu-behavior.md` 等 |
 | [`multi-tenant-persistence`](changes/archive/2026-11-11-multi-tenant-persistence/proposal.md) | ✅ 已完成（MCC 暂缓） | PG 后端已上线，文件后端可回滚 |
 | [`audit-log-persistence`](changes/archive/2026-11-12-audit-log-persistence/proposal.md) | ✅ 已完成 | `audit_log` 表 + `query_audit` 工具已上线 |
-| [`readonly-endpoint`](changes/readonly-endpoint/proposal.md) | 🚧 代码与文档已完成，待上线实测 | 只读入口 `/mcp/readonly`（7 工具），见 [ADR 0011](../docs/decisions/0011-readonly-endpoint.md) |
+| [`readonly-endpoint`](changes/archive/2026-11-13-readonly-endpoint/proposal.md) | ✅ 已完成并上线 | 只读入口 `/mcp/readonly`（7 工具），8 条验收全过；见 [ADR 0011](../docs/decisions/0011-readonly-endpoint.md) |

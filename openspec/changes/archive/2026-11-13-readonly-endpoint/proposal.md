@@ -1,7 +1,8 @@
 # 变更：只读 MCP 入口 `/mcp/readonly`（readonly-endpoint）
 
-> **状态**：🚧 进行中（2026-11-13 立项）。需求来源：
-> [`docs/req-mybmo-mcp-readonly-endpoint.md`](../../../docs/req-mybmo-mcp-readonly-endpoint.md)
+> **状态**：✅ 已完成并上线（2026-11-13）。`MYBMO_MCP_READONLY=1` 正在 pandabase-dev01 运行，
+> 8 条验收用例全部通过（含真实令牌与真实拓词）。需求来源：
+> [`docs/req-mybmo-mcp-readonly-endpoint.md`](../../../../docs/req-mybmo-mcp-readonly-endpoint.md)
 > （提出方 `mybmo-agents`，与 `mybmo-agents:docs/dsh-multi-agent-v1.md` §5.2 / §5.3 关联）。
 
 ## 为什么
@@ -19,7 +20,7 @@
 需要的是**两个入口**：一个只读、一个全量。
 
 ADR 0003 在"无写拦截"风险的应对里已经预留了这条路（"生产可配只读模式"），
-本次把它落成具体的部署形态，见 [ADR 0011](../../../docs/decisions/0011-readonly-endpoint.md)。
+本次把它落成具体的部署形态，见 [ADR 0011](../../../../docs/decisions/0011-readonly-endpoint.md)。
 
 ## 变更内容
 

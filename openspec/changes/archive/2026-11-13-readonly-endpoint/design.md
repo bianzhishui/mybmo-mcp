@@ -88,7 +88,7 @@ def _http_app(*, readonly_path: str, host: str) -> Starlette:
     )
 ```
 
-> 实测记录（2026-11-13，本机 `httpx.ASGITransport`，两实例同 app）：
+> 实测记录（2026-11-13，本机 `httpx.ASGITransport` + 线上 pandabase-dev01 真实令牌）：
 > `/mcp` 与 `/mcp/readonly` 都能 `initialize` 成功（200 + `mcp-session-id`）、
 > `tools/list` 各自返回完整工具集；带鉴权时两者都正确回 `401 + invalid_token`。
 > 测试里要注意两点：ASGITransport **不跑 lifespan**，得手动 `async with lifespan(app)`；
