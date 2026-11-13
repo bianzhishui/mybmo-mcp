@@ -154,7 +154,15 @@ roi 商品支付ROI | useLiftBudget 一键起量
 
 ## 三、电商定向设置（audience 字段释义）
 
-`audience` 是 `Map<String,String>`，值为逗号分隔字符串。字段含义与取值：
+`audience` 是 `Map<String,String>`，值为逗号分隔字符串。
+
+> ⚠️ **必填只有 `interests` 一个键**（2026-11-13 消融实测，商品推广）：不给报 `901216`「兴趣错误」；
+> 空对象 `{}` 报 `901214`「定向信息为空」；`sex` 及其余键都可省，服务端会补默认值
+> （`region=9999999`、`keywords=""`、`fcKeywordWtpids=""`、`intelligentWeight="0"`…）。
+> 另注：`updateCampaignShopping` 的 audience 是**合并语义**，未传的键不会被清空（与 `material` 相反）。
+> 详见 [`campaign-shopping.md`](campaign-shopping.md) 第五节。
+
+字段含义与取值：
 
 | 字段 | 含义 | 取值 / 限制 |
 |---|---|---|
