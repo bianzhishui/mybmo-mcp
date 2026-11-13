@@ -1,6 +1,6 @@
 [project]
 name = "mybmo-mcp"
-version = "0.2.0"
+version = "0.3.0"
 description = "百度营销开放平台的 MCP 能力网关：全量接口 + 多账户"
 readme = "README.md"
 authors = [
