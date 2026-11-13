@@ -822,7 +822,7 @@
         "安全流程：按 51 字段表读全 → 断言 material 的 title/description/pictures/videos/fengchaoTitle 非空 → 只改目标字段 → 整体回传 → 回读逐字段比对（material 是整体替换，漏读即写坏）",
         "`material.pictures` 尺寸规则与 addCampaignShopping **共用一套**（同一个计划资源、同一套后端物料校验）：官方允许商品推广 370×245 / 1140×640 / 750×1000、自定义直播推广仅 1140×640，张数**同样 ≤18 张**（商品推广与自定义直播推广都是 18）；非标尺寸报 901217（failures.field=pictures）。实测只覆盖 750×1000 通过、800×800 被拒，官方这三档**别当穷举白名单**硬编码；18 张也未压测（只见计划 2079251858 恰好 18 张）",
         "⚠️ 尺寸校验发生在计划侧、不在上传侧：`ImageManageService.uploadImage` 对 800×800 照收（只入库不判尺寸），拿来当 pictures 投放时才被 901217 拒",
-        "⚠️ 回传 material 时把 `iType` / `astat` / `ideaId` 一起带上：实测 2026-11-13 带 pictures 但缺这几个创意类型字段报 901202「创意类型错误」（call_id b48e7a57b79c）——会卡在尺寸校验之前，别误判成图片问题",
+        "⚠️ **更新 `material` 时必须同时带 plan 级 `ideaType`**（创意来源 1 自定义 / 2 直播间实况），否则报 901202「创意类型错误」。实测 A/B：同一份 material 不带 ideaType → 901202（连试 3 次，含只传 imageId、含补 iType/astat 都一样失败）；加上 `ideaType:1` → 成功。**与「回写只读字段」无关**（payload 里没有 reAuditStatus/auditId/smallSize 这些），也与 `url`/`width`/`height`、`iType`/`astat`/`ideaId` 无关——别去补这些",
         "campaignShoppingId 必填。可写：campaignShoppingName / campaignType / anchorId / budget / ocpcBid / ideaType / startTime / endTime / schedule / audience / material / pause / status / promotionUrl / productId / productName / eshopType / customMaterials / diagnosticLabel / adgroupShoppingId / repayShowDesc / repayShowStatus；`targetType` / `eshopType` / `productId` / `transType` 是新增时定的，更新不要动",
         "回传前必须把读回来的对象裁剪成可写字段（去掉 reAuditStatus/auditId/smallSize/largeSize/posterSource 等只读字段），否则报「不是该能力的参数」"
       ],

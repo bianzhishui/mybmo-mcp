@@ -120,9 +120,8 @@
    未测转向版本（1000×750、245×370）与 960×540 一类常见尺寸；实际规则可能是
    「指定宽高比（3:2 / 16:9 / 3:4）+ 最小尺寸」。另外 `901217` 文案是「图片不存在**或**尺寸不合规」，
    单次失败不能直接归因到尺寸（本次已排除「不存在」——该图现在图库里查得到）。
-3. `updateCampaignShopping` 侧**没有专门的拒绝样本**：那次带 750×1000 的更新报的是
-   `901202`「创意类型错误」（material 缺 `iType`/`astat` 一类），在尺寸校验之前就挂了。
-   它与 add 共用规则是「同资源 + 同文档表述」的合理默认，不是独立实测。
+3. `updateCampaignShopping` 侧那次带 750×1000 的更新报的是 `901202`「创意类型错误」，
+   真因见下节（**漏传 plan 级 `ideaType`**），与图片尺寸无关。
 
 ### ⚠️ 回传前必须裁剪字段
 
@@ -153,9 +152,34 @@
 ⑤ 回读：pictures +1，title/description/fengchaoTitle/videos 数量不变
 ```
 
-> ⚠️ 2026-11-13 一次 update 带 `material.pictures`（750×1000）但 material 里没有 `iType` / `astat` / `ideaId`
-> 时报 `901202`「创意类型错误」（call `b48e7a57b79c`，2240B）——**material 回传时把这几个创意类型字段一起带上**，
-> 否则会卡在尺寸校验之前。该次之后只用 78B 的 pause 调用（`ff4c9eaccc78`）成功，material 更新路径尚未跑通。
+### ⚠️ 更新 `material` 必须带 plan 级 `ideaType`（否则 `901202`）
+
+`material` 一旦出现在 update 里，**同一个对象上必须再给 `ideaType`**（创意来源 1 自定义 / 2 直播间实况），
+否则报 `901202`「创意类型错误」。2026-11-13 A/B 实测（探针计划 2388290999）：
+
+| 请求 | 结果 |
+|---|---|
+| `material`（imageId-only） | ❌ `901202` |
+| `material` + `url/width/height` | ❌ `901202` |
+| `material` + `iType:1` + `astat:0` | ❌ `901202` |
+| **`material` + `ideaType:1`** | ✅ 成功（call `6a6a6109c609`） |
+
+要点：
+
+- 和「回写只读字段」**无关**——上面失败的 payload 里根本没有 `reAuditStatus`/`auditId`/`smallSize` 这些。
+- 和 `iType`/`astat`/`ideaId`、`url`/`width`/`height` 也**无关**，补了照样失败；别再往那个方向试。
+- `901202` 发生在**尺寸/内容校验之前**，所以很容易被误判成图片问题。
+- 回读确认 `material` 仍是**整体替换**：只传 5 个子字段后，`videos`/`fengchaoTitle` 都变成 `[]`。
+
+正确的加图姿势：
+
+```
+① ImageManageService.uploadImage（addImage=true）→ imageId
+② getCampaignShopping（51 字段，含 ideaType 与全部 material 子字段）
+③ material.pictures 追加 {"imageId"}，裁掉只读字段
+④ update：{"campaignShoppingId":…, "ideaType":<读回值>, "material":{…完整…}}
+⑤ 回读逐字段比对
+```
 
 实测（副本 2376038055）：pictures 17 → 18，新增那张 `imageId 24366508906`（1140×640），
 `elementId 1615755853062`、`astat 2`；其余素材与暂停状态均未变。
@@ -221,7 +245,7 @@
 | `8602` | 缺 `limit`（`getCampaignShopping` 必传 `[offset, size]`）或写接口缺必填字段 |
 | `901214` | `audience` 传了空对象（定向信息为空）——至少要带 `interests` |
 | `901216` | `audience` 缺 `interests`（兴趣错误） |
-| `901202` | 更新时 `material` 缺 `iType`/`astat`/`ideaId`（创意类型错误），会挡在尺寸校验之前 |
+| `901202` | 更新时带了 `material` 但没带 plan 级 `ideaType`（创意类型错误），会挡在尺寸/内容校验之前 |
 | `901217` | 物料错误：`pictures` 尺寸不合规 / `userPortrait` 缺失或不合规 |
 | `901404` | 词包绑定时 `planIds` 为空 |
 | `87091` | 服务名/方法名不存在（解绑没有独立接口，就是这个码） |
