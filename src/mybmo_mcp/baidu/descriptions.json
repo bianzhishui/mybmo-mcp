@@ -1322,7 +1322,7 @@
       "notes": [
         "campaignShoppingIds 必填（Long[]）",
         "不可逆：连带预算、创意等设置失效；只想停投用 updateCampaignShopping 的 pause=true",
-        "optFrom 可选：web常规 / 列表页批量 / API接口 / BATCH_OPT（批量工具）"
+        "⚠️ 官方文档里还有个 `optFrom`（web常规 / 列表页批量 / API接口 / BATCH_OPT），但 SDK 的 `DeleteCampaignRequest` **只有 `campaignShoppingIds`** —— 传 `optFrom` 会被参数校验直接拒：「optFrom 不是该能力的参数」。**别传**（2026-11-13 实测）"
       ]
     },
     "CampaignShoppingService.copyCampaignShopping": {

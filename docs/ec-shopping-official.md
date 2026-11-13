@@ -130,7 +130,8 @@ roi 商品支付ROI | useLiftBudget 一键起量
 
 ### 2.4 `deleteCampaignShopping`（删除计划）
 
-入参：`campaignShoppingIds`（Long[]，必填）、`optFrom`（String，操作途径：web常规 / 列表页批量 / API接口 / `BATCH_OPT` 批量工具）。删除不可逆，连带预算/创意失效。
+入参：`campaignShoppingIds`（Long[]，必填）。删除不可逆，连带预算/创意失效。
+> ⚠️ 官方文档还列了 `optFrom`（web常规 / 列表页批量 / API接口 / `BATCH_OPT`），但 **SDK 的 `DeleteCampaignRequest` 没有这个字段**，传了会被参数校验拒（`optFrom 不是该能力的参数`，2026-11-13 实测）——**别传**。
 
 ### 2.5 `copyCampaignShopping`（计划批量复制）
 
