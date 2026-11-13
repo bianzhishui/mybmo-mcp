@@ -1151,7 +1151,7 @@
         "**按内容 MD5 去重**：同一张图重复上传返回**同一个 imageId**（实测同一 1×1 PNG 两次上传 → 24365854069）",
         "返回 imageId / url / width / height / size / signature；url 是 feed-image 域名，可直接预览",
         "⚠️ SDK schema 里的 `productLine` / `needMola` 两个参数**接口不认**：productLine 报 1519，needMola=true 报 901301「get mola URL failed」——别传",
-        "⚠️ **不校验宽高/比例**：1×1 PNG、800×800 都能传成功（只返回 width/height，不判定）。尺寸合规是**投放时**由创意/计划接口（如 CampaignShoppingService 的 `material.pictures`）校验的——传得进去 ≠ 用得上",
+        "⚠️ **只入库，不校验尺寸也不校验内容 → 上传成功 ≠ 可投放**：1×1 PNG、800×800 都能传成功，返回只有 width/height/size/signature，不做任何合规判定。投放侧另有两道独立校验：① 尺寸档位由创意/计划接口判（如 `material.pictures` 的 901217）；② 内容审核（计划 `status` 20 审核中 / 21 审核不通过，素材带 `astat`/`refuseReason`）。别拿「上传成功」当可用凭证",
         "size 字段是**字节数**（不是尺寸）；要拿宽高看 width/height 或走 getImageList"
       ],
       "params": {
