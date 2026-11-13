@@ -81,12 +81,23 @@
 
 ## 7. 上线与回滚
 
-- [ ] 7.1 `deploy/.env` 设 `MYBMO_MCP_READONLY=1`，重建容器
+> **上线时抓到并已修的缺陷**：`MYBMO_MCP_READONLY=`（置空）会被 pydantic 判成非法
+> 布尔值，Settings 构造抛 `ValidationError`，**服务直接起不来**——而"置空/删掉"正是
+> 回滚动作。已加 before 校验器（空/0/false/no/off → 关闭）并补 10 例测试，
+> commit `f747830`。教训：布尔开关的空值语义必须显式定义，不能让解析器替我们决定。
+
+- [x] 7.1 `deploy/.env` 设 `MYBMO_MCP_READONLY=1`，重建容器
+      （2026-11-13 已在 pandabase-dev01 完成：容器 healthy，日志有
+      `只读入口已启用：/mcp/readonly` 与两行 `session manager started`；
+      重建前把旧镜像 `mybmo-mcp:0.2.0` 另存为 `mybmo-mcp:0.2.0-prev-readonly`）
 - [ ] 7.1b 客户端授权：部署机上依次连一次 `/mcp` 与 `/mcp/readonly` 完成两次浏览器授权
       （之后同 OS 用户的全部成员复用 `~/.mcp-auth/mcp-remote-v1/*_tokens.json`，无需再授权）
-- [ ] 7.2 `pandabase-infra` 侧确认 Caddy 把 `/mcp/readonly` 转到同端口（本仓库外）。
-      现状：Caddy 只转 `/mcp`，不加这条则公网访问只读入口会 404（且 404 发生在反代层，容器日志里看不到）
+- [x] 7.2 反代：**无需改动**。`/opt/pandabase-infra/deploy/Caddyfile` 用的是兜底
+      `handle { reverse_proxy }`，`/mcp/readonly` 已在转发范围内
+      （实测公网 `POST /mcp/readonly` → 401，说明请求到了业务进程）
 - [ ] 7.3 实测：`/mcp` 10 工具；`/mcp/readonly` 7 工具；只读入口调 `uploadImage` 被拒且审计有 `denied`
+      （**待有令牌后执行**：`tools/list` 与 `execute_capability` 都要过鉴权，见 7.1b）
 - [ ] 7.4 实测：`KRService.getKRByQuery` 在只读入口拿到拓词结果（真实账户）
-- [ ] 7.5 回滚：删 `MYBMO_MCP_READONLY` 即回到单入口，无需改镜像
+- [x] 7.5 回滚：删 `MYBMO_MCP_READONLY` 即回到单入口，无需改镜像
+      （2026-11-13 用同镜像 + 生产 env 起临时容器实测：`/mcp` → 401、`/mcp/readonly` → 404）
 - [ ] 7.6 完成后按 `changes/README.md` 归档为 `archive/2026-MM-DD-readonly-endpoint/`
