@@ -57,6 +57,12 @@ class Settings(BaseSettings):
     mybmo_tenant_id: str = "t_default"
     #: 是否把入参/出参正文也写进审计。关掉只留 payload_digest
     mybmo_audit_store_payload: bool = True
+    #: 是否额外挂一个**只读** MCP 入口（7 个工具，写能力在入口处被拒）。
+    #: 默认关闭时进程装配与行为完全不变，见 ADR 0011。
+    #: 典型用法：多 Agent 链路里"非实施角色"只能挂只读入口，写边界由结构保证。
+    mybmo_mcp_readonly: bool = False
+    #: 只读入口路径。必须与全量入口 ``/mcp`` 不同，否则两条入口会互相遮住。
+    mybmo_mcp_readonly_path: str = "/mcp/readonly"
 
     def master_key_bytes(self) -> bytes:
         """解码并校验主密钥。

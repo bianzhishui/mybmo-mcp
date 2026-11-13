@@ -29,7 +29,7 @@ from mybmo_mcp.audit.base import (
     STATE_UNKNOWN,
     new_call_id,
 )
-from mybmo_mcp.auth.tenancy import AccessDenied, required_permission
+from mybmo_mcp.auth.tenancy import PERMISSION_READ, AccessDenied, required_permission
 from mybmo_mcp.baidu.capabilities import AsyncTask, Capability, CapabilityRegistry
 from mybmo_mcp.baidu.errors import BaiduApiError, BaiduError
 from mybmo_mcp.tools._result import fail, fail_from, guarded, ok
@@ -119,13 +119,7 @@ async def get_capability_schema(capability: str) -> dict[str, Any]:
     )
 
 
-async def execute_capability(
-    capability: str,
-    input: dict[str, Any] | None = None,
-    account: str | None = None,
-    wait: bool = False,
-) -> dict[str, Any]:
-    """执行一个能力。``input`` 原样作为请求体业务参数发出去。
+_EXECUTE_DOC = """执行一个能力。``input`` 原样作为请求体业务参数发出去。
 
     ``account`` 传账户别名（见 list_accounts），留空只在当前身份只有一个可用账户时生效。
     ``wait=True`` 只对声明了异步任务的能力生效，其余会忽略并在 meta 里说明。
@@ -136,12 +130,28 @@ async def execute_capability(
     每次调用都会写一条审计，返回的 ``meta.call_id`` 是它的编号。
     结果未知（超时、5xx）会被记成 ``unknown``，此时应先查询后台状态，不要直接重发。
     """
+
+
+async def _execute(
+    capability: str,
+    input: dict[str, Any] | None,
+    account: str | None,
+    wait: bool,
+    *,
+    readonly: bool,
+) -> dict[str, Any]:
     runtime = get_runtime()
     registry = runtime.capabilities
 
     cap = registry.get(capability)
     if cap is None:
         return _not_found(registry, capability)
+
+    if readonly:
+        # 守卫放在最前：比参数校验更早拒，调用方一眼看出"是入口不让"，不会跟参数错误混起来
+        refusal = _refuse_readonly(cap, input or {}, runtime)
+        if refusal is not None:
+            return refusal
 
     notes: list[str] = []
     try:
@@ -267,6 +277,52 @@ async def execute_capability(
     if wait_meta is not None:
         meta["wait"] = wait_meta
     return ok(data, meta)
+
+
+def _refuse_readonly(
+    cap: Capability, payload: dict[str, Any], runtime: Any
+) -> dict[str, Any] | None:
+    """只读入口的写能力：拒绝 + 留一条 ``denied`` 审计。
+
+    为什么拒绝也要记审计：能不能写是**入口**决定的，不是身份决定的。
+    事后要能回答"谁在只读入口上试图改什么"——否则写边界被绕过时没有线索。
+
+    ``unknown`` 一并拒绝（按写处理）。文本必须让调用方分清三件事：
+    是入口不允许、是哪个能力、以及该去哪儿做。
+    """
+    if required_permission(cap.mutating) == PERMISSION_READ:
+        return None  # 只读能力：放行，回到正常流程
+
+    message = (
+        f"readonly endpoint：能力 {cap.key!r} 的 mutating={cap.mutating}，"
+        "本入口只允许只读能力，已拒绝。写操作请改用全量端点 /mcp。"
+    )
+    try:
+        principal = runtime.current_principal()
+    except BaiduError:
+        # 连身份都拿不到就不记审计了：没有 sub 的记录会污染"谁调的"这条线索
+        principal = None
+    if principal is not None:
+        runtime.audit.record(
+            sub=principal.sub,
+            tenant_id=principal.tenant_id,
+            account="",
+            capability=cap.key,
+            permission=required_permission(cap.mutating),
+            mutating=cap.mutating,
+            state=STATE_DENIED,
+            call_id=new_call_id(),
+            duration_ms=0,
+            error=message,
+            payload=payload,
+            user_name=principal.display_name,
+            app=principal.app,
+        )
+    return fail(
+        message,
+        hint="只读入口的 execute_capability 仅接受 mutating=false 的能力",
+        extra={"capability": cap.key, "mutating": cap.mutating, "endpoint": "readonly"},
+    )
 
 
 # ---------- 异步任务轮询 ----------
@@ -434,7 +490,32 @@ def _response_body(exchange: Any) -> Any:
         return {"_raw": exchange.response_text}
 
 
-def register(mcp: MCPServer) -> None:
+def _make_execute(*, readonly: bool):
+    """按入口生成 ``execute_capability``。
+
+    两条入口是同一个实现的两种装配，不是两份代码：``readonly=True`` 时多一道
+    ``mutating`` 白名单守卫（ADR 0011）。用工厂而不是加参数，是因为工具参数表
+    会照签名生成——多一个 ``readonly`` 参数就会出现在 ``tools/list`` 里。
+    """
+
+    async def execute_capability(
+        capability: str,
+        input: dict[str, Any] | None = None,
+        account: str | None = None,
+        wait: bool = False,
+    ) -> dict[str, Any]:
+        return await _execute(capability, input, account, wait, readonly=readonly)
+
+    execute_capability.__doc__ = _EXECUTE_DOC
+    execute_capability.__name__ = "execute_capability"
+    return execute_capability
+
+
+#: 全量入口用的实现。测试与内部调用都按这个名字。
+execute_capability = _make_execute(readonly=False)
+
+
+def register(mcp: MCPServer, *, readonly: bool = False) -> None:
     mcp.tool()(search_capabilities)
     mcp.tool()(get_capability_schema)
-    mcp.tool()(execute_capability)
+    mcp.tool()(_make_execute(readonly=True) if readonly else execute_capability)

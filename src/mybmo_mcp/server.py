@@ -10,13 +10,17 @@ import html
 import json
 import logging
 import sys
-from collections.abc import Sequence
+from collections.abc import AsyncIterator, Sequence
+from contextlib import asynccontextmanager
 from typing import Annotated, Any, Literal
 
 import typer
+import uvicorn
 from mcp.server import MCPServer
+from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.responses import HTMLResponse, JSONResponse
+from starlette.routing import Route
 
 from mybmo_mcp import __version__
 from mybmo_mcp.auth.app_secrets import AppSecret
@@ -55,6 +59,17 @@ _INSTRUCTIONS = (
     "接口能力通过 search_capabilities 检索，用 get_capability_schema 取参数定义，"
     "再用 execute_capability 执行。本服务不判断操作是否安全，写操作前是否需要"
     "人工确认，由调用方自己的工作流决定。"
+)
+
+#: 只读入口的 instructions。**不能复用上面那份**：它明确让模型"列表为空时用
+#: bind_account"，而只读入口根本没这个工具——模型会反复撞墙，或者判定服务故障。
+_READONLY_INSTRUCTIONS = (
+    "百度营销投放能力网关（**只读入口**）。这里只做读：execute_capability 遇到 "
+    "mutating 不是 \"false\" 的能力会直接拒绝并提示改用全量端点，不要重试、"
+    "也不要去别的入口绕。先用 list_accounts 确认账户别名（别名只能从返回的列表里选），"
+    "再用 search_capabilities 检索能力、get_capability_schema 取参数、"
+    "execute_capability 执行。本入口不提供绑定账户、分享账户与撤销分享——"
+    "需要绑定或调整授权时，请由人工在后台处理。"
 )
 
 app = typer.Typer(
@@ -201,27 +216,96 @@ def _register_baidu_subscribe(server: MCPServer) -> None:
         return JSONResponse({"ok": True, "stored": stored}, status_code=200)
 
 
-def build_server(*, with_auth: bool = True) -> MCPServer:
+def build_server(*, with_auth: bool = True, readonly: bool = False) -> MCPServer:
     """构造 MCP 服务实例并挂载工具。
 
     ``with_auth`` 只对 streamable-http 有意义：stdio 下没有 HTTP 层，
     也就没有 bearer 令牌可校验。装配由 :func:`_auth_kwargs` 决定，
     local 模式返回空字典（不装中间件），oidc 模式返回 ``auth`` + ``token_verifier``。
+
+    ``readonly=True`` 构造**只读入口**的实例（ADR 0011）：只挂 7 个只读工具，
+    ``execute_capability`` 带 ``mutating`` 白名单守卫，账户类只剩读的三个。
+    鉴权、tenancy、审计与全量入口完全共用——只读不引入新身份，
+    也不改变"谁能读哪个账户"。
+
+    探活、百度回调、订阅三组路由**只在全量实例上挂**：它们是主机级入口，
+    多挂一份到 ``/mcp/readonly`` 下只会让人以为存在第二个健康检查。
     """
     # 启动自检：pg 模式下每个租户都必须绑了 client_id，否则请求全 403 像"鉴权坏了"
     get_runtime().preflight()
     kwargs = _auth_kwargs() if with_auth else {}
     server = MCPServer(
-        name="mybmo-mcp",
+        name="mybmo-mcp-readonly" if readonly else "mybmo-mcp",
         version=__version__,
-        instructions=_INSTRUCTIONS,
+        instructions=_READONLY_INSTRUCTIONS if readonly else _INSTRUCTIONS,
         **kwargs,
     )
-    register_all(server)
-    _register_health(server)
-    _register_baidu_callback(server)
-    _register_baidu_subscribe(server)
+    register_all(server, readonly=readonly)
+    if not readonly:
+        _register_health(server)
+        _register_baidu_callback(server)
+        _register_baidu_subscribe(server)
     return server
+
+
+def readonly_path(settings: Any) -> str:
+    """按配置算只读入口路径；关闭时返回空串。
+
+    路径校验是**失败关闭**的：配错就拒绝启动，不要退化成"两条入口互相遮住"
+    或者"只读入口悄悄没挂上"——后者最坏，调用方以为写不了，实际全量入口那个地址还在。
+    """
+    if not settings.mybmo_mcp_readonly:
+        return ""
+    path = (settings.mybmo_mcp_readonly_path or "").strip()
+    if not path.startswith("/"):
+        raise ValueError(f"MYBMO_MCP_READONLY_PATH 必须以 / 开头，当前 {path!r}")
+    if path.rstrip("/") in ("", "/mcp"):
+        raise ValueError(
+            f"MYBMO_MCP_READONLY_PATH 不能是 {path!r}：它会被全量入口 /mcp 遮住，"
+            "请换成 /mcp/readonly 之类的子路径"
+        )
+    return path
+
+
+def build_http_app(*, with_auth: bool = True, readonly: str = "") -> Starlette:
+    """组装 HTTP 应用：全量入口必挂，只读入口按 ``readonly`` 决定是否多挂一条。
+
+    ``MCPServer.run()`` 内部自己起 uvicorn、不接受外部父应用，所以两条入口必须
+    在这里自己拼一个父 Starlette。两个坑（2026-11-13 实测）：
+
+    1. **session manager 只在应用自己的 lifespan 里启动**，而 Starlette 不会运行
+       Mount 进去的子应用 lifespan——必须把两个 ``session_manager.run()`` 都包进
+       父应用的 lifespan，否则第一个请求就抛 ``Task group is not initialized``。
+    2. **``Mount`` 会让 ``POST /mcp/readonly`` 先吃一个 307**（redirect_slashes），
+       所以这里直接取子应用那条 streamable ``Route`` 的 endpoint，挂到完整路径上。
+
+    ``readonly`` 为空串时返回的就是全量入口自己的 app，与改造前逐字节一致。
+    """
+    full = build_server(with_auth=with_auth)
+    full_app = full.streamable_http_app(streamable_http_path="/mcp")
+    if not readonly:
+        return full_app
+
+    ro = build_server(with_auth=with_auth, readonly=True)
+    ro_app = ro.streamable_http_app(streamable_http_path="/")
+    endpoints = [r for r in ro_app.routes if getattr(r, "path", None) == "/"]
+    if len(endpoints) != 1:
+        # SDK 升级改掉路由结构时必须炸掉：静默挂错比挂不上更危险
+        raise RuntimeError(
+            "只读入口装配失败：期望子应用恰好 1 条 streamable 路由，"
+            f"实际 {len(endpoints)} 条（MCP SDK 的路由结构可能变了）"
+        )
+
+    @asynccontextmanager
+    async def lifespan(_: Starlette) -> AsyncIterator[None]:
+        async with full.session_manager.run():
+            async with ro.session_manager.run():
+                yield
+
+    return Starlette(
+        routes=[Route(readonly, endpoint=endpoints[0].endpoint), *full_app.routes],
+        lifespan=lifespan,
+    )
 
 
 def _auth_kwargs() -> dict[str, Any]:
@@ -287,15 +371,28 @@ def _root(
         typer.Option("--log-level", help="日志级别：debug/info/warning/error"),
     ] = "info",
 ) -> None:
-    """启动 MCP 服务。"""
+    """启动 MCP 服务。
+
+    只读入口（``MYBMO_MCP_READONLY=1``）是**可选装配**：关闭时走的就是原来的
+    ``server.run(transport=...)``，装配路径一行不换（ADR 0011 D9）。
+    """
     if ctx.invoked_subcommand is not None:
         return
     _configure_logging(log_level)
-    server = build_server()
     if transport == "stdio":
-        server.run(transport="stdio")
-    else:
-        server.run(transport="streamable-http", host=host, port=port)
+        build_server().run(transport="stdio")
+        return
+    path = readonly_path(get_runtime().settings)
+    if not path:
+        build_server().run(transport="streamable-http", host=host, port=port)
+        return
+    _logger.info("只读入口已启用：%s（全量入口仍在 /mcp）", path)
+    uvicorn.run(
+        build_http_app(readonly=path),
+        host=host,
+        port=port,
+        log_level=log_level.lower(),
+    )
 
 
 auth_app = typer.Typer(

@@ -235,9 +235,19 @@ async def list_shares(alias: str) -> dict[str, Any]:
     return await guarded(_run)
 
 
-def register(mcp: MCPServer) -> None:
+def register(mcp: MCPServer, *, readonly: bool = False) -> None:
+    """挂载账户类工具。
+
+    ``readonly=True`` 时**不注册**三个会改变授权/可见性的工具
+    （``bind_account`` / ``share_account`` / ``revoke_share``）——
+    只读入口的安全来自"工具根本不存在"，而不是"调了会被拒"（ADR 0011）。
+    ``list_shares`` 是纯读，保留。
+    """
     mcp.tool()(list_accounts)
     mcp.tool()(auth_status)
+    if readonly:
+        mcp.tool()(list_shares)
+        return
     mcp.tool()(bind_account)
     mcp.tool()(share_account)
     mcp.tool()(revoke_share)

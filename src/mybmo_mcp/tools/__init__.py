@@ -11,6 +11,10 @@
 工具不导入 server，避免循环依赖。
 
 **工具层不做业务编排，也不做写操作拦截。** 写与不写由调用方（skill 工作流）决定。
+
+唯一的例外是**只读入口**（``/mcp/readonly``，ADR 0011）：那里 ``execute_capability``
+带一道 ``mutating`` 白名单守卫，且三个改授权的账户工具根本不会注册。
+它判的是能力自身的读写属性、与"谁在调"无关，所以仍是装配差异而不是策略层。
 """
 
 from __future__ import annotations
@@ -18,9 +22,17 @@ from __future__ import annotations
 from mcp.server import MCPServer
 
 
-def register_all(mcp: MCPServer) -> None:
+def register_all(mcp: MCPServer, *, readonly: bool = False) -> None:
+    """挂载全部工具。
+
+    ``readonly=True`` 时只挂**只读**那一份（7 个）：账户类去掉
+    ``bind_account`` / ``share_account`` / ``revoke_share``，
+    ``execute_capability`` 换成带 ``mutating`` 白名单守卫的实现。
+    这是**装配层面**的差异，不是工具层的通用拦截——不用身份去判"谁能写"，
+    那属于授权层（ADR 0003 / 0011）。
+    """
     from mybmo_mcp.tools import accounts, audit, capability
 
-    accounts.register(mcp)
-    capability.register(mcp)
+    accounts.register(mcp, readonly=readonly)
+    capability.register(mcp, readonly=readonly)
     audit.register(mcp)
