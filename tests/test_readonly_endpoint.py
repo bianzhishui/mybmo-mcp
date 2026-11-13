@@ -350,6 +350,56 @@ def test_http_app_is_untouched_when_readonly_off(tmp_path: Path) -> None:
     assert composed_paths == direct_paths
 
 
+# ---------- 鉴权与 host 必须跟着搬过去（上线踩过的两个坑） ----------
+
+
+def test_composed_app_keeps_the_auth_middleware(tmp_path: Path) -> None:
+    """鉴权中间件在 ``middleware`` 里，不在 ``routes`` 里。
+
+    只搬 routes 会得到一个"路由齐全但谁都没登录"的 app：**任何令牌都 401**，
+    跟"没带令牌"长得一模一样。2026-11-13 上线就是这么翻的车——容器里手动
+    ``verifier.verify(token)`` 通过，线上却 401。
+    """
+    from mybmo_mcp.server import build_http_app, build_server
+
+    set_runtime(Runtime(settings=_settings(tmp_path, mybmo_mcp_readonly=True)))
+    try:
+        composed = build_http_app(with_auth=True, readonly="/mcp/readonly")
+        direct = build_server(with_auth=True).streamable_http_app(streamable_http_path="/mcp")
+    finally:
+        set_runtime(None)
+
+    names = [m.cls.__name__ for m in composed.user_middleware]
+    assert names == [m.cls.__name__ for m in direct.user_middleware]
+    assert "AuthenticationMiddleware" in names
+    assert "AuthContextMiddleware" in names
+
+
+async def test_composed_app_accepts_requests_addressed_to_the_public_host(
+    tmp_path: Path,
+) -> None:
+    """``host`` 必须原样传给子应用，否则 SDK 会按回环地址开 DNS rebinding 保护，
+    把经反代进来（``Host: <真实域名>``）的请求全部打成 421。"""
+    from mybmo_mcp.server import build_http_app
+
+    set_runtime(Runtime(settings=_settings(tmp_path, mybmo_mcp_readonly=True)))
+    try:
+        # 容器里监听 0.0.0.0；这里只往 app 传，不真的 binds
+        app = build_http_app(
+            with_auth=False, readonly="/mcp/readonly", host="0.0.0.0"  # noqa: S104
+        )
+        async with app.router.lifespan_context(app):
+            transport = httpx2.ASGITransport(app=app)
+            async with httpx2.AsyncClient(
+                transport=transport, base_url="https://baiduads.pandabase.top"
+            ) as client:
+                for path in ("/mcp", "/mcp/readonly"):
+                    response = await client.post(path, json=_INIT, headers=_HEADERS)
+                    assert response.status_code == 200, (path, response.status_code, response.text)
+    finally:
+        set_runtime(None)
+
+
 # ---------- 端到端：两个入口都能谈判、工具面各是 10 / 7 ----------
 
 _INIT = {
@@ -460,5 +510,5 @@ def test_switch_on_serves_composed_app(
     finally:
         set_runtime(None)
 
-    assert seen["build"] == {"readonly": "/mcp/readonly"}
+    assert seen["build"] == {"readonly": "/mcp/readonly", "host": "127.0.0.1"}
     assert seen["uvicorn"]["port"] == 9999

@@ -267,7 +267,9 @@ def readonly_path(settings: Any) -> str:
     return path
 
 
-def build_http_app(*, with_auth: bool = True, readonly: str = "") -> Starlette:
+def build_http_app(
+    *, with_auth: bool = True, readonly: str = "", host: str = "127.0.0.1"
+) -> Starlette:
     """组装 HTTP 应用：全量入口必挂，只读入口按 ``readonly`` 决定是否多挂一条。
 
     ``MCPServer.run()`` 内部自己起 uvicorn、不接受外部父应用，所以两条入口必须
@@ -280,14 +282,18 @@ def build_http_app(*, with_auth: bool = True, readonly: str = "") -> Starlette:
        所以这里直接取子应用那条 streamable ``Route`` 的 endpoint，挂到完整路径上。
 
     ``readonly`` 为空串时返回的就是全量入口自己的 app，与改造前逐字节一致。
+
+    ``host`` 必须原样传下去（``_root`` 里是 ``--host`` 的值）：SDK 只在 host 是回环地址时
+    自动开 DNS rebinding 保护（allowed_hosts 只含 localhost）。容器里是 ``0.0.0.0``，
+    传错成默认值会把经反代进来（``Host: baiduads.pandabase.top``）的请求全打成 **421**。
     """
     full = build_server(with_auth=with_auth)
-    full_app = full.streamable_http_app(streamable_http_path="/mcp")
+    full_app = full.streamable_http_app(streamable_http_path="/mcp", host=host)
     if not readonly:
         return full_app
 
     ro = build_server(with_auth=with_auth, readonly=True)
-    ro_app = ro.streamable_http_app(streamable_http_path="/")
+    ro_app = ro.streamable_http_app(streamable_http_path="/", host=host)
     endpoints = [r for r in ro_app.routes if getattr(r, "path", None) == "/"]
     if len(endpoints) != 1:
         # SDK 升级改掉路由结构时必须炸掉：静默挂错比挂不上更危险
@@ -302,8 +308,15 @@ def build_http_app(*, with_auth: bool = True, readonly: str = "") -> Starlette:
             async with ro.session_manager.run():
                 yield
 
+    # **必须把 middleware 一起搬过来**：鉴权就在里面（AuthenticationMiddleware +
+    # AuthContextMiddleware）。只搬 routes 会得到一个"路由齐全但谁都没登录"的 app——
+    # 表现是**任何令牌都 401**，和"没带令牌"长得一模一样，极难从日志看出来（2026-11-13
+    # 上线实测踩过：本地能验过令牌，线上却 401）。exception_handlers/debug 同理对齐。
     return Starlette(
+        debug=full_app.debug,
         routes=[Route(readonly, endpoint=endpoints[0].endpoint), *full_app.routes],
+        middleware=full_app.user_middleware,
+        exception_handlers=full_app.exception_handlers,
         lifespan=lifespan,
     )
 
@@ -388,7 +401,7 @@ def _root(
         return
     _logger.info("只读入口已启用：%s（全量入口仍在 /mcp）", path)
     uvicorn.run(
-        build_http_app(readonly=path),
+        build_http_app(readonly=path, host=host),
         host=host,
         port=port,
         log_level=log_level.lower(),
