@@ -3,12 +3,14 @@
 这组接口是"计划级"的读写入口，也是**词包绑定/解绑**真正落地的地方。
 下面所有字段表都来自**后台自己的请求**（2026-11-11 抓包）+ 实测。
 
+> 字段含义、取值范围、必填与枚举的**官方口径**见 [`ec-shopping-official.md`](ec-shopping-official.md)。
+
 ## 一、读计划：必须用这份完整字段表
 
 `getCampaignShopping` 的 `campaignShoppingFields` **不是随便传几个就行**——漏字段就等于读不到，
 而写回时又会把 `material` 整体替换，所以"读不全"会直接变成"写坏"。
 
-**标准字段表（52 个，照抄即可）：**
+**标准字段表（51 个，照抄即可）：**
 
 ```json
 ["targetType","anchorId","intelligentType","campaignShoppingName","ideaType","campaignType",
@@ -27,9 +29,10 @@
 |---|---|
 | **`brand` 是 material 的开关** | 请求里不带 `brand`，返回的 `material` **整个为空**；只请求 `fengchaoTitle` 也一样拿不到 |
 | **`fengchaoTitle` 要显式列** | 不列进字段表就不返回——它不会因为请求了 `title` 就附带出来 |
+| **`fengchaoDescription` 读不回** | 显式列进 `campaignShoppingFields` 且带 `brand` 也**不返回**（2026-11-13 扫全部 35 个计划均无该键）；读接口取不到，**只能写** |
 
 实测（计划 2079251858）：按上表请求 → 顶层 29 个键、`material` 7 个子字段
-（`title 6 / description 6 / pictures 18 / videos 1 / fengchaoTitle 6`）、
+（`title 6 / description 6 / pictures 18 / videos 1 / fengchaoTitle 6`，**无 `fengchaoDescription`**——它读不回来，只能写）、
 `audience` 14 个键（`keywords` 38 个词、`region` 367 段、`fcKeywordWtpids`）。
 
 ## 二、写计划：`material` / `audience` 是整体替换
@@ -72,7 +75,7 @@
 
 ```
 ① ImageManageService.uploadImage（addImage=true）→ imageId / url / width / height
-② getCampaignShopping（52 字段）
+② getCampaignShopping（51 字段）
 ③ material.pictures 追加 {"imageId","url","width","height"}
 ④ 裁剪字段后 updateCampaignShopping
 ⑤ 回读：pictures +1，title/description/fengchaoTitle/videos 数量不变
@@ -112,7 +115,7 @@
 
 | 码 | 场景 |
 |---|---|
-| `1519` / `9011519` | `campaignShoppingFields` 里有非法字段名 |
+| `1519` / `9011519` | 通用「请求字段非法」。⚠️ 但 `campaignShoppingFields` 里放非法字段名**不报此码**，而是被**静默忽略**（2026-11-13 实测 `definitelyNotAField123` 返回 success、`material` 为空）——字段拼错=悄悄读空 |
 | `8602` | 缺 `limit`（`getCampaignShopping` 必传 `[offset, size]`）或写接口缺必填字段 |
 | `901404` | 词包绑定时 `planIds` 为空 |
 | `87091` | 服务名/方法名不存在（解绑没有独立接口，就是这个码） |

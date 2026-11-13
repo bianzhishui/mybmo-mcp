@@ -3,12 +3,12 @@
     "version": 1,
     "source": "baiduads-sdk 1.0.0",
     "note": "构建期从 SDK 内省生成；嵌套结构保持原样，input 可直接作为请求体",
-    "capabilities": 399,
+    "capabilities": 412,
     "schemas": 598,
-    "handwritten": 10,
+    "handwritten": 23,
     "mutating": {
-      "true": 214,
-      "false": 184,
+      "true": 222,
+      "false": 189,
       "unknown": 1
     }
   },
@@ -16323,6 +16323,176 @@
         "$ref": "#/schemas/ModAtpFeedRequest"
       }
     },
+    "AtpService.addAtp": {
+      "service": "AtpService",
+      "method": "addAtp",
+      "endpoint": "/json/sms/service/AtpService/addAtp",
+      "product_line": "sms",
+      "mutating": "true",
+      "group": "电商推广投放",
+      "body": null,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "atpName": {
+            "type": "string"
+          },
+          "atpDesc": {
+            "type": "string"
+          },
+          "audience": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "atpName",
+          "audience"
+        ]
+      }
+    },
+    "AtpService.bindAtp": {
+      "service": "AtpService",
+      "method": "bindAtp",
+      "endpoint": "/json/sms/service/AtpService/bindAtp",
+      "product_line": "sms",
+      "mutating": "true",
+      "group": "电商推广投放",
+      "body": null,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "atpBindShoppingTypes": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          }
+        }
+      }
+    },
+    "AtpService.deleteAtp": {
+      "service": "AtpService",
+      "method": "deleteAtp",
+      "endpoint": "/json/sms/service/AtpService/deleteAtp",
+      "product_line": "sms",
+      "mutating": "true",
+      "group": "电商推广投放",
+      "body": null,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "atpIds": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          }
+        },
+        "required": [
+          "atpIds"
+        ]
+      }
+    },
+    "AtpService.getAtp": {
+      "service": "AtpService",
+      "method": "getAtp",
+      "endpoint": "/json/sms/service/AtpService/getAtp",
+      "product_line": "sms",
+      "mutating": "false",
+      "group": "电商推广投放",
+      "body": null,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "atpId": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "atpId"
+        ]
+      }
+    },
+    "AtpService.getAtpList": {
+      "service": "AtpService",
+      "method": "getAtpList",
+      "endpoint": "/json/sms/service/AtpService/getAtpList",
+      "product_line": "sms",
+      "mutating": "false",
+      "group": "电商推广投放",
+      "body": null,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "atpShoppingFields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "atpShoppingIds": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "sortField": {
+            "type": "string"
+          },
+          "sortOrder": {
+            "type": "string"
+          },
+          "filters": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          }
+        }
+      }
+    },
+    "AtpService.getAtps": {
+      "service": "AtpService",
+      "method": "getAtps",
+      "endpoint": "/json/sms/service/AtpService/getAtps",
+      "product_line": "sms",
+      "mutating": "false",
+      "group": "电商推广投放",
+      "body": null,
+      "input_schema": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    "AtpService.updateAtp": {
+      "service": "AtpService",
+      "method": "updateAtp",
+      "endpoint": "/json/sms/service/AtpService/updateAtp",
+      "product_line": "sms",
+      "mutating": "true",
+      "group": "电商推广投放",
+      "body": null,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "atpId": {
+            "type": "integer"
+          },
+          "atpName": {
+            "type": "string"
+          },
+          "atpDesc": {
+            "type": "string"
+          },
+          "audience": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "atpId"
+        ]
+      }
+    },
     "AutoExpansionService.getAutoExpansion": {
       "service": "AutoExpansionService",
       "method": "getAutoExpansion",
@@ -16757,6 +16927,76 @@
       "body": "SubmitClueTaskRequest",
       "input_schema": {
         "$ref": "#/schemas/SubmitClueTaskRequest"
+      }
+    },
+    "CommentShoppingService.getCommentInfoList": {
+      "service": "CommentShoppingService",
+      "method": "getCommentInfoList",
+      "endpoint": "/json/sms/service/CommentShoppingService/getCommentInfoList",
+      "product_line": "sms",
+      "mutating": "false",
+      "group": "电商推广投放",
+      "body": null,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "planIdList": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "planTimeStart": {
+            "type": "string"
+          },
+          "planTimeEnd": {
+            "type": "string"
+          },
+          "content": {
+            "type": "string"
+          },
+          "pageIndex": {
+            "type": "integer"
+          },
+          "pageSize": {
+            "type": "integer"
+          },
+          "ideaIdList": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "replyStatus": {
+            "type": "integer"
+          },
+          "projectIdList": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "isProject": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "CommentShoppingService.hideComment": {
+      "service": "CommentShoppingService",
+      "method": "hideComment",
+      "endpoint": "/json/sms/service/CommentShoppingService/hideComment",
+      "product_line": "sms",
+      "mutating": "true",
+      "group": "电商推广投放",
+      "body": null,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "replyThreadMap": {
+            "type": "object"
+          }
+        }
       }
     },
     "CreativeFeedService.addCreativeFeed": {
@@ -19560,6 +19800,123 @@
       "body": "PriceStrategyModRequest",
       "input_schema": {
         "$ref": "#/schemas/PriceStrategyModRequest"
+      }
+    },
+    "ProjectShoppingService.addProjectShopping": {
+      "service": "ProjectShoppingService",
+      "method": "addProjectShopping",
+      "endpoint": "/json/sms/service/ProjectShoppingService/addProjectShopping",
+      "product_line": "sms",
+      "mutating": "true",
+      "group": "电商推广投放",
+      "body": null,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "projectShoppingTypes": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          }
+        },
+        "required": [
+          "projectShoppingTypes"
+        ]
+      }
+    },
+    "ProjectShoppingService.deleteProjectShopping": {
+      "service": "ProjectShoppingService",
+      "method": "deleteProjectShopping",
+      "endpoint": "/json/sms/service/ProjectShoppingService/deleteProjectShopping",
+      "product_line": "sms",
+      "mutating": "true",
+      "group": "电商推广投放",
+      "body": null,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "projectShoppingIds": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          }
+        },
+        "required": [
+          "projectShoppingIds"
+        ]
+      }
+    },
+    "ProjectShoppingService.getProjectShopping": {
+      "service": "ProjectShoppingService",
+      "method": "getProjectShopping",
+      "endpoint": "/json/sms/service/ProjectShoppingService/getProjectShopping",
+      "product_line": "sms",
+      "mutating": "false",
+      "group": "电商推广投放",
+      "body": null,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "projectShoppingIds": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "sortField": {
+            "type": "string"
+          },
+          "isDesc": {
+            "type": "boolean"
+          },
+          "limit": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "projectShoppingFields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "filters": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          }
+        },
+        "required": [
+          "limit",
+          "projectShoppingFields"
+        ]
+      }
+    },
+    "ProjectShoppingService.updateProjectShopping": {
+      "service": "ProjectShoppingService",
+      "method": "updateProjectShopping",
+      "endpoint": "/json/sms/service/ProjectShoppingService/updateProjectShopping",
+      "product_line": "sms",
+      "mutating": "true",
+      "group": "电商推广投放",
+      "body": null,
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "projectShoppingTypes": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          }
+        },
+        "required": [
+          "projectShoppingTypes"
+        ]
       }
     },
     "PvSearchFunction.getPvSearch": {

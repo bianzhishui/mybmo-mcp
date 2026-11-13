@@ -6,9 +6,9 @@ from mybmo_mcp.baidu.capabilities import CapabilityRegistry
 def test_registry_stats() -> None:
     registry = CapabilityRegistry.load()
 
-    assert registry.stats["capabilities"] == 399
+    assert registry.stats["capabilities"] == 412
     assert registry.stats["schemas"] == 598
-    assert registry.stats["services"] == 131
+    assert registry.stats["services"] == 134
 
 
 def test_get_is_case_insensitive() -> None:

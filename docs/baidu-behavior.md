@@ -58,6 +58,8 @@
 | 读 `material` 需要哪些字段 | **必须整组请求**：`brand`（关键——不带它 material 整个为空）+ `userPortrait` + `title` + `fengchaoTitle` + `description` + `pictures` + `videos`。`fengchaoTitle` 也要**显式列进字段表**，漏了就返回缺失 | 2026-11-11 四组字段对照实测 |
 | 对 `material` 读-改-写的风险 | `material` 是**整体替换**；若读取时漏了某个字段（如 `fengchaoTitle`），写回就会把它清空 | 2026-11-11 真实事故：漏读 fengchaoTitle → 被清空 → 已用抓包原文恢复，**后台确认显示正常** |
 | `fengchaoTitle` 的 `{关键词}` 位怎么显示 | 读回是 **`#{文案}`**（`#` 就是动态词位的展示形式，写入时用 `{关键词}`），不是数据损坏 | 2026-11-11 恢复后在后台确认显示正常 |
+| `fengchaoDescription` 能否读回 | **不能读回**：显式列进 `campaignShoppingFields` 且带 `brand`，扫全部 35 个计划均不返回该字段；本接口对未知字段静默忽略，故读接口取不到，**只能写** | 2026-11-13 实测（计划 2079251858 最小字段对照 + 全量 35 条扫描） |
+| `campaignShoppingFields` 传非法字段名是否报错 | **不报**：非法字段名被**静默忽略**（只传 `definitelyNotAField123` 也返回 success、`material` 为空）→ 字段拼错=悄悄读空，务必照标准字段表 | 2026-11-13 实测（混入合法字段、只传非法字段两种都验证） |
 | 词包与计划的绑定关系存在哪 | **`audience.fcKeywordWtpids`**：逗号分隔的关键词包 ID 列表。解绑=从该列表移除 ID 后整体回传 `updateCampaignShopping`，实测除该字段外零变化 | 2026-11-11 计划 2079251858 解绑实测 |
 | 计划的名称字段 | 电商计划是 **`campaignShoppingName`**；`campaignName` / `name` 不合法（静默忽略，不报错但也不返回） | 2026-11-11 三个候选字段各试一次 |
 | 异步任务如何查终态（能力名 + 判定字段） | **已验证**：`OpenApiReportService.createReportTask` 返回 `taskId` + `taskStatus=RUNNING` → `getTaskStatus(taskId)` 轮询到 `taskStatus=SUCCESS`，终态响应**直接带** `fileUrl`（CSV）、`tableHeader`、`dataStartRow`。两个接口的响应都是单元素数组。实测 ~0.7 秒完成，`wait=True` 轮询 2 次命中 | 2026-11-11 实测 |

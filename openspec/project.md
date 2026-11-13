@@ -2,7 +2,7 @@
 
 ## 是什么
 
-百度营销开放平台的 MCP 能力网关。399 个接口收进 10 个工具，用检索代替枚举；百度令牌只活在
+百度营销开放平台的 MCP 能力网关。412 个接口收进 10 个工具，用检索代替枚举；百度令牌只活在
 服务端，客户端拿的是本服务自己的身份。
 
 部署、身份与数据库在 [`pandabase-infra`](https://github.com/bianzhishui/pandabase-infra)，
@@ -63,7 +63,7 @@
 
 ## 当前状态
 
-- 399 个能力、70 条精写说明、598 个模型；**25 条已实测**（`verified` 标记）；测试 295 passed
+- 412 个能力、92 条精写说明、598 个模型；**33 条已实测**（`verified` 标记）；测试 295 passed
 - `oidc` 模式跑通授权码 + PKCE；9 个 MCP 工具（含 `bind_account` / `share_account`）
 - 已绑定 1 个真实百度账户；电商推广线**写操作**（计划暂停/复制/加图、词包增删改绑）与
   报表异步任务均已实测，见 [`live-validation`](changes/archive/2026-11-11-live-validation/proposal.md)（32/32 完成）
