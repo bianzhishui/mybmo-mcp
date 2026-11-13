@@ -328,3 +328,43 @@ def test_oauth_without_user_info_is_tolerated(tmp_path: Path) -> None:
 
     assert updated.access_token == "new-at"
     assert updated.user_name == "改名前的账户"
+
+
+class ClosableFakeOAuth(FakeOAuthWithUserInfo):
+    """会跟踪自己有没有被关掉的替身：关掉之后再发请求要像真客户端那样炸。"""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.closed = False
+        self.user_info_after_close = 0
+
+    async def user_info(self, access_token: str, *, user_id: int = 0, open_id: str = ""):
+        if self.closed:
+            self.user_info_after_close += 1
+            raise RuntimeError("Cannot send a request, as the client has been closed.")
+        return await super().user_info(access_token, user_id=user_id, open_id=open_id)
+
+    async def aclose(self) -> None:
+        self.closed = True
+
+
+def test_per_credential_client_is_closed_after_user_info_not_before(tmp_path: Path) -> None:
+    """刷新用的客户端只能在**整个刷新流程结束**时关。
+
+    2026-11-13 线上：``finally`` 里先 aclose、再拿同一个客户端调 ``user_info``，
+    于是抛 ``RuntimeError: Cannot send a request, as the client has been closed``，
+    而且此时新令牌还没 persist —— 该账户从此**每次调用都失败**、库里仍是旧 refreshToken。
+    既有测试没抓到，是因为它们把同一个替身同时当成 ``self._oauth``（那条分支不关客户端）。
+    """
+    registry = _expired_registry(tmp_path)
+    fake = ClosableFakeOAuth()
+    svc = CredentialService(  # type: ignore[arg-type]
+        registry, None, oauth_for=lambda _c: fake
+    )
+
+    updated = asyncio.run(svc.ensure_valid("axd"))
+
+    assert updated.access_token == "new-at"
+    assert fake.user_info_after_close == 0
+    assert fake.closed is True
+    assert registry.get("axd").access_token == "new-at"

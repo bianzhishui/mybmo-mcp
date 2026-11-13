@@ -82,45 +82,51 @@ class CredentialService:
         """刷新一次并写回。``persist`` 由调用方给：文件后端是普通保存，
         PG 后端是**同一事务内**的写回（否则会等自己持有的行锁）。"""
         oauth = self._oauth_for(fresh)
+        # **整个刷新流程都在这个 try 里**：``user_info`` 用的是同一个客户端，
+        # 提前 aclose() 会让它抛 ``RuntimeError: Cannot send a request, as the client
+        # has been closed``——而此时新令牌还没 persist，于是这个账户从此**每次调用都失败**
+        # 且库里仍是旧 refreshToken（2026-11-13 线上实测：账户令牌一过期就永久失效）。
         try:
-            bundle = await oauth.refresh(fresh.refresh_token, fresh.user_id)
-        except CredentialError as exc:
-            persist(fresh.mark_reauth_required(str(exc)))
-            raise
+            try:
+                bundle = await oauth.refresh(fresh.refresh_token, fresh.user_id)
+            except CredentialError as exc:
+                persist(fresh.mark_reauth_required(str(exc)))
+                raise
+
+            # 账户中文名会被人在百度后台改掉，而它是每次请求鉴权头里的 userName，
+            # 过期后全部接口报 81020——偏偏表现为"授权失效"，很难排查。
+            # 刷新时顺手校正一次，代价是每账户每天多一次 getUserInfo。
+            user_name = fresh.user_name
+            try:
+                info = await oauth.user_info(
+                    bundle.access_token,
+                    user_id=bundle.user_id or fresh.user_id,
+                    open_id=bundle.open_id or fresh.open_id,
+                )
+                fetched = str(info.get("masterName") or info.get("userName") or "").strip()
+                if fetched:
+                    user_name = fetched
+            except (AttributeError, CredentialError):
+                # 拿不到就沿用旧名：校正失败不能连累刷新本身
+                pass
+
+            updated = fresh.with_tokens(
+                access_token=bundle.access_token,
+                refresh_token=bundle.refresh_token or None,
+                expires_at=bundle.expires_at or None,
+                refresh_expires_at=bundle.refresh_expires_at or None,
+                open_id=bundle.open_id or None,
+                user_id=bundle.user_id or None,
+                scope=bundle.scope or None,
+            )
+            if user_name and user_name != fresh.user_name:
+                updated = replace(updated, user_name=user_name)
+            persist(updated)
+            return updated
         finally:
+            # 只关自己造的客户端；注入的共享实例由 App 生命周期管
             if oauth is not self._oauth:
                 await oauth.aclose()
-
-        # 账户中文名会被人在百度后台改掉，而它是每次请求鉴权头里的 userName，
-        # 过期后全部接口报 81020——偏偏表现为"授权失效"，很难排查。
-        # 刷新时顺手校正一次，代价是每账户每天多一次 getUserInfo。
-        user_name = fresh.user_name
-        try:
-            info = await oauth.user_info(
-                bundle.access_token,
-                user_id=bundle.user_id or fresh.user_id,
-                open_id=bundle.open_id or fresh.open_id,
-            )
-            fetched = str(info.get("masterName") or info.get("userName") or "").strip()
-            if fetched:
-                user_name = fetched
-        except (AttributeError, CredentialError):
-            # 拿不到就沿用旧名：校正失败不能连累刷新本身
-            pass
-
-        updated = fresh.with_tokens(
-            access_token=bundle.access_token,
-            refresh_token=bundle.refresh_token or None,
-            expires_at=bundle.expires_at or None,
-            refresh_expires_at=bundle.refresh_expires_at or None,
-            open_id=bundle.open_id or None,
-            user_id=bundle.user_id or None,
-            scope=bundle.scope or None,
-        )
-        if user_name and user_name != fresh.user_name:
-            updated = replace(updated, user_name=user_name)
-        persist(updated)
-        return updated
 
     def _oauth_for_credential(self, credential: Credential) -> BaiduOAuth:
         """刷新必须用**这条凭据自己的**应用密钥（ADR 0006 D5）。
