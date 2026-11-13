@@ -65,7 +65,7 @@ def _view(ctx: Any, principal: Any, entry: Any) -> dict[str, Any]:
     return view
 
 
-async def auth_status(account: str | None = None) -> list[dict[str, Any]]:
+async def auth_status(account: str | None = None) -> dict[str, Any]:
     """查看令牌状态：是否可用、还有多久过期、是否需要重新授权。
 
     排查「突然调不通」时先看这里。``needs_reauth`` 为真说明 refreshToken 已失效，

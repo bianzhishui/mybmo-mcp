@@ -120,6 +120,28 @@ async def test_auth_status_rejects_unknown_alias(runtime: FakeRuntime) -> None:
     assert "axd" in result["error"]["message"]
 
 
+async def test_auth_status_survives_mcp_protocol_layer(runtime: FakeRuntime) -> None:
+    """回归：返回注解必须与真实返回值一致。
+
+    auth_status 曾把注解写成 ``list[dict]``，而 ``guarded`` 实际返回 dict 信封。
+    MCP 按注解自动生成 structured output schema（result 为 array），协议层再用
+    pydantic 校验真实返回值时必然失败，对外表现为 "Error executing tool auth_status"。
+    直调函数的单测绕过这层校验，所以通不了这个洞——这里必须走 ``call_tool``。
+    """
+    from mcp.server import MCPServer
+
+    from mybmo_mcp.tools import accounts as accounts_module
+
+    server = MCPServer("test")
+    accounts_module.register(server)
+
+    result = await server.call_tool("auth_status", {})
+
+    assert result.is_error is False
+    assert result.structured_content["ok"] is True
+    assert result.structured_content["data"][0]["needs_reauth"] is False
+
+
 
 def test_server_registers_all_tools(tmp_path: Path) -> None:
     from mybmo_mcp.server import build_server
