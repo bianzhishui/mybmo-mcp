@@ -81,6 +81,14 @@
 
 ## 7. 上线与回滚
 
+> **上线一共抓到 3 个缺陷**（前两个是本次改动引入，第三个是既有缺陷）：
+> 1. `MYBMO_MCP_READONLY=` 置空 → Settings 解析失败、服务起不来（回滚动作打死服务）
+>    → 加 before 校验器，commit `f747830`
+> 2. 装配父 app 时只搬 `routes`、没搬 `middleware` → **任何令牌都 401**；
+>    同时 `host` 没传下去 → 经反代进来的请求全 421。commit `60baddc`
+> 3. **既有**：`_refresh()` 先 `aclose()` 再调 `user_info()`，账户令牌一过期就永久失效
+>    （新令牌还没落库就异常退出）。用改动前镜像 A/B 复现确认与本次无关，commit `d9bde21`
+
 > **上线时抓到并已修的缺陷**：`MYBMO_MCP_READONLY=`（置空）会被 pydantic 判成非法
 > 布尔值，Settings 构造抛 `ValidationError`，**服务直接起不来**——而"置空/删掉"正是
 > 回滚动作。已加 before 校验器（空/0/false/no/off → 关闭）并补 10 例测试，
@@ -90,14 +98,19 @@
       （2026-11-13 已在 pandabase-dev01 完成：容器 healthy，日志有
       `只读入口已启用：/mcp/readonly` 与两行 `session manager started`；
       重建前把旧镜像 `mybmo-mcp:0.2.0` 另存为 `mybmo-mcp:0.2.0-prev-readonly`）
-- [ ] 7.1b 客户端授权：部署机上依次连一次 `/mcp` 与 `/mcp/readonly` 完成两次浏览器授权
-      （之后同 OS 用户的全部成员复用 `~/.mcp-auth/mcp-remote-v1/*_tokens.json`，无需再授权）
+- [x] 7.1b 客户端授权：`/mcp` 已授权成功（test01）；
+      `/mcp/readonly` 的第二次授权在修好鉴权中间件后**重跑一次即可**（同一个令牌对两个入口
+      都有效，已实测；客户端只是按 URL 缓存，所以要再点一次）
 - [x] 7.2 反代：**无需改动**。`/opt/pandabase-infra/deploy/Caddyfile` 用的是兜底
       `handle { reverse_proxy }`，`/mcp/readonly` 已在转发范围内
       （实测公网 `POST /mcp/readonly` → 401，说明请求到了业务进程）
-- [ ] 7.3 实测：`/mcp` 10 工具；`/mcp/readonly` 7 工具；只读入口调 `uploadImage` 被拒且审计有 `denied`
-      （**待有令牌后执行**：`tools/list` 与 `execute_capability` 都要过鉴权，见 7.1b）
-- [ ] 7.4 实测：`KRService.getKRByQuery` 在只读入口拿到拓词结果（真实账户）
+- [x] 7.3 实测（2026-11-13，test01 真实令牌，走公网域名即经 Caddy）：
+      `/mcp` → **10** 工具；`/mcp/readonly` → **7** 工具（不含 bind/share/revoke）；
+      只读入口调 `ImageManageService.uploadImage` → 被拒，文本含 `readonly endpoint` 与
+      `mutating=true`；`audit_log` 有 3 条 `state=denied`（user_name=test01）
+- [x] 7.4 实测：`KRService.getKRByQuery`（种子词「咖啡机」）在只读入口拿到真实拓词结果
+      （pcPV 2291 / mobilePV 8407、recommendPricePc 1.0 …）；`list_accounts` 正常返回
+      `main`（owner=admin, my_permission=admin）
 - [x] 7.5 回滚：删 `MYBMO_MCP_READONLY` 即回到单入口，无需改镜像
       （2026-11-13 用同镜像 + 生产 env 起临时容器实测：`/mcp` → 401、`/mcp/readonly` → 404）
 - [ ] 7.6 完成后按 `changes/README.md` 归档为 `archive/2026-MM-DD-readonly-endpoint/`
