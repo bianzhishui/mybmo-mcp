@@ -269,6 +269,28 @@ async def test_full_endpoint_still_executes_write_capabilities(runtime: FakeRunt
 # ---------- 用例 8 / 配置：开关与路径 ----------
 
 
+@pytest.mark.parametrize("raw", ["", "0", "false", "no", "off"])
+def test_empty_or_false_switch_means_off(tmp_path: Path, raw: str) -> None:
+    """置空 = 关闭。这条是上线实测打出来的：空串会让 pydantic 判成非法布尔值，
+    于是"回滚"那一行反而把服务打死。回滚动作必须永远是最安全的那一个。"""
+    from mybmo_mcp.server import readonly_path
+
+    settings = _settings(tmp_path, mybmo_mcp_readonly=raw)
+
+    assert settings.mybmo_mcp_readonly is False
+    assert readonly_path(settings) == ""
+
+
+@pytest.mark.parametrize("raw", ["1", "true", "yes", "on", " True "])
+def test_truthy_switch_values_enable_readonly(tmp_path: Path, raw: str) -> None:
+    from mybmo_mcp.server import readonly_path
+
+    settings = _settings(tmp_path, mybmo_mcp_readonly=raw)
+
+    assert settings.mybmo_mcp_readonly is True
+    assert readonly_path(settings) == "/mcp/readonly"
+
+
 def test_readonly_path_is_empty_when_switch_off(tmp_path: Path) -> None:
     from mybmo_mcp.server import readonly_path
 

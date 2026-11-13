@@ -9,7 +9,9 @@ from __future__ import annotations
 import base64
 import binascii
 from functools import lru_cache
+from typing import Any
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from mybmo_mcp.baidu.errors import CredentialError
@@ -63,6 +65,23 @@ class Settings(BaseSettings):
     mybmo_mcp_readonly: bool = False
     #: 只读入口路径。必须与全量入口 ``/mcp`` 不同，否则两条入口会互相遮住。
     mybmo_mcp_readonly_path: str = "/mcp/readonly"
+
+    @field_validator("mybmo_mcp_readonly", mode="before")
+    @classmethod
+    def _empty_switch_means_off(cls, value: Any) -> Any:
+        """``MYBMO_MCP_READONLY=`` （置空）等于关闭，不是配置错误。
+
+        置空是最自然的"把这个开关关掉"写法，也是回滚文档里那一行。pydantic 默认会把
+        空串判成非法布尔值，让**整个服务起不来**——回滚动作反而把服务打死，这是最坏的
+        失败模式。同理接受 ``on/off/yes/no``，但只对这一个开关放宽（其余开关维持严格）。
+        """
+        if isinstance(value, str):
+            text = value.strip().lower()
+            if text in ("", "0", "false", "no", "off"):
+                return False
+            if text in ("1", "true", "yes", "on"):
+                return True
+        return value
 
     def master_key_bytes(self) -> bytes:
         """解码并校验主密钥。
