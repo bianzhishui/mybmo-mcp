@@ -119,6 +119,24 @@ def test_shared_model_wording_stays_context_neutral(registry: CapabilityRegistry
     assert "新增" in add["properties"]["adgroupId"]["description"]
 
 
+def test_param_description_on_ref_target_does_not_pollute_model(
+    registry: CapabilityRegistry,
+) -> None:
+    """``material.userPortrait`` 在自己的模型里只是一个 ``$ref: Picture``。
+
+    说明必须写在那个 ``$ref`` 节点上。落到被引用的 ``Picture`` 定义里，就会把
+    ``pictures`` / ``posters`` / ``broadcastCovers`` 全说成「品牌头像」。
+    """
+    cap = registry.get("CampaignShoppingService.addCampaignShopping")
+    closure = registry.schema_closure(cap)
+    material = closure["Material"]
+
+    assert "品牌头像" in material["properties"]["userPortrait"]["description"]
+    assert "description" not in closure["Picture"]
+    assert "description" not in material["properties"]["pictures"]
+    assert "description" not in material["properties"]["pictures"]["items"]
+
+
 def test_described_count_matches_file(
     registry: CapabilityRegistry, raw_descriptions: dict[str, Any]
 ) -> None:

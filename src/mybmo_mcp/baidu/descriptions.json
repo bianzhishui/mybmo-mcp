@@ -1288,9 +1288,20 @@
         "budget [50, 9999999.99]，0=不限；放量模式(campaignType=4)必须 >0。ocpcBid [0.2, 99999]（两位小数）",
         "transType 枚举：度小店 [14,90]、健康商城 [90]、直播间 [80,81,82,83,84]",
         "material：title 1-12 条(每条 9-60 字符)、description 0-6 条(9-80，商品推广必传)、pictures ≤18 张、videos ≤12(≥6 秒/≤500MB/需封面)、broadcastCovers 直播封面 1 张(1140×640)",
-        "audience 是扁平 Map<String,String>（见 getCampaignShopping 与 docs/ec-shopping-official.md 第三节）",
+        "⚠️ `material.userPortrait`（品牌头像，Picture，120×120）**官方文档与 schema 都没标必填，但商品推广新建实测必带**：不带它返回 901217「物料错误：创意设置品牌头像错误」，failures 里 field=userPortrait；补上合法的 120×120 头像后该错消失（2026-11-13 实测：call_id f544250ba6ae 缺它失败 / 98b453c47249 带上 imageId 15505964077 成功建计划 2387079078）。直播推广（targetType=2）与其他账户尚未验证，别一律当成协议必填",
+        "audience 是扁平 Map<String,String>（见 getCampaignShopping 与 docs/ec-shopping-official.md 第三节）；实测只传 sex/age/region/regionType/keywords/keywordsExtend/intelligentWeight 会报 901216「兴趣错误」（field=interests），需同时带上 crowd/customAge/interests/etradecrowds/excludeCrowd 等键",
         "写成功后用 getCampaignShopping 回读复核；详见 docs/ec-shopping-official.md 2.2"
-      ]
+      ],
+      "params": {
+        "campaignShoppingTypes": "计划对象数组，集合 [1,20]；每项必填 campaignShoppingName / targetType / budget / transType / ocpcBid / audience / ideaType / material / campaignType",
+        "campaignShoppingTypes[].material.userPortrait": "品牌头像（Picture，尺寸 120×120）。官方文档未标必填，实测商品推广新建时必带：缺它返回 901217「创意设置品牌头像错误」（field=userPortrait）"
+      },
+      "verified": {
+        "at": "2026-11-13",
+        "level": "write",
+        "account": "baidu-YF电商-玛卡快消01",
+        "basis": "商品推广计划新建：15:50 call_id f544250ba6ae material 缺 userPortrait → 901217 field=userPortrait；16:08 call_id 98b453c47249 补 userPortrait{imageId:15505964077} 后成功，campaignShoppingId 2387079078，回读 material.userPortrait.imageId=15505964077。中途 15:54 报 pictures 尺寸不合规（800×800 商品主图不可作创意图）、16:04 报 901216 interests（audience 扁平键不全），均已定位"
+      }
     },
     "CampaignShoppingService.deleteCampaignShopping": {
       "description": "删除电商推广计划（不可逆，连带预算/创意失效）",

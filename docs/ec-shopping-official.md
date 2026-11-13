@@ -105,6 +105,19 @@ roi 商品支付ROI | useLiftBudget 一键起量
 `pictures` [1,36]（商品/直播必传其一；图片 ID 不重复；商品尺寸 370×245/1140×640/750×1000，≤18 张）；
 `videos` [0,12]（≥6 秒、≤500MB、16:9 或 9:16，需封面）；`broadcastCovers` [0,1]（直播用，1140×640）。
 
+> ⚠ **`material.userPortrait`（品牌头像，Picture，120×120）官方没标必填，实测必带**（2026-11-13，账户
+> `baidu-YF电商-玛卡快消01`，商品推广 `targetType=1`/`ideaType=1`）：
+> 不带它 → `901217`「物料错误：创意设置品牌头像错误」，`failures[].field=userPortrait`
+> （call_id `f544250ba6ae`）；补上 120×120 头像 `{imageId:15505964077}` 后该错消失、计划建成功
+> `campaignShoppingId 2387079078`（call_id `98b453c47249`）。
+> 官方原文 `添加计划` 对必填字段用「必填」后缀标注，`userPortrait` 没有——而 `添加智投项目`/`更新智投项目`
+> 写的是「userPortrait必填」，**官方两处口径不一致**。商品推广按必带处理；直播推广（`targetType=2`）
+> 与其他账户未验证，别一律当成协议必填。
+>
+> ⚠ 同一轮实测：`audience` 只传 `sex/age/region/regionType/keywords/keywordsExtend/intelligentWeight`
+> 会报 `901216`「兴趣错误」（`field=interests`），要同时带上 `crowd`/`customAge`/`interests`/
+> `etradecrowds`/`excludeCrowd` 等扁平键。
+
 ### 2.3 `updateCampaignShopping`（更新计划）
 
 入参顶级：`campaignShoppingTypes`。`campaignShoppingId` **必填**，其余只传要改的字段。

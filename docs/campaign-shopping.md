@@ -46,11 +46,28 @@
 
 ```
 ① getCampaignShopping（用完整字段表）
-② 断言：material.title / description / pictures / videos / fengchaoTitle 均非空
+② 断言：material.title / description / pictures / videos / fengchaoTitle / userPortrait 均非空
 ③ 只改目标字段（如 audience.fcKeywordWtpids / pictures 追加一张）
 ④ **把读回来的对象"裁剪"成 schema 允许的字段**（见下）再回传
 ⑤ 再读一次逐字段比对
 ```
+
+### ⚠️ 新建（`addCampaignShopping`）：`material.userPortrait` 实测必带
+
+官方文档（`tmp/添加计划`）没给 `userPortrait` 标「必填」，schema 里也没有 `required`，
+但**商品推广新建时缺它就是建不出来**（2026-11-13 实测，账户 `baidu-YF电商-玛卡快消01`）：
+
+| 时间 | call_id | material 里有无 userPortrait | 结果 |
+|---|---|---|---|
+| 15:50 | `f544250ba6ae` | 无 | ❌ `901217`「物料错误：创意设置品牌头像错误」，`field=userPortrait` |
+| 15:54 | `63eabbdd872f` | 有 `{imageId:15505964077}` | userPortrait 报错消失，改报 `field=pictures` 尺寸不合规（800×800 商品主图不能当创意图） |
+| 16:04 | `f305708a13aa` | 有 | 报 `901216`「兴趣错误」（audience 扁平键不全） |
+| 16:08 | `98b453c47249` | 有 | ✅ 成功，`campaignShoppingId 2387079078` |
+
+结论边界：只有**1 个账户 / 1 条商品推广计划（`targetType=1`、`ideaType=1`）/ 1 次成功**的样本，
+直播推广与其他账户未验；`901217` 文案是「品牌头像**错误**」，无法区分「缺失」与「不合规」。
+所以按「商品推广必须带合法 120×120 品牌头像」处理即可，别写成协议层必填。
+参照：官方 `添加智投项目` / `更新智投项目` 文档明确写「userPortrait必填」，计划这条线是官方文档漏标。
 
 ### ⚠️ 回传前必须裁剪字段
 
@@ -94,7 +111,7 @@
 | `material.fengchaoTitle` | **风巢模板标题**：写入时用 `{关键词}` + 文案槽，按搜索词动态替换；**读回来显示成 `#{文案}`，`#` 就是动态词位的展示形式，不是数据损坏**（实测 6 条） |
 | `material.title` / `description` | 普通固定文案（各 6 条） |
 | `material.pictures` / `videos` | 图片（18 张，含 370×245 / 750×1000 / 1140×640 三种尺寸）与视频（1 个 + 3 张封面） |
-| `material.userPortrait` | 品牌头像（120×120） |
+| `material.userPortrait` | 品牌头像（120×120）。官方未标必填，**商品推广新建实测必带**（缺 → `901217` `field=userPortrait`，见第二节） |
 | `elementFixStatus` / `liftStatus` / `diagnosticLabel` | 元素修复状态 / 放量状态 / 诊断标签（只读为主） |
 
 ## 四、词包绑定 / 解绑

@@ -515,14 +515,20 @@ def _set_param_description(
 ) -> None:
     """按 ``campaignTypes[].campaignName`` 这样的路径，把说明写到字段上。
 
-    写在解析后的模型定义上（而不是 ``$ref`` 旁边），这样 ``get_capability_schema``
+    说明挂在**声明处**（字段在自己的模型里那一个节点），所以 ``get_capability_schema``
     返回的 ``input_schema`` 和 ``schemas`` 两处都能看到。
+
+    注意：声明处可能只是一个 ``{"$ref": "#/schemas/X"}``（例如
+    ``material.userPortrait`` → ``Picture``）。此时必须写在 ``$ref`` 节点上，
+    不能落到被引用的公共模型里——否则一条"品牌头像"说明会污染所有 ``Picture`` 引用点
+    （``pictures`` / ``posters`` / ``broadcastCovers`` 全变成品牌头像）。
     """
     node = _resolve_node(schema, schemas)
     segments = [segment for segment in path.split(".") if segment]
     if not segments:
         raise ValueError(f"{DESCRIPTIONS_FILENAME} 的 {capability_key} 有空参数路径")
 
+    declared: dict[str, Any] = {}
     for segment in segments:
         is_array = segment.endswith("[]")
         name = segment[:-2] if is_array else segment
@@ -532,13 +538,17 @@ def _set_param_description(
                 f"{DESCRIPTIONS_FILENAME} 的 {capability_key} 引用了不存在的参数：{path}"
                 f"（卡在 {name}，可用字段：{', '.join(list(properties)[:6]) or '无'}）"
             )
-        node = _resolve_node(properties[name], schemas)
+        declared = properties[name]
+        node = _resolve_node(declared, schemas)
         if is_array:
-            node = _resolve_node(node.get("items") or {}, schemas)
+            items = node.get("items")
+            if isinstance(items, dict):
+                declared = items
+            node = _resolve_node(items or {}, schemas)
 
     if not node:
         raise ValueError(f"{DESCRIPTIONS_FILENAME} 的 {capability_key} 参数 {path} 解析为空")
-    node["description"] = text
+    declared["description"] = text
 
 
 def _resolve_node(node: Any, schemas: dict[str, Any]) -> dict[str, Any]:
