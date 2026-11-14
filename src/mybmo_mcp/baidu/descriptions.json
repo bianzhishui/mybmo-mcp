@@ -782,7 +782,8 @@
         "官方字段与含义：campaignShoppingId 计划ID｜status 计划状态｜campaignShoppingName 计划名称｜pause 是否暂停｜targetType 推广目标(1商品/2直播)｜eshopType 店铺类型(1度小店/4健康商城)｜productId/productName 商品ID/名称｜anchorId 主播ID｜budget 预算(0=不限)｜transType 转化目标｜ocpcBid 出价｜startTime/endTime 起止日期(9999-01-01=长期)｜schedule 推广时段｜ideaType 创意来源(1自定义/2直播间实况)｜atpShoppingId 定向包ID｜sex/age/customAge 性别/年龄/自定义年龄｜regionType/region 地域类型/地域｜keywords 意图词｜keywordsExtend 意图搜索行为(1全网/2历史搜索)｜crowd 自定义人群｜excludeTrans 排除已转化(1同账户/4同主体)｜excludeCrowd 排除自定义人群｜fcKeywordWtpids 关键词包｜intelligentWeight 智能放量(1用/0不用)｜brand 品牌名｜userPortrait 品牌图片｜title/description 标题/描述｜pictures/videos 图片/视频｜broadcastCovers 直播封面｜roi 商品支付ROI｜useLiftBudget 一键起量",
         "status 取值：0 有效/1 暂停时段/2 暂停/3 预算不足/10 账户预算不足/11 余额为零/20 审核中/21 审核不通过/22 部分有效/30 商品已失效；campaignType 出价模式 1 控成本/4 放量；campaignSource 0 常规/1 批量/2 复制/3 AI；intelligentType 0 自定义投放/1 智能投放",
         "transType 转化类型：14 订单支付成功/90 商品支付成功/80 直播间成单/81 涨粉/82 观看/83 商品按钮点击/84 停留/10090 商品支付ROI",
-        "audience 各字段取值：age/customAge 互斥；region 9999999=不限；keywords ≤2000 个；keywordsExtend 1 全网/2 历史搜索；excludeTrans 1 同账户/4 同主体；etradecrowds 定向包不支持"
+        "`audience` 各字段取值：`age`/`customAge` 互斥（一方有值另一方只能传 0）；`region` 传地域码（逗号分隔），`9999999`=不限（实测：不传时服务端默认落 `9999999`）；`keywords` ≤2000 个且每个 ≤40 字节；`keywordsExtend` 1 全网/2 历史搜索；`excludeTrans` **0=不限 / 1 同账户 / 4 同主体**（官方文档只列 1/4，实测既有计划与新建默认都是 `0`）；`crowd`/`etradecrowds`/`excludeCrowd` 传人群 ID，`0`=不限；`fcKeywordWtpids` 是关键词包 ID 串（**逗号分隔的纯数字，不能放占位符**；绑包是**替换**语义）；`etradecrowds` 定向包不支持",
+        "⚠️ **`region` 传非法值不报错，会被静默降级成「不限全国」**：实测把 `region` 传中文 `\"全国\"`（regionType:1）→ 建单**成功**、响应里 `region` 变空串、读回是 `9999999`（不限）。地域定向被悄悄放大，回读前看不出异常。**只传地域码（如 `1000,2000,30322`），写完必须回读 `region` 校验**（2026-11-14 实测，call 4c226c359a9f / 44d40e5fe7b6）"
       ],
       "params": {
         "campaignShoppingFields": "需要返回的字段名列表，必填",
@@ -1539,7 +1540,7 @@
       ],
       "notes": [
         "atpName 必填、audience 必填（Map<String,String>，不支持 etradecrowds 电商推荐人群）；atpDesc 可选",
-        "返回 atpIds。audience 键与计划一致（扁平 Map<String,String>）：age 与 customAge 互斥（一方有值另一方只能传 0）、region 9999999=不限、interests 只传最下级 ID、keywords ≤2000 个且每个 ≤40 字节、crowd/excludeCrowd 为自定义人群 ID（≤3000 个）、keywordsExtend 1 全网/2 历史搜索、excludeTrans 1 同账户/4 同主体；定向包**不支持 etradecrowds**"
+        "返回 atpIds。audience 键与计划一致（扁平 Map<String,String>）：age 与 customAge 互斥（一方有值另一方只能传 0）、region 传地域码且 9999999=不限（**传非法值会被静默降级成不限**，见 getCampaignShopping 的说明）、interests 只传最下级 ID、keywords ≤2000 个且每个 ≤40 字节、crowd/excludeCrowd 为自定义人群 ID（≤3000 个）、keywordsExtend 1 全网/2 历史搜索、excludeTrans 0=不限/1 同账户/4 同主体；定向包**不支持 etradecrowds**"
       ]
     },
     "AtpService.updateAtp": {
