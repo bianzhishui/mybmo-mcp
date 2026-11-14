@@ -15,7 +15,7 @@
 | `KeyWordShoppingService.delKeywordPackages` | `…/delKeywordPackages` | ✅ **写实测通过**（注意是 **del**，不是 delete） |
 | `KeyWordShoppingService.delKeyword` | `…/delKeyword` | ✅ **写实测通过**（删包内单个词） |
 | `KeyWordShoppingService.downloadKeyword` | `…/downloadKeyword` | ✅ **读实测通过**（导出 CSV） |
-| `KeyWordShoppingService.bindPlanKeywordPackages` | `…/bindPlanKeywordPackages` | ✅ **写实测通过**（绑计划，替换语义） |
+| `KeyWordShoppingService.bindPlanKeywordPackages` | `…/bindPlanKeywordPackages` | ✅ **写实测通过**（包→计划替换、计划→包累加，见 campaign-shopping.md 第四节） |
 
 ## 二、怎么确认一个"SDK 里没有的接口"到底存不存在
 
