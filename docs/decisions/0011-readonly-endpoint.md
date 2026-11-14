@@ -70,3 +70,15 @@ ADR 0003 定下"能力层不做业务编排、不做写审批"，`mutating` 只�
 - [ ] 将来若按"用户/角色"裁剪工具，是否仍以第二实例承载（还是引入真正的策略层）
 - [ ] 想做到"客户端只授权一次"就得去掉 `mcp-remote`、让 DSH 直连 streamable-http 并自带令牌刷新；
       本次决定不付这个成本（见变更包 design「已知副作用」）
+
+## 修订（2026-11-14）
+
+`pandabase.top` 的 ICP 备案审核期间，公网 443 被备案拦截（RST）、80 被 302 到拦截页，
+infra 把对外入口临时挪到 **`:8443`**（pandabase-infra ADR 0005）。因此本文提到的公网路径在过渡期为：
+
+- `https://baiduads.pandabase.top:8443/mcp`
+- `https://baiduads.pandabase.top:8443/mcp/readonly`
+
+**决策本身不变**：「反代无需改动、`/mcp/readonly` 天然在转发范围内」在加端口后同样成立
+（仍由同一站点兜底 `handle { reverse_proxy }` 承接）。备案通过后切回 443 无端口形态，由 infra 通知。
+正文按决策记录保留原样，本小节只做口径补充。

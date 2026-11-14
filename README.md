@@ -8,9 +8,15 @@
 > 非官方项目，与百度无隶属关系。需自行在 <https://dev2.baidu.com> 创建应用并完成授权。
 
 部署、身份与数据库在 [`pandabase-infra`](https://github.com/bianzhishui/pandabase-infra)，本仓库只管业务。
-线上实例：`https://baiduads.pandabase.top/mcp`（OAuth Bearer，令牌由 `auth.pandabase.top` 签发）。
-置 `MYBMO_MCP_READONLY=1` 会**额外**挂一个只读入口 `https://baiduads.pandabase.top/mcp/readonly`
+线上实例：`https://baiduads.pandabase.top:8443/mcp`（OAuth Bearer，令牌由 `auth.pandabase.top:8443` 签发）。
+置 `MYBMO_MCP_READONLY=1` 会**额外**挂一个只读入口 `https://baiduads.pandabase.top:8443/mcp/readonly`
 （7 个只读工具，写能力在入口处被拒，见 [ADR 0011](docs/decisions/0011-readonly-endpoint.md)）。
+
+> ⚠️ **当前入口带过渡端口 `:8443`**。`pandabase.top` 的 ICP 备案审核期间，公网 443 被备案拦截
+> （RST）、80 被 302 到拦截页，所以 infra 把对外入口临时挪到 `:8443`（见 pandabase-infra ADR 0005）。
+> **这是过渡态，不是新契约**：备案通过后 infra 会切回 443 无端口形态并通知，届时本文、`.env.example`
+> 与 [`docs/auth-contract.md`](docs/auth-contract.md) 需一并把端口回退掉。
+> 百度回调地址 `MYBMO_BAIDU_CALLBACK_URL` 全程不带端口——它必须与百度开放平台后台登记值同步。
 
 ## 快速开始
 
@@ -56,7 +62,7 @@ uv run mybmo-mcp auth bind --alias main        # 打出授权链接，state 15 �
 cd deploy
 cp .env.example .env      # 填百度凭据、主密钥；oidc 的五个值见 docs/auth-contract.md
 docker compose up -d --build
-curl -fsS https://baiduads.pandabase.top/healthz
+curl -fsS https://baiduads.pandabase.top:8443/healthz
 ```
 
 镜像仍由本仓库构建（Dockerfile 打的是 Python 产物）；网络、Casdoor、PostgreSQL、Caddy、

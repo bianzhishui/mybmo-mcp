@@ -4,6 +4,16 @@
 Caddy）的部署与运维在 infra 仓库，这里只记录**本仓库代码依赖的那些事实**。
 改动本文件里的任何一条，都要同步通知 infra。
 
+> ## ⚠️ 过渡期端口 `:8443`（2026-11-14 起）
+>
+> `pandabase.top` 的 ICP 备案正在审核；审核期间公网 **443 被备案拦截（RST）、80 被 302 到拦截页**，
+> 所以 infra 把对外入口临时挪到 **`:8443`**（见 **pandabase-infra ADR 0005**）。
+> 本文件当前所有 URL 均带 `:8443`，**是过渡值、不是新契约**——`issuer` / `resource` / 各端点语义不变，
+> 只是端口变了。备案通过后 infra 会切回 443 无端口形态并通知，届时本文件需整体回退端口。
+>
+> 例外：**百度回调地址 `…/oauth/baidu/callback` 全程不带端口**——它必须与百度开放平台后台登记值
+> 同步修改，而备案通过后原值就是对的，infra 决定全程不动。
+
 ## 一、认证全流程
 
 一句话：**Casdoor 只回答"你是谁"，本服务只回答"你能用哪个百度账户"。**
@@ -11,7 +21,7 @@ Caddy）的部署与运维在 infra 仓库，这里只记录**本仓库代码依
 ### 角色
 
 ```
-客户端(Cursor / DSH+mcp-remote) ──①登录──▶ Casdoor(auth.pandabase.top)
+客户端(Cursor / DSH+mcp-remote) ──①登录──▶ Casdoor(auth.pandabase.top:8443)
                                 ◀─②令牌──
                                 ──③Bearer JWT──▶ mybmo-mcp（资源服务器）
                                                      │ ④取百度凭据
@@ -38,11 +48,11 @@ Caddy）的部署与运维在 infra 仓库，这里只记录**本仓库代码依
 
 ```
 ① 发现   GET /.well-known/oauth-protected-resource          ← 本服务
-         ← {"resource":"https://baiduads.pandabase.top/",
-            "authorization_servers":["https://auth.pandabase.top/"],
+         ← {"resource":"https://baiduads.pandabase.top:8443/",
+            "authorization_servers":["https://auth.pandabase.top:8443/"],
             "scopes_supported":["baidu:read"]}
 
-② 元数据 GET https://auth.pandabase.top/.well-known/oauth-authorization-server
+② 元数据 GET https://auth.pandabase.top:8443/.well-known/oauth-authorization-server
          ← authorization_endpoint / token_endpoint / jwks_uri / registration_endpoint
 
 ③ 授权   GET {authorization_endpoint}?client_id=709a8e…&response_type=code
@@ -131,8 +141,8 @@ MCP 侧的对应工具是 `bind_account(alias, app_id)`：只传 `appId`；只�
 ## 二、八个不能违背的不变量
 
 1. **`aud` 默认为 client_id，但带 `resource` 参数时会变成资源地址。** Casdoor 收到
-   RFC 8707 的 `resource` 就把它填进 `aud`（实测：带 `resource=https://baiduads.pandabase.top/`
-   时 `aud=["https://baiduads.pandabase.top/"]`，不带时 `aud=["709a8e…"]`）。ADR 0008 之后
+   RFC 8707 的 `resource` 就把它填进 `aud`（实测：带 `resource=https://baiduads.pandabase.top:8443/`
+   时 `aud=["https://baiduads.pandabase.top:8443/"]`，不带时 `aud=["709a8e…"]`）。ADR 0008 之后
    校验规则是「**`aud` 必须包含该令牌自己的 client_id**」，所以**客户端仍然必须加
    `--disable-resource-parameter`**，否则令牌必被拒、并触发"授权→401→再授权"的死循环。
 2. **JWKS 路径必须显式配置。** 实测在 `/.well-known/jwks`，不是常见的
@@ -208,17 +218,22 @@ MCP 侧的对应工具是 `bind_account(alias, app_id)`：只传 `appId`；只�
 | `/data/subscribe/*.jsonl` | `subscribe_events` |
 | `/data/locks/*.lock` | `SELECT … FOR UPDATE` 行锁 |
 
-## 六、当前实例的取值（2026-11-11）
+## 六、当前实例的取值（2026-11-14 · 备案过渡期）
 
 ```text
-issuer   https://auth.pandabase.top
-jwks     https://auth.pandabase.top/.well-known/jwks
-resource https://baiduads.pandabase.top
+issuer   https://auth.pandabase.top:8443
+jwks     https://auth.pandabase.top:8443/.well-known/jwks
+resource https://baiduads.pandabase.top:8443
 callback https://baiduads.pandabase.top/oauth/baidu/callback
 
 # OAuth 客户端：**只允许 mybmo-mcp 这一个应用**
 mybmo-mcp / 709a8e16656a223a1ab7   本服务唯一入口（TTL 168h）
 ```
+
+> ⚠️ 相对 2026-11-11 的取值，`issuer` / `jwks` / `resource` 三个值因备案拦截**临时加了 `:8443`**；
+> `callback` 保持不带端口（理由见文首）。
+> `issuer` 本是"写进每个 JWT、改一次所有客户端都要重新配置"的不可变字段——**备案导致的加端口与
+> 之后的回退端口，是它唯一被批准的两次变更**；这两次之后再动，就不是改配置，而是全体客户端重新接入。
 
 **客户端接入（实测：不需要 client_secret）**：Casdoor 的 AS 元数据声明
 `token_endpoint_auth_methods_supported` 含 `"none"`，实测也确实如此——mcp-remote 只带
@@ -229,7 +244,7 @@ mybmo-mcp / 709a8e16656a223a1ab7   本服务唯一入口（TTL 168h）
 args:
   - "-y"
   - "mcp-remote@latest"
-  - "https://baiduads.pandabase.top/mcp"
+  - "https://baiduads.pandabase.top:8443/mcp"
   - "--transport"
   - "http-only"
   - "--disable-resource-parameter"     # 否则 Casdoor 把 aud 填成资源地址 → 401 死循环
@@ -248,7 +263,7 @@ args:
 3. **未验证**：Casdoor 是否**根本不校验** client_secret（用错 secret 也能换令牌）。
    如果是，那配置里写 secret 毫无意义；要用一次真实授权码才能确认。
 
-**用户自助路径**：用户在 `https://auth.pandabase.top/signup/mybmo-mcp` 自己注册 →
+**用户自助路径**：用户在 `https://auth.pandabase.top:8443/signup/mybmo-mcp` 自己注册 →
 用 `mybmo-mcp` 应用登录 → 调 `bind_account` 拿百度授权链接 → 自己在浏览器授权 →
 回调落库并把 owner 记成自己。全程不需要运维介入。
 
