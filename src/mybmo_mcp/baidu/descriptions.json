@@ -1298,7 +1298,7 @@
         "material：title 1-12 条(每条 9-60 字符)、description 0-6 条(9-80，商品推广必传)、pictures ≤18 张、videos ≤12(≥6 秒/≤500MB/需封面)、broadcastCovers 直播封面 1 张(1140×640)",
         "`material.pictures` 尺寸与张数（计划级规则，与 updateCampaignShopping 共用）：商品推广**精确允许** 370×245 / 1140×640 / 750×1000，自定义直播推广仅 1140×640；**张数上限 18**（字段声明上限 36 不是可用张数）。非标尺寸/超张数都报 `901217`。**2026-11-14 已穷举实测**：临近尺寸 375×248、960×540、1000×750、640×1140 **全部被拒** → 是**精确宽高白名单、方向固定**（不是「宽高比+最小尺寸」：960×540 同为 16:9 也不行；750×1000 通过但 1000×750 不行）；19 张报「创意设置图片数量超过上限」、18 张成功。⚠️ `uploadImage` 不校验这些——1×1 / 800×800 都能进图库，投放时才拒",
         "⚠️ `material.userPortrait`（品牌头像，Picture，120×120）**官方文档与 schema 都没标必填，但商品推广新建实测必带**：不带它返回 901217「物料错误：创意设置品牌头像错误」，failures 里 field=userPortrait；补上合法的 120×120 头像后该错消失（2026-11-13 实测：call_id f544250ba6ae 缺它失败 / 98b453c47249 带上 imageId 15505964077 成功建计划 2387079078）。直播推广（targetType=2）与其他账户尚未验证，别一律当成协议必填",
-        "`audience` 是扁平 Map<String,String>（键见 getCampaignShopping 的 audience 说明）。**键级必带只有 `interests`**：不给就报 901216「兴趣错误」；`sex` 及其余 12 个键都可省。**但不能传空对象 `{}`**（报 901214「定向信息为空」），audience 必须至少有一个键（2026-11-13 探针实测：`{sex:0}` 失败 / `{interests:0}` 成功 / `{}` 失败）",
+        "`audience` 是扁平 `Map<String,String>`，共 14 个键：`sex` / `age` / `customAge` / `regionType` / `region` / `interests` / `keywords` / `keywordsExtend` / `crowd` / `etradecrowds` / `excludeCrowd` / `excludeTrans` / `intelligentWeight` / `fcKeywordWtpids`。**键级必带只有 `interests`**：不给就报 901216「兴趣错误」；`sex` 及其余 12 个键都可省。**但不能传空对象 `{}`**（报 901214「定向信息为空」），audience 必须至少有一个键（2026-11-13 探针实测：`{sex:0}` 失败 / `{interests:0}` 成功 / `{}` 失败）",
         "`audience` 省掉的键由**服务端补默认值**：只传 `{interests:\"0\"}` 建出来的计划，读回是完整 14 键——`region=9999999`(不限)、`keywords=\"\"`、`fcKeywordWtpids=\"\"`、`intelligentWeight=\"0\"`、其余 `\"0\"`/`\"\"`。所以缺键不会导致失败，别把「读回键比写入多」当成写坏了",
         "⚠️ **`pause` 在新建时不生效**：传 `pause=true`，创建响应回显 `true`，但读回是 `pause=false`、`status=20`(审核中)。API 建出来的计划**默认是开启的**，审核通过即开始投放——**建完必须立刻 `updateCampaignShopping` 补 `{pause:true}`**（2026-11-13 四个样本一致）。⚠️ 与「绑关键词包」**无关**：不绑包也一样变 false（实测 2388280169 建完立刻读回即 pause=false、fcKeywordWtpids 为空），别把因果挂到 bindPlanKeywordPackages 上",
         "写成功后用 getCampaignShopping 回读复核（51 字段表全传，断言 material 各子字段与 audience 关键键都在）"
@@ -1541,7 +1541,7 @@
       ],
       "notes": [
         "atpName 必填、audience 必填（Map<String,String>，不支持 etradecrowds 电商推荐人群）；atpDesc 可选",
-        "返回 atpIds。audience 键与计划一致（扁平 Map<String,String>）：age 与 customAge 互斥（一方有值另一方只能传 0）、region 传地域码且 9999999=不限（**传非法值会被静默降级成不限**，见 getCampaignShopping 的说明）、interests 只传最下级 ID、keywords ≤2000 个且每个 ≤40 字节、crowd/excludeCrowd 为自定义人群 ID（≤3000 个）、keywordsExtend 1 全网/2 历史搜索、excludeTrans 0=不限/1 同账户/4 同主体；定向包**不支持 etradecrowds**"
+        "返回 atpIds。audience 键与计划一致（扁平 Map<String,String>）：age 与 customAge 互斥（一方有值另一方只能传 0）、region 传地域码且 9999999=不限（**传非法值不报错，会被静默降级成 `9999999`＝不限，写完必须回读校验**）、interests 只传最下级 ID、keywords ≤2000 个且每个 ≤40 字节、crowd/excludeCrowd 为自定义人群 ID（≤3000 个）、keywordsExtend 1 全网/2 历史搜索、excludeTrans 0=不限/1 同账户/4 同主体；定向包**不支持 etradecrowds**"
       ]
     },
     "AtpService.updateAtp": {

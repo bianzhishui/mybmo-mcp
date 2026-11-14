@@ -139,6 +139,9 @@ def test_param_description_on_ref_target_does_not_pollute_model(
 
 
 _REPO_PATH = re.compile(r"(docs/|tmp/|openspec/|scripts/|\.md\b)")
+# 把"必需内容外包给另一个能力"的措辞：调用方不一定同时载入另一个能力的 notes，
+# 一跳能拿到的就该内联（`键见 X` / `见该能力` / `见 Service.method`）。
+_DEFERRAL = re.compile(r"(键见|见该能力|见\s*`?[A-Za-z]+\.[A-Za-z]+)")
 
 
 def test_notes_are_self_contained(raw_descriptions: dict[str, Any]) -> None:
@@ -155,6 +158,13 @@ def test_notes_are_self_contained(raw_descriptions: dict[str, Any]) -> None:
         offenders += [f"{key}: {str(text)[:70]}" for text in texts if _REPO_PATH.search(str(text))]
 
     assert not offenders, "描述里引用了仓库内文件（MCP 调用方读不到）：\n" + "\n".join(offenders)
+
+    # 第二类：内容外包给另一个能力——调用方只拿当前能力的 notes 时拼不出参数
+    deferred: list[str] = []
+    for key, entry in raw_descriptions["capabilities"].items():
+        texts = [*(entry.get("notes") or []), *((entry.get("params") or {}).values())]
+        deferred += [f"{key}: {str(t)[:70]}" for t in texts if _DEFERRAL.search(str(t))]
+    assert not deferred, "notes 把必需内容外包给了另一个能力，应当内联：\n" + "\n".join(deferred)
 
 
 def test_described_count_matches_file(
