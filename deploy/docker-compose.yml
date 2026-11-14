@@ -18,7 +18,7 @@ services:
         PYPI_INDEX: ${PYPI_INDEX:-https://pypi.org/simple}
         # uv.lock 里的绝对下载地址也改写到镜像（不设则不动）
         PYPI_FILES_MIRROR: ${PYPI_FILES_MIRROR:-}
-    image: mybmo-mcp:0.3.1
+    image: mybmo-mcp:0.3.2
     environment:
       # 日志与 CLI 输出按本地时区显示；数据库侧另有 ALTER DATABASE SET timezone
       TZ: Asia/Shanghai
